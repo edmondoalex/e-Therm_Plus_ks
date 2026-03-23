@@ -1,17 +1,20 @@
 ﻿import os
+import base64
+import hashlib
 import re
 from pathlib import Path
 import json
 import threading
 import time
 import queue
+from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
-UI_REV = "2026-01-25.A"
+UI_REV = "2026-01-25.D"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = ""
+CODE_VERSION = "2.6.6"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -27,7 +30,7 @@ def _read_addon_version_from_config() -> str:
                 if not cfg.exists():
                     continue
                 txt = cfg.read_text(encoding="utf-8", errors="ignore")
-                m = re.search(r'(?m)^\s*version\s*:\s*"?([^"\r\n]+)"?\s*$', txt)
+                m = re.search(r'(?m)^\s*version\s*:\s*"?([^"\r]+)"?\s*$', txt)
                 ver = (m.group(1).strip() if m else "") or ""
                 if ver:
                     return ver
@@ -47,14 +50,37 @@ def _detect_addon_version() -> str:
 
 ADDON_VERSION = _detect_addon_version()
 UI_VERSION = ADDON_VERSION
-_ASSETS_DIR = os.path.join(os.path.dirname(__file__), "www")
+
+
+def _addon_version_display() -> str:
+    return (ADDON_VERSION or _read_addon_version_from_config() or CODE_VERSION or "").strip()
+# Prefer an `app/www` next to this module, but fall back to common layouts:
+# - repo root `www/` (one level up)
+# - the module folder itself (some dev/container builds drop images next to the .py)
+_ASSET_DIRS = []
+for _cand in (
+    os.path.join(os.path.dirname(__file__), "www"),
+    os.path.normpath(os.path.join(os.path.dirname(__file__), os.pardir, "www")),
+    os.path.dirname(__file__),
+    "/app/www",
+    "/www",
+):
+    try:
+        if _cand and os.path.isdir(_cand) and _cand not in _ASSET_DIRS:
+            _ASSET_DIRS.append(_cand)
+    except Exception:
+        continue
+if not _ASSET_DIRS:
+    _ASSET_DIRS = [os.path.join(os.path.dirname(__file__), "www")]
 _ASSET_MAP = {
-    "alarm": "e-safe alarm.png",
-    "arm": "e-safe arm.png",
-    "disarm": "e-safe disarm.png",
-    "partial": "e-safe partial.png",
-    "logo_ekonex": "eTherm addon.png",
-    "e-safe_scr": "eTherm addon.png",
+    "alarm": "eTherm addon.png",
+    "arm": "eTherm addon.png",
+    "disarm": "eTherm addon.png",
+    "partial": "eTherm addon.png",
+  "logo_ekonex": "eTherm addon.png",
+  "logo_e_therm": "eTherm addon.png",
+  "e-safe_scr": "eTherm addon.png",
+  "favicon.ico": "eTherm addon.png",
 }
 _UI_TAGS_PATH = "/data/ui_tags.json"
 _UI_THERM_NAMES_PATH = "/data/ui_thermostat_names.json"
@@ -1255,6 +1281,7 @@ def _render_kv_table(
 def render_index(snapshot):
     entities = snapshot.get("entities") or []
     ui_tags = _load_ui_tags()
+    assets = "assets"
     try:
         tag_styles = ui_tags.get("tag_styles") if isinstance(ui_tags, dict) else {}
         if not isinstance(tag_styles, dict):
@@ -1468,7 +1495,10 @@ def render_index(snapshot):
     for e in entities:
         t = str(e.get("type") or "unknown")
         counts[t] = counts.get(t, 0) + 1
-    counts.setdefault("memoria_allarmi", 0)
+    # Only include the "memoria_allarmi" bucket when there are entries to show.
+    # Prevents rendering an empty "memoria_allarmi 0" row in the UI.
+    if any(str(e.get("type") or "").lower() == "memoria_allarmi" for e in entities):
+      counts.setdefault("memoria_allarmi", 0)
 
     preferred_order = [
         "outputs",
@@ -2068,7 +2098,7 @@ def render_index(snapshot):
     <meta http-equiv="Cache-Control" content="no-store, max-age=0"/>
     <meta http-equiv="Pragma" content="no-cache"/>
     <meta http-equiv="Expires" content="0"/>
-    <title>Ksenia Lares - Debug</title>
+    <title>Ksenia Lares - Debug - v{_html_escape(_addon_version_display() or '?')}</title>
     <style>
       :root {{
         --bg: #0f1115;
@@ -2094,7 +2124,7 @@ def render_index(snapshot):
         right: 12px;
         width: 180px;
         height: 80px;
-        background: url('/assets/e-safe_scr.png') no-repeat center center / contain;
+        background: url('{assets}/logo_e_therm.png') no-repeat center center / contain;
         opacity: 0.75;
         pointer-events: none;
       }}
@@ -2228,50 +2258,34 @@ def render_index(snapshot):
     </style>
   </head>
   <body>
-    <h2>Ksenia Lares - index_debug {f'<span class="badge">v{_html_escape(ADDON_VERSION)}</span>' if ADDON_VERSION else ''}</h2>
+    <h2><img src="{assets}/logo_e_therm.png" alt="" style="height:28px;vertical-align:middle;margin-right:8px;"> e-Therm Plus <span class="badge">v{_html_escape(_addon_version_display() or '?')}</span></h2>
     <div class="meta">
       Entità: <span class="badge">{len(entities)}</span>
       &nbsp;|&nbsp; Last update: <span id="lastUpdate" class="badge">{_html_escape(_fmt_ts(meta.get("last_update")))}</span>
-      &nbsp;|&nbsp; UI: <span class="badge">{_html_escape(UI_REV)}</span>
+      &nbsp;|&nbsp; Add-on: <span class="badge">v{_html_escape(_addon_version_display() or '?')}</span>
     </div>
-        <div class="toolbar">
+    <div class="toolbar">
       <input id="q" placeholder="Filtra (type/id/nome/cat/tag/access)..." oninput="filterRows()"/>
       <button id="toggle">Auto-refresh: ON</button>
       <a class="cmd" href="/logs">Registro Eventi</a>
-      <a class="cmd" href="/timers">Programmatori Orari</a>
       <a class="cmd" href="/thermostats">Termostati</a>
       <a class="cmd" href="/index_debug/vtherm_admin">VTherm Admin</a>
-      <a class="cmd" href="/index_debug/tag_styles">Tag: icone & colori</a>
-      <button class="cmd cleanupBtn" id="cleanupBtn" type="button" title="Pulisci config MQTT"> MQTT</button>
-      <button class="cmd cleanupBtn" id="republishBtn" type="button" title="Rispedisci discovery MQTT"> MQTT cfg</button>
-      <button onclick="selectAllTypes(true)">Tutti</button>
-      <button onclick="selectAllTypes(false)">Nessuno</button>
-      <span class="small">Aggiorna senza perdere lo scroll</span>
     </div>
         <div class="helpBox" id="pinHelp">
-      <div><b>Admin VTherm</b></div>
-      <div style="margin-top:6px;">
-        Questa interfaccia mostra le entità note e fornisce strumenti rapidi per il debug dei termostati virtuali (vTherm).
-      </div>
-      <div style="margin-top:6px;">
-        - Usa <code>VTherm Admin</code> per creare, modificare o cancellare termostati.
-        <br/>- I comandi vengono inviati a <code>/api/cmd</code> (tipo: <code>vtherm_config</code>).
-      </div>
-    </div>
-      <div style="margin-top:6px;">
-        Scenari, Partizioni e Bypass zone usano la WS2 (sessione PIN). Se la sessione è scaduta/assente, ti chiede il PIN; se è attiva, esegue subito.
-      </div>
-      <div style="margin-top:6px;">
-        Impostazioni in Home Assistant → Add-on → Ksenia Lares → Configurazione:
-        <br/>- <code>web_pin_session_minutes_default</code>: durata token PIN (minuti)
-        <br/>- <code>security_cmd_ws_idle_timeout_sec</code>: chiusura WS2 per inattività (secondi)
-      </div>
-    </div>
+          <div><b>Admin VTherm</b></div>
+          <div style="margin-top:6px;">
+            Questa interfaccia mostra le entità note e fornisce strumenti rapidi per il debug dei termostati virtuali (vTherm).
+          </div>
+          <div style="margin-top:6px;">
+            - Usa <code>VTherm Admin</code> per creare, modificare o cancellare termostati.
+            <br/>- I comandi vengono inviati a <code>/api/cmd</code> (tipo: <code>vtherm_config</code>).
+          </div>
+        </div>
     <ol class="type-list" id="types">
       {''.join([f'<li><label><input type="checkbox" class="typeFilter" value="{_html_escape(t)}" checked onchange="applyTypeFilter()"/> {_html_escape(t)} <span class="badge">{counts.get(t,0)}</span></label></li>' for t in type_order])}
       <li><label><input id="showDetails" type="checkbox" checked onchange="applyDetails()"/> dettagli</label></li>
     </ol>
-    <div id="status">Comandi: solo per righe con Access = rw</div>
+    
     <div id="tableWrap">
       <table id="t">
         <thead>
@@ -3412,7 +3426,7 @@ def render_thermostats(snapshot):
     <meta http-equiv="Cache-Control" content="no-store, max-age=0"/>
     <meta http-equiv="Pragma" content="no-cache"/>
     <meta http-equiv="Expires" content="0"/>
-    <title>Ksenia Lares - Termostati</title>
+    <title>e-Therm Plus KS - Termostati</title>
     <style>
       :root {{
         --bg: #0f1115;
@@ -3451,7 +3465,7 @@ def render_thermostats(snapshot):
           <div class="meta">
             ID <span class="badge">{_html_escape(str(thermostat_id))}</span>
             · v <span class="badge">{_html_escape(ADDON_VERSION)}</span>
-            · UI <span class="badge">{_html_escape(UI_REV)}</span>
+            · UI <span class="badge">{_html_escape(_addon_version_display())}</span>
             · Aggiornato: <span class="badge" id="lastUpdate">-</span>
           </div>
         </div>
@@ -3535,7 +3549,7 @@ def render_thermostats(snapshot):
         <div class="panelBody" id="pageEx" style="display:none"></div>
       </div>
       <div class="top">
-        <h2 style="margin:0">Termostati <span class="badge">UI {_html_escape(UI_REV)}</span></h2>
+        <h2 style="margin:0">Termostati <span class="badge">UI {_html_escape(_addon_version_display())}</span></h2>
         <div class="muted"><a href="./index_debug">← Torna a index_debug</a></div>
       </div>
       <div class="card" style="margin-top:12px">
@@ -3558,7 +3572,7 @@ def render_vtherm_admin(snapshot):
         name = e.get('name') or (e.get('static') or {}).get('DES') or f'Thermostat {tid}'
         list_items.append(f"<li><b>ID {tid}</b>: {_html_escape(name)}</li>")
     items_html = '<ul>' + ''.join(list_items) + '</ul>' if list_items else '<p class="muted">Nessun termostato configurato</p>'
-    html = f"<div class=\"card\">\n  <h3>VTherm Admin</h3>\n  {items_html}\n  <div style=\"margin-top:12px;\">\n    <button onclick=\"location.href='/index_debug'\">← Torna</button>\n  </div>\n</div>\n"
+    html = f"<div class=\"card\">  <h3>VTherm Admin</h3>  {items_html}  <div style=\"margin-top:12px;\">    <button onclick=\"location.href='/index_debug'\">← Torna</button>  </div></div>"
     return ('200 OK', html)
 
 
@@ -4138,7 +4152,7 @@ def render_security_ui(snapshot):
       <img src="/assets/logo_ekonex.png" alt="Ekonex"/>
     </div>
     <div class="topbar">
-      <a class="tab active" href="/security">Stato</a>
+      <a class="tab active" href="/thermostats">Stato</a>
       <a class="tab" href="/security/partitions">Partizioni</a>
       <a class="tab" href="/security/scenarios">Scenari</a>
       <a class="tab" href="/security/sensors">Sensori</a>
@@ -4186,7 +4200,7 @@ def render_security_ui(snapshot):
     <div class="modal" id="modal">
       <div class="sheet">
         <div class="sheetHead">
-          <div class="sheetTitle" id="sheetTitle">Sicurezza</div>
+          <div class="sheetTitle" id="sheetTitle">Termostati</div>
           <button class="btn" id="backBtn" style="display:none" type="button">Indietro</button>
           <button class="btn" id="closeBtn" type="button">Chiudi</button>
         </div>
@@ -4826,7 +4840,7 @@ def render_security_ui(snapshot):
             if (i1) parts.push(i1);
             return parts.join(' - ') || 'Allarme zona';
           }});
-          return lines.join('\\n');
+          return lines.join('\');
         }}
         const zoneText = alarmCauseFromZones(lastEntities);
         if (zoneText) return zoneText;
@@ -4837,8 +4851,8 @@ def render_security_ui(snapshot):
       if (alarmMemBtn) {{
         alarmMemBtn.addEventListener('click', () => {{
           const msg = alarmCauseText();
-          if (msg.includes('\\n')) {{
-            const lines = msg.split('\\n');
+          if (msg.includes('\')) {{
+            const lines = msg.split('\');
             modal.classList.add('show');
             openAlarmList(lines);
           }} else {{
@@ -5249,7 +5263,7 @@ def render_security_ui(snapshot):
       document.getElementById('ring').addEventListener('click', () => {{ modal.classList.add('show'); openSecurityMenu(); }});
       // Reload/torna alla home security quando si preme "Stato".
       try {{
-        const tabState = document.querySelector('.topbar .tab[href="/security"]');
+        const tabState = document.querySelector('.topbar .tab[href="/thermostats"]');
         if (tabState) {{
           tabState.addEventListener('click', (ev) => {{
             ev.preventDefault();
@@ -5544,7 +5558,7 @@ def render_security(snapshot):
     <div class="bg"></div>
     <button class="refreshBtn" id="refreshBtn" type="button" title="Aggiorna stato" aria-label="Aggiorna"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 1 1-9.9-1H5.02a7 7 0 1 0 12.63-4.65z"/></svg></button>
     <div class="topbar">
-      <a class="tab active" href="/security">Stato</a>
+      <a class="tab active" href="/thermostats">Stato</a>
       <a class="tab" href="/security/partitions">Partizioni</a>
       <a class="tab" href="/security/sensors">Sensori</a>
       <a class="tab" href="/security/functions">Funzioni</a>
@@ -5552,8 +5566,7 @@ def render_security(snapshot):
 
     <div class="wrap">
       <div style="display:flex;align-items:center;justify-content:flex-start;margin:0 0 10px 0;">
-        <img src="/assets/e-safe_scr.png" alt="e-safe" style="height:34px;opacity:0.92;pointer-events:none;"/>
-      </div>
+        </div>
       <div class="center">
         <div class="sidebtn" id="btnEmergency">
           <div class="icon" aria-hidden="true">
@@ -5957,12 +5970,12 @@ def render_security_sensors(snapshot):
     <div class="bg"></div>
     <button class="refreshBtn" id="refreshBtn" type="button" title="Aggiorna stato" aria-label="Aggiorna"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 1 1-9.9-1H5.02a7 7 0 1 0 12.63-4.65z"/></svg></button>
     <div class="topbar">
-      <a class="back" href="/security" aria-label="Indietro">
+      <a class="back" href="/thermostats" aria-label="Indietro">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </a>
-      <a class="tab" href="/security">Stato</a>
+      <a class="tab" href="/thermostats">Stato</a>
       <a class="tab" href="/security/partitions">Partizioni</a>
       <a class="tab" href="/security/scenarios">Scenari</a>
       <a class="tab active" href="/security/sensors">Sensori</a>
@@ -5970,8 +5983,7 @@ def render_security_sensors(snapshot):
 
       <div class="wrap">
       <div style="display:flex;align-items:center;justify-content:flex-start;margin:0 0 10px 0;">
-        <img src="/assets/e-safe_scr.png" alt="e-safe" style="height:34px;opacity:0.92;pointer-events:none;"/>
-      </div>
+        </div>
       <div class="controls">
         <div class="chip">
           <button class="btn" id="sortAZ">A-Z</button>
@@ -6551,19 +6563,18 @@ def render_security_partitions(snapshot):
     <div class="bg"></div>
     <button class="refreshBtn" id="refreshBtn" type="button" title="Aggiorna stato" aria-label="Aggiorna"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 1 1-9.9-1H5.02a7 7 0 1 0 12.63-4.65z"/></svg></button>
     <div class="topbar">
-      <a class="back" href="/security" aria-label="Indietro">
+      <a class="back" href="/thermostats" aria-label="Indietro">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </a>
-      <a class="tab" href="/security">Stato</a>
+      <a class="tab" href="/thermostats">Stato</a>
       <a class="tab active" href="/security/partitions">Partizioni</a>
       <a class="tab" href="/security/sensors">Sensori</a>
     </div>
     <div class="wrap">
       <div style="display:flex;align-items:center;justify-content:flex-start;margin:0 0 10px 0;">
-        <img src="/assets/e-safe_scr.png" alt="e-safe" style="height:34px;opacity:0.92;pointer-events:none;"/>
-      </div>
+        </div>
       <div class="controls">
         <div class="left">
           <div class="chip" id="ws1Status">Stato: -</div>
@@ -7151,12 +7162,12 @@ def render_security_functions_all(snapshot):
     <div class="bg"></div>
     <button class="refreshBtn" id="refreshBtn" type="button" title="Aggiorna stato" aria-label="Aggiorna"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 1 1-9.9-1H5.02a7 7 0 1 0 12.63-4.65z"/></svg></button>
     <div class="topbar">
-      <a class="back" href="/security" aria-label="Indietro">
+      <a class="back" href="/thermostats" aria-label="Indietro">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </a>
-      <a class="tab" href="/security">Stato</a>
+      <a class="tab" href="/thermostats">Stato</a>
       <a class="tab" href="/security/partitions">Partizioni</a>
       <a class="tab" href="/security/sensors">Sensori</a>
       <a class="tab active" href="/security/functions">Funzioni</a>
@@ -7189,13 +7200,7 @@ def render_security_functions_all(snapshot):
           </div>
         </div>
 
-        <div class="card">
-          <h3>Programmatori orari</h3>
-          <div class="muted">Gestisci programmi e timer.</div>
-          <div style="margin-top:10px;">
-            <a class="btn" href="/security/timers">Apri programmatori</a>
-          </div>
-        </div>
+        
 
         <div class="card">
           <h3>Registro eventi</h3>
@@ -7205,47 +7210,9 @@ def render_security_functions_all(snapshot):
           </div>
         </div>
 
-        <div class="card">
-          <h3>Gestione utenti</h3>
-          <div class="muted">Abilita o disabilita gli utenti della centrale.</div>
-          <div style="margin-top:10px;">
-            <a class="btn" href="/security/users">Apri gestione</a>
-          </div>
-        </div>
+        
 
-        <div class="card" id="reset">
-          <h3>Reset rapidi</h3>
-          <div class="muted">Azioni di manutenzione immediata.</div>
-          <div class="list">
-            <div class="row">
-              <div>
-                <div class="name">Reset cicli/memorie</div>
-                <div class="meta">Azzera cicli e memorie</div>
-              </div>
-              <div class="actions">
-                <button class="btn" data-reset="clear_cycles_or_memories">Reset</button>
-              </div>
-            </div>
-            <div class="row">
-              <div>
-                <div class="name">Reset comunicazioni</div>
-                <div class="meta">Riavvia comunicazioni bus</div>
-              </div>
-              <div class="actions">
-                <button class="btn" data-reset="clear_communications">Reset</button>
-              </div>
-            </div>
-            <div class="row">
-              <div>
-                <div class="name">Reset guasti</div>
-                <div class="meta">Pulisce guasti memorizzati</div>
-              </div>
-              <div class="actions">
-                <button class="btn" data-reset="clear_faults_memory">Reset</button>
-              </div>
-            </div>
-          </div>
-        </div>
+        
 
         <div class="card" id="gsm">
           <h3>GSM</h3>
@@ -7624,20 +7591,19 @@ def render_security_scenarios(snapshot):
     <div class="bg"></div>
     <button class="refreshBtn" id="refreshBtn" type="button" title="Aggiorna stato" aria-label="Aggiorna"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 1 1-9.9-1H5.02a7 7 0 1 0 12.63-4.65z"/></svg></button>
     <div class="topbar">
-      <a class="back" href="/security" aria-label="Indietro">
+      <a class="back" href="/thermostats" aria-label="Indietro">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </a>
-      <a class="tab" href="/security">Stato</a>
+      <a class="tab" href="/thermostats">Stato</a>
       <a class="tab" href="/security/partitions">Partizioni</a>
       <a class="tab active" href="/security/scenarios">Scenari</a>
       <a class="tab" href="/security/sensors">Sensori</a>
     </div>
     <div class="wrap">
       <div style="display:flex;align-items:center;justify-content:flex-start;margin:0 0 10px 0;">
-        <img src="/assets/e-safe_scr.png" alt="e-safe" style="height:34px;opacity:0.92;pointer-events:none;"/>
-      </div>
+        </div>
       <div class="controls">
         <div class="leftCtl">
           <span class="chip">Solo smarthome</span>
@@ -7921,7 +7887,7 @@ def render_security_reset(snapshot):
           <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </a>
-      <a class="tab" href="/security">Stato</a>
+      <a class="tab" href="/thermostats">Stato</a>
       <a class="tab" href="/security/partitions">Partizioni</a>
       <a class="tab" href="/security/scenarios">Scenari</a>
       <a class="tab" href="/security/sensors">Sensori</a>
@@ -7929,8 +7895,7 @@ def render_security_reset(snapshot):
     </div>
     <div class="wrap">
       <div style="display:flex;align-items:center;justify-content:flex-start;margin:0 0 10px 0;">
-        <img src="/assets/e-safe_scr.png" alt="e-safe" style="height:34px;opacity:0.92;pointer-events:none;"/>
-      </div>
+        </div>
       <div class="title">Reset rapidi</div>
       <div class="list">
         <div class="row">
@@ -8101,7 +8066,7 @@ def render_security_info(snapshot):
           <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </a>
-      <a class="tab" href="/security">Stato</a>
+      <a class="tab" href="/thermostats">Stato</a>
       <a class="tab" href="/security/partitions">Partizioni</a>
       <a class="tab" href="/security/scenarios">Scenari</a>
       <a class="tab" href="/security/sensors">Sensori</a>
@@ -8109,8 +8074,7 @@ def render_security_info(snapshot):
     </div>
     <div class="wrap">
       <div style="display:flex;align-items:center;justify-content:flex-start;margin:0 0 10px 0;">
-        <img src="/assets/e-safe_scr.png" alt="e-safe" style="height:34px;opacity:0.92;pointer-events:none;"/>
-      </div>
+        </div>
       <div class="title">Info</div>
 
       <div class="card" id="gsmCard">
@@ -8335,12 +8299,12 @@ def render_security_favorites(snapshot):
     <div class="bg"></div>
     <button class="refreshBtn" id="refreshBtn" type="button" title="Aggiorna stato" aria-label="Aggiorna"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 1 1-9.9-1H5.02a7 7 0 1 0 12.63-4.65z"/></svg></button>
     <div class="topbar">
-      <a class="back" href="/security" aria-label="Indietro">
+      <a class="back" href="/thermostats" aria-label="Indietro">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </a>
-      <a class="tab" href="/security">Stato</a>
+      <a class="tab" href="/thermostats">Stato</a>
       <a class="tab" href="/security/partitions">Partizioni</a>
       <a class="tab" href="/security/scenarios">Scenari</a>
       <a class="tab" href="/security/sensors">Sensori</a>
@@ -8735,8 +8699,7 @@ def render_security_users(snapshot):
     </div>
     <div class="wrap">
       <div style="display:flex;align-items:center;justify-content:flex-start;margin:0 0 10px 0;">
-        <img src="/assets/e-safe_scr.png" alt="e-safe" style="height:34px;opacity:0.92;pointer-events:none;"/>
-      </div>
+        </div>
       <div class="controls">
         <div class="leftCtl">
           <span class="chip" id="countChip">0 utenti</span>
@@ -9297,7 +9260,7 @@ def render_security_timers(snapshot):
           <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </a>
-      <a class="tab" href="/security">Stato</a>
+      <a class="tab" href="/thermostats">Stato</a>
       <a class="tab" href="/security/partitions">Partizioni</a>
       <a class="tab" href="/security/scenarios">Scenari</a>
       <a class="tab" href="/security/sensors">Sensori</a>
@@ -9306,8 +9269,7 @@ def render_security_timers(snapshot):
 
     <div class="wrap">
       <div style="display:flex;align-items:center;justify-content:flex-start;margin:0 0 10px 0;">
-        <img src="/assets/e-safe_scr.png" alt="e-safe" style="height:34px;opacity:0.92;pointer-events:none;"/>
-      </div>
+        </div>
       <div class="title">Programmatori orari</div>
       <div class="meta">Ultimo aggiornamento: <span id="lastUpdate">-</span> · Totale: <span id="count">0</span></div>
 
@@ -9845,12 +9807,12 @@ def render_security_functions(snapshot):
     <div class="bg"></div>
     <button class="refreshBtn" id="refreshBtn" type="button" title="Aggiorna stato" aria-label="Aggiorna"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 1 1-9.9-1H5.02a7 7 0 1 0 12.63-4.65z"/></svg></button>
     <div class="topbar">
-      <a class="back" href="/security" aria-label="Indietro">
+      <a class="back" href="/thermostats" aria-label="Indietro">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </a>
-      <a class="tab" href="/security">Stato</a>
+      <a class="tab" href="/thermostats">Stato</a>
       <a class="tab" href="/security/partitions">Partizioni</a>
       <a class="tab" href="/security/sensors">Sensori</a>
       <a class="tab active" href="/security/functions">Funzioni</a>
@@ -9858,8 +9820,7 @@ def render_security_functions(snapshot):
 
     <div class="wrap">
       <div style="display:flex;align-items:center;justify-content:flex-start;margin:0 0 10px 0;">
-        <img src="/assets/e-safe_scr.png" alt="e-safe" style="height:34px;opacity:0.92;pointer-events:none;"/>
-      </div>
+        </div>
       <div class="title">Smart Home</div>
       <div class="list">
         <a class="item" href="/security/functions/outputs">
@@ -10444,8 +10405,7 @@ def render_security_functions_outputs(snapshot):
 
     <div class="wrap">
       <div style="display:flex;align-items:center;justify-content:flex-start;margin:0 0 10px 0;">
-        <img src="/assets/e-safe_scr.png" alt="e-safe" style="height:34px;opacity:0.92;pointer-events:none;"/>
-      </div>
+        </div>
       {''.join(sections) or empty_rows_html}
     </div>
 
@@ -10663,7 +10623,7 @@ def render_menu(snapshot):
     <meta http-equiv="Cache-Control" content="no-store, max-age=0"/>
     <meta http-equiv="Pragma" content="no-cache"/>
     <meta http-equiv="Expires" content="0"/>
-    <title>Ksenia Lares - Menu</title>
+    <title>e-Therm Plus KS - Menu</title>
     <style>
       :root {{ --bg0:#05070b; --fg:#e7eaf0; --muted:rgba(255,255,255,0.65); --border:rgba(255,255,255,0.10); --item:rgba(255,255,255,0.06); }}
       html,body {{ height:100%; }}
@@ -10689,15 +10649,14 @@ def render_menu(snapshot):
     <div class="wrap">
       <div class="title">
         <img src="assets/logo_ekonex.png" alt="Ekonex" style="height:30px;opacity:0.95;"/>
-        <img src="assets/e-safe_scr.png" alt="e-safe" style="height:30px;opacity:0.92;"/>
         <div>
-          <h1>Ksenia Lares</h1>
+          <h1>e-Therm Plus KS</h1>
           <div class="badge">v{_html_escape(ADDON_VERSION)}</div>
         </div>
       </div>
 
       <div class="list">
-        <a class="item" href="security">
+        <a class="item" href="thermostats">
           <div class="left">
             <div class="icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -10706,8 +10665,44 @@ def render_menu(snapshot):
               </svg>
             </div>
             <div>
-              <div class="name">UI Sicurezza</div>
-              <div class="meta">Stato, partizioni, sensori, funzioni</div>
+              <div class="name">Termostati</div>
+              <div class="meta">Stato, setpoint, modalit?, profilo</div>
+            </div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none">
+            <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+
+        <a class="item" href="vtherm">
+          <div class="left">
+            <div class="icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2v4M12 18v4M4.2 4.2l2.8 2.8M17 17l2.8 2.8M2 12h4M18 12h4M4.2 19.8L7 17M17 7l2.8-2.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.6"/>
+              </svg>
+            </div>
+            <div>
+              <div class="name">Configurazione vTherm</div>
+              <div class="meta">Crea/edita termostati virtuali</div>
+            </div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none">
+            <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+
+        <a class="item" href="logs">
+          <div class="left">
+            <div class="icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M6 3h9l3 3v15H6V3z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                <path d="M9 11h6M9 15h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div>
+              <div class="name">Log</div>
+              <div class="meta">Eventi e diagnostica runtime</div>
             </div>
           </div>
           <svg class="chev" viewBox="0 0 24 24" fill="none">
@@ -11941,6 +11936,60 @@ def render_logs(snapshot):
     logs.sort(key=_id_desc)
     logs = logs[:500]
 
+    # e-Therm events (from add-on runtime meta)
+    try:
+        evs = meta.get("e_therm_events")
+        if isinstance(evs, list) and evs:
+            import datetime as _dt
+
+            def _short(v, n=160):
+                try:
+                    s = "" if v is None else (v if isinstance(v, str) else json.dumps(v, ensure_ascii=False))
+                except Exception:
+                    s = str(v) if v is not None else ""
+                s = str(s)
+                return (s[: n - 1] + "…") if len(s) > n else s
+
+            extra_logs = []
+            for idx, ev in enumerate(evs[-200:]):
+                if not isinstance(ev, dict):
+                    continue
+                try:
+                    tsf = float(ev.get("ts") or 0.0)
+                except Exception:
+                    tsf = 0.0
+                dt = _dt.datetime.fromtimestamp(tsf) if tsf else None
+                data_s = dt.date().isoformat() if dt else ""
+                time_s = dt.strftime("%H:%M:%S") if dt else ""
+                origin = str(ev.get("origin") or "")
+                tid = ev.get("tid")
+                name = ev.get("name")
+                cat = str(ev.get("category") or "")
+                field = str(ev.get("field") or "")
+                msg = str(ev.get("msg") or "")
+                old = ev.get("old")
+                new = ev.get("new")
+                eid = int(tsf * 1000) + idx if tsf else (2000000000000 + idx)
+                extra_logs.append(
+                    {
+                        "ID": eid,
+                        "TYPE": "E-THERM",
+                        "DATA": data_s,
+                        "TIME": time_s,
+                        "EV": f"{cat}:{field}".strip(":"),
+                        "I1": _short(f"{origin} | tid={tid} {name or ''} | {msg}".strip()),
+                        "I2": _short({"old": old, "new": new}),
+                        "IML": "",
+                        "ORI": origin,
+                        "TID": str(tid) if tid is not None else "",
+                    }
+                )
+            logs.extend(extra_logs)
+            logs.sort(key=_id_desc)
+            logs = logs[:700]
+    except Exception:
+        pass
+
     init_payload = _html_escape(json.dumps({"logs": logs}, ensure_ascii=False))
 
     html = f"""<!doctype html>
@@ -12017,21 +12066,29 @@ def render_logs(snapshot):
   <body>
     <div style="position:sticky;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;justify-content:center;gap:12px;height:64px;background:rgba(0,0,0,0.55);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,0.06);">
       <a href="/index_debug" style="color:#e8edf7;text-decoration:none;font-weight:700;">index_debug</a>
-      <a href="/security" style="color:#e8edf7;text-decoration:none;font-weight:700;">sicurezza</a>
+      <a href="/thermostats" style="color:#e8edf7;text-decoration:none;font-weight:700;">Termostati</a>
     </div>
     <div style="display:flex;align-items:center;justify-content:flex-start;margin:10px 0 0 0;">
-      <img src="/assets/e-safe_scr.png" alt="e-safe" style="height:34px;opacity:0.92;pointer-events:none;"/>
+      <img src="/assets/logo_e_therm.png" alt="e-safe" style="height:34px;opacity:0.92;pointer-events:none;"/>
     </div>
     <h2>Ksenia Lares - Registro Eventi {f'<span class="badge">v{_html_escape(ADDON_VERSION)}</span>' if ADDON_VERSION else ''}</h2>
     <div class="meta">
       Log: <span id="count" class="badge">{len(logs)}</span>
       &nbsp;|&nbsp; Last update: <span id="lastUpdate" class="badge">{_html_escape(_fmt_ts(meta.get("last_update")))}</span>
-      &nbsp;|&nbsp; UI: <span class="badge">{_html_escape(UI_REV)}</span>
+      &nbsp;|&nbsp; Add-on: <span class="badge">v{_html_escape(ADDON_VERSION or _read_addon_version_from_config() or UI_REV)}</span>
     </div>
     <div class="toolbar">
       <button id="toggle">Auto-refresh: ON</button>
+      <select id="originSel" onchange="applyFilter()">
+        <option value="">Origine (tutte)</option>
+      </select>
+      <select id="tidSel" onchange="applyFilter()">
+        <option value="">Termostato (tutti)</option>
+      </select>
       <input id="q" placeholder="Cerca (evento/info/tipo/data/ora)..." oninput="applyFilter()"/>
+      <button onclick="testLog()">Test log e-Therm</button>
       <button onclick="exportJson()">Esporta JSON</button>
+      <button onclick="exportTxt()">Esporta TXT</button>
       <span class="pager">
         <span class="small">Per pagina</span>
         <select id="pageSize" onchange="setPageSize()">
@@ -12066,8 +12123,26 @@ def render_logs(snapshot):
       let page = 1;
       let pageSize = 15;
       let filterQ = '';
+      let originF = '';
+      let tidF = '';
       let logById = new Map();
       let ids = [];
+
+      function apiRoot() {{
+        const p = String(window.location && window.location.pathname ? window.location.pathname : '');
+        // Ingress paths look like: /api/hassio_ingress/<token>/...
+        if (p.startsWith('/api/hassio_ingress/')) {{
+          const parts = p.split('/').filter(Boolean);
+          if (parts.length >= 3) return '/' + parts.slice(0, 3).join('/');
+        }}
+        return '';
+      }}
+      function apiUrl(path) {{
+        const root = apiRoot();
+        const p = String(path || '');
+        if (p.startsWith('/')) return root + p;
+        return root + '/' + p;
+      }}
 
       function esc(s) {{
         return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('\"','&quot;').replaceAll(\"'\",'&#39;');
@@ -12089,6 +12164,37 @@ def render_logs(snapshot):
         }}
         ids.sort((a,b) => (parseInt(b,10)||0) - (parseInt(a,10)||0));
         document.getElementById('count').innerText = String(ids.length);
+        refreshQuickFilters();
+      }}
+
+      function refreshQuickFilters() {{
+        try {{
+          const origins = new Set();
+          const tids = new Set();
+          for (const id of ids) {{
+            const it = logById.get(id);
+            if (!it) continue;
+            if (String(it.TYPE||'') !== 'E-THERM') continue;
+            const o = String(it.ORI||'').trim();
+            const t = String(it.TID||'').trim();
+            if (o) origins.add(o);
+            if (t) tids.add(t);
+          }}
+          const oSel = document.getElementById('originSel');
+          const tSel = document.getElementById('tidSel');
+          if (oSel) {{
+            const cur = String(oSel.value||'');
+            const arr = Array.from(origins).sort();
+            oSel.innerHTML = '<option value=\"\">Origine (tutte)</option>' + arr.map(x => '<option value=\"' + esc(x) + '\">' + esc(x) + '</option>').join('');
+            oSel.value = cur;
+          }}
+          if (tSel) {{
+            const cur = String(tSel.value||'');
+            const arr = Array.from(tids).sort((a,b) => (parseInt(a,10)||0) - (parseInt(b,10)||0));
+            tSel.innerHTML = '<option value=\"\">Termostato (tutti)</option>' + arr.map(x => '<option value=\"' + esc(x) + '\">vTherm ' + esc(x) + '</option>').join('');
+            tSel.value = cur;
+          }}
+        }} catch (_e) {{}}
       }}
 
       function rowHtml(it) {{
@@ -12112,14 +12218,15 @@ def render_logs(snapshot):
       }}
 
       function filteredIds() {{
-        if (!filterQ) return ids.slice();
-        const q = filterQ.toLowerCase();
+        const q = String(filterQ || '').toLowerCase();
         const out = [];
         for (const id of ids) {{
           const it = logById.get(id);
           if (!it) continue;
+          if (originF && String(it.ORI||'') !== originF) continue;
+          if (tidF && String(it.TID||'') !== tidF) continue;
           const hay = (String(it.TYPE||'') + ' ' + String(it.DATA||'') + ' ' + String(it.TIME||'') + ' ' + String(it.EV||'') + ' ' + String(it.I1||'') + ' ' + String(it.I2||'')).toLowerCase();
-          if (hay.includes(q)) out.push(id);
+          if (!q || hay.includes(q)) out.push(id);
         }}
         return out;
       }}
@@ -12143,6 +12250,8 @@ def render_logs(snapshot):
 
       function applyFilter() {{
         filterQ = String(document.getElementById('q').value || '').trim();
+        originF = String((document.getElementById('originSel')||{{}}).value || '').trim();
+        tidF = String((document.getElementById('tidSel')||{{}}).value || '').trim();
         page = 1;
         render();
       }}
@@ -12169,19 +12278,111 @@ def render_logs(snapshot):
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
       }}
 
-      function connectSSE() {{
-        if (sse) try {{ sse.close(); }} catch (_e) {{}}
-        sse = new EventSource('/api/stream');
-        sse.onmessage = (ev) => {{
-          if (!pollingOn) return;
-          let data = null;
-          try {{ data = JSON.parse(ev.data); }} catch (_e) {{ return; }}
+      function exportTxt() {{
+        const list = filteredIds().map(id => logById.get(id)).filter(Boolean);
+        const lines = [];
+        for (const it of list) {{
+          const typ = String(it.TYPE ?? '');
+          const date = String(it.DATA ?? '');
+          const time = String(it.TIME ?? '');
+          const ev = String(it.EV ?? '');
+          const i1 = String(it.I1 ?? '');
+          const i2 = String(it.I2 ?? '');
+          const when = (date && time) ? (date + ' ' + time) : (date || time);
+          const info = [i1, i2].filter(Boolean).join(' | ');
+          lines.push('[' + when + '] [' + typ + '] ' + ev + (info ? (' - ' + info) : ''));
+        }}
+        const blob = new Blob([lines.join('\\n') + '\\n'], {{type: 'text/plain'}});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        const d = new Date();
+        const stamp = d.toISOString().replaceAll(':','').replaceAll('-','').slice(0, 15);
+        a.download = 'e_therm_logs_' + stamp + '.txt';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      }}
+
+      async function testLog() {{
+        try {{
+          const res = await fetch(apiUrl('/api/cmd'), {{
+            method:'POST',
+            headers: {{'Content-Type':'application/json'}},
+            body: JSON.stringify({{type:'e_therm', action:'log_test'}})
+          }});
+          const t = await res.text();
+          if (!res.ok) alert('Errore test log: ' + res.status + ' ' + (t || ''));
+          try {{ await fetchOnce(); }} catch (_e) {{}}
+        }} catch (e) {{
+          alert('Errore test log: ' + e);
+        }}
+      }}
+
+      function ingestEThermEvents(meta) {{
+        try {{
+          const evs = (meta && meta.e_therm_events) ? meta.e_therm_events : null;
+          if (!evs || !Array.isArray(evs)) return false;
+          let changed = false;
+          for (let i = 0; i < evs.length; i++) {{
+            const ev = evs[i];
+            if (!ev || typeof ev !== 'object') continue;
+            const ts = Number(ev.ts || 0);
+            const eid = (isFinite(ts) && ts > 0) ? (Math.floor(ts * 1000) + i) : (2000000000000 + i);
+            const id = String(eid);
+            const d = new Date((isFinite(ts) && ts > 0) ? (ts * 1000) : Date.now());
+            const date = d.toISOString().slice(0, 10);
+            const time = d.toTimeString().slice(0, 8);
+            const origin = String(ev.origin || '');
+            const tid = (ev.tid === undefined || ev.tid === null) ? '' : String(ev.tid);
+            const name = String(ev.name || '');
+            const cat = String(ev.category || '');
+            const field = String(ev.field || '');
+            const msg = String(ev.msg || '');
+            const oldv = ev.old;
+            const newv = ev.new;
+            const item = {{
+              ID: eid,
+              TYPE: 'E-THERM',
+              DATA: date,
+              TIME: time,
+              EV: (cat && field) ? (cat + ':' + field) : (cat || field || ''),
+              I1: (origin + ' | tid=' + tid + ' ' + name + ' | ' + msg).trim(),
+              I2: JSON.stringify({{old: oldv, new: newv}}),
+              IML: '',
+              ORI: origin,
+              TID: tid,
+            }};
+            if (!logById.has(id)) {{
+              ids.unshift(id);
+              changed = true;
+            }}
+            logById.set(id, item);
+          }}
+          if (changed) {{
+            ids = Array.from(new Set(ids));
+            ids.sort((a,b) => (parseInt(b,10)||0) - (parseInt(a,10)||0));
+            document.getElementById('count').innerText = String(ids.length);
+            refreshQuickFilters();
+          }}
+          return changed;
+        }} catch (_e) {{
+          return false;
+        }}
+      }}
+
+      async function fetchOnce() {{
+        try {{
+          const res = await fetch(apiUrl('/api/entities'), {{ cache:'no-store' }});
+          if (!res.ok) return;
+          const data = await res.json();
           const meta = data.meta || {{}};
           const lastUpdateStr = meta.last_update ? new Date(meta.last_update * 1000).toISOString().replace('T', ' ').slice(0, 19) : '-';
           const el = document.getElementById('lastUpdate');
           if (el) el.innerText = lastUpdateStr;
-          const ents = data.entities || [];
           let changed = false;
+          if (ingestEThermEvents(meta)) changed = true;
+          const ents = data.entities || [];
           for (const e of ents) {{
             if (!e || String(e.type || '').toLowerCase() !== 'logs') continue;
             const id = String(e.id ?? '');
@@ -12200,12 +12401,52 @@ def render_logs(snapshot):
             ids = Array.from(new Set(ids));
             ids.sort((a,b) => (parseInt(b,10)||0) - (parseInt(a,10)||0));
             document.getElementById('count').innerText = String(ids.length);
+            refreshQuickFilters();
+            render();
+          }}
+        }} catch (_e) {{}}
+      }}
+
+      function connectSSE() {{
+        if (sse) try {{ sse.close(); }} catch (_e) {{}}
+        sse = new EventSource(apiUrl('/api/stream'));
+        sse.onmessage = (ev) => {{
+          if (!pollingOn) return;
+          let data = null;
+          try {{ data = JSON.parse(ev.data); }} catch (_e) {{ return; }}
+          const meta = data.meta || {{}};
+          const lastUpdateStr = meta.last_update ? new Date(meta.last_update * 1000).toISOString().replace('T', ' ').slice(0, 19) : '-';
+          const el = document.getElementById('lastUpdate');
+          if (el) el.innerText = lastUpdateStr;
+          const ents = data.entities || [];
+          let changed = false;
+          if (ingestEThermEvents(meta)) changed = true;
+          for (const e of ents) {{
+            if (!e || String(e.type || '').toLowerCase() !== 'logs') continue;
+            const id = String(e.id ?? '');
+            if (!id) continue;
+            const merged = Object.assign({{}}, e.static || {{}}, e.realtime || {{}});
+            merged.ID = merged.ID ?? e.id;
+            if (!logById.has(id)) {{
+              ids.unshift(id);
+              changed = true;
+            }} else {{
+              changed = true;
+            }}
+            logById.set(id, merged);
+          }}
+          if (changed) {{
+            ids = Array.from(new Set(ids));
+            ids.sort((a,b) => (parseInt(b,10)||0) - (parseInt(a,10)||0));
+            document.getElementById('count').innerText = String(ids.length);
+            refreshQuickFilters();
             render();
           }}
         }};
         sse.onerror = () => {{
           try {{ sse.close(); }} catch (_e) {{}}
           sse = null;
+          // Fallback: keep polling if SSE is blocked (Ingress/proxy/browser extensions).
           setTimeout(() => connectSSE(), 1500);
         }};
       }}
@@ -12218,6 +12459,9 @@ def render_logs(snapshot):
       parseInit();
       render();
       connectSSE();
+      // Always keep a lightweight polling loop so the UI works even if SSE is blocked.
+      fetchOnce();
+      setInterval(() => {{ if (pollingOn) fetchOnce(); }}, 5000);
     </script>
   </body>
 </html>
@@ -12415,16 +12659,16 @@ def render_timers(snapshot):
   <body>
     <div style="position:sticky;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;justify-content:center;gap:12px;height:64px;background:rgba(0,0,0,0.55);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,0.06);">
       <a href="/index_debug" style="color:#e8edf7;text-decoration:none;font-weight:700;">index_debug</a>
-      <a href="/security" style="color:#e8edf7;text-decoration:none;font-weight:700;">sicurezza</a>
+      <a href="/thermostats" style="color:#e8edf7;text-decoration:none;font-weight:700;">Termostati</a>
     </div>
     <div style="display:flex;align-items:center;justify-content:flex-start;margin:10px 0 0 0;">
-      <img src="/assets/e-safe_scr.png" alt="e-safe" style="height:34px;opacity:0.92;pointer-events:none;"/>
+      <img src="/assets/logo_e_therm.png" alt="e-safe" style="height:34px;opacity:0.92;pointer-events:none;"/>
     </div>
     <h2>Ksenia Lares - Programmatori Orari {f'<span class="badge">v{_html_escape(ADDON_VERSION)}</span>' if ADDON_VERSION else ''}</h2>
     <div class="meta">
       Programmatori: <span id="count" class="badge">{len(timers)}</span>
       &nbsp;|&nbsp; Last update: <span id="lastUpdate" class="badge">{_html_escape(_fmt_ts(meta.get("last_update")))}</span>
-      &nbsp;|&nbsp; UI: <span class="badge">{_html_escape(UI_REV)}</span>
+      &nbsp;|&nbsp; Add-on: <span class="badge">v{_html_escape(ADDON_VERSION or _read_addon_version_from_config() or UI_REV)}</span>
     </div>
     <div class="toolbar">
       <a class="badge" href="/index_debug">← index_debug</a>
@@ -12808,6 +13052,142 @@ class _Handler(BaseHTTPRequestHandler):
     state = None  # type: LaresState
     command_fn = None
 
+
+    _OPTS_CACHE = {"ts": 0.0, "data": {}}
+
+    def _load_addon_options(self) -> dict:
+        try:
+            now = time.time()
+            cache = type(self)._OPTS_CACHE
+            if isinstance(cache, dict) and (now - float(cache.get('ts', 0.0))) < 2.0:
+                data = cache.get('data')
+                return data if isinstance(data, dict) else {}
+            with open('/data/options.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
+                data = {}
+            type(self)._OPTS_CACHE = {"ts": now, "data": data}
+            return data
+        except Exception:
+            return {}
+
+    def _auth_cfg(self) -> dict:
+        o = self._load_addon_options()
+        mode = str(o.get('web_auth_mode', 'none') or 'none').strip().lower()
+        if mode not in ('none', 'basic', 'token'):
+            mode = 'none'
+        return {
+            'mode': mode,
+            'basic_user': str(o.get('web_basic_user', '') or ''),
+            'basic_pass': str(o.get('web_basic_pass', '') or ''),
+            'token': str(o.get('web_token', '') or ''),
+        }
+
+    @staticmethod
+    def _cookie_dict(h: str) -> dict:
+        out = {}
+        try:
+            for part in str(h or '').split(';'):
+                if '=' not in part:
+                    continue
+                k, v = part.split('=', 1)
+                k = k.strip(); v = v.strip()
+                if k:
+                    out[k] = v
+        except Exception:
+            pass
+        return out
+
+    @staticmethod
+    def _token_digest(token: str) -> str:
+        try:
+            return hashlib.sha256(str(token or '').encode('utf-8')).hexdigest()
+        except Exception:
+            return ''
+
+    def _is_api(self, path: str) -> bool:
+        try:
+            return str(path or '').startswith('/api/')
+        except Exception:
+            return False
+
+    def _auth_require(self, ingress_prefix: str, path: str) -> bool:
+        cfg = self._auth_cfg()
+        mode = cfg.get('mode')
+
+        # Allow assets unconditionally
+        if str(path or '').startswith('/assets/'):
+            return True
+
+        if mode == 'none':
+            return True
+
+        if mode == 'basic':
+            user = cfg.get('basic_user') or ''
+            pw = cfg.get('basic_pass') or ''
+            auth = str(self.headers.get('Authorization') or '')
+            if auth.lower().startswith('basic '):
+                try:
+                    raw = base64.b64decode(auth.split(' ', 1)[1].strip()).decode('utf-8', errors='ignore')
+                    u, p = raw.split(':', 1)
+                    if u == user and p == pw and bool(user):
+                        return True
+                except Exception:
+                    pass
+            self.send_response(401)
+            self.send_header('WWW-Authenticate', 'Basic realm="e-Therm Plus KS"')
+            self.send_header('Cache-Control', 'no-store')
+            self.end_headers()
+            return False
+
+        if mode == 'token':
+            token = cfg.get('token') or ''
+            if not token:
+                # misconfigured
+                if self._is_api(path):
+                    body = json.dumps({'ok': False, 'error': 'unauthorized'}, ensure_ascii=False).encode('utf-8')
+                    self._send(401, 'application/json; charset=utf-8', body)
+                else:
+                    self.send_response(401); self.end_headers()
+                return False
+
+            expected = self._token_digest(token)
+
+            # Bearer
+            auth = str(self.headers.get('Authorization') or '')
+            if auth.lower().startswith('bearer '):
+                if self._token_digest(auth.split(' ', 1)[1].strip()) == expected:
+                    return True
+
+            # Cookie
+            cookies = self._cookie_dict(self.headers.get('Cookie') or '')
+            if cookies.get('e_therm_auth') == expected:
+                return True
+
+            # Query token => set cookie and redirect (UI-friendly)
+            try:
+                q = parse_qs(urlparse(self.path).query)
+                qtok = (q.get('token') or q.get('t') or [''])[0]
+                if self._token_digest(qtok) == expected:
+                    self.send_response(302)
+                    self.send_header('Set-Cookie', f"e_therm_auth={expected}; Path=/; HttpOnly; SameSite=Lax")
+                    self.send_header('Location', f"{ingress_prefix}{path}" if ingress_prefix else path)
+                    self.end_headers()
+                    return False
+            except Exception:
+                pass
+
+            if self._is_api(path):
+                body = json.dumps({'ok': False, 'error': 'unauthorized'}, ensure_ascii=False).encode('utf-8')
+                self._send(401, 'application/json; charset=utf-8', body)
+            else:
+                self.send_response(401)
+                self.send_header('Cache-Control', 'no-store')
+                self.end_headers()
+            return False
+
+        return True
+
     def _inject_ingress_shim(self, body: bytes) -> bytes:
         try:
             html = body.decode("utf-8", errors="ignore")
@@ -12932,9 +13312,9 @@ class _Handler(BaseHTTPRequestHandler):
             # Insert early so page scripts that call fetch/EventSource immediately
             # are already patched when they run (Ingress paths).
             if "</head>" in html:
-                html = html.replace("</head>", shim + "\n</head>")
+                html = html.replace("</head>", shim + "</head>")
             else:
-                html = html.replace("</body>", shim + "\n</body>")
+                html = html.replace("</body>", shim + "</body>")
             return html.encode("utf-8")
         except Exception:
             return body
@@ -12979,6 +13359,10 @@ class _Handler(BaseHTTPRequestHandler):
 
         ingress_prefix, path = _split_ingress(raw_path)
 
+        if not self._auth_require(ingress_prefix, path):
+            return
+
+
         # On the Ingress/debug port (8080), make the root path show the launcher menu by default.
         # Do not redirect /index_debug here, otherwise the menu cannot open index_debug via Ingress.
         try:
@@ -13008,6 +13392,16 @@ class _Handler(BaseHTTPRequestHandler):
         except Exception:
             pass
 
+        # --- Remove /security pages: redirect any security-related routes to /logs ---
+        try:
+          if (isinstance(path, str) and (path.startswith("/security") or path in ("/security", "/security/", "/timers", "/timers/", "/security/timers"))):
+            self.send_response(302)
+            self.send_header("Location", f"{ingress_prefix}/logs" if ingress_prefix else "/logs")
+            self.end_headers()
+            return
+        except Exception:
+          pass
+
         if path.startswith("/assets/"):
             name = path.split("/", 2)[2]
             name = (name or "").strip().lower()
@@ -13017,11 +13411,18 @@ class _Handler(BaseHTTPRequestHandler):
             if not filename:
                 self._send(404, "text/plain; charset=utf-8", b"not found")
                 return
-            file_path = os.path.join(_ASSETS_DIR, filename)
-            try:
-                with open(file_path, "rb") as f:
-                    body = f.read()
-            except Exception:
+            body = None
+            for assets_dir in _ASSET_DIRS:
+                file_path = os.path.join(assets_dir, filename)
+                try:
+                    if not os.path.isfile(file_path):
+                        continue
+                    with open(file_path, "rb") as f:
+                        body = f.read()
+                    break
+                except Exception:
+                    continue
+            if body is None:
                 self._send(404, "text/plain; charset=utf-8", b"not found")
                 return
             self.send_response(200)
@@ -13147,10 +13548,21 @@ class _Handler(BaseHTTPRequestHandler):
             return
         # --- e-Therm Plus: Manual Config & Debug ---
         if path in ("/vtherm", "/vtherm/", "/debug", "/debug/"):
-            html = render_vtherm_config_page(self.state.snapshot())
-            if isinstance(html, str):
-                html = html.encode("utf-8")
-            self._send(200, "text/html; charset=utf-8", html)
+            try:
+                html = render_vtherm_config_page(self.state.snapshot())
+                if isinstance(html, str):
+                    html = html.encode("utf-8")
+                self._send(200, "text/html; charset=utf-8", html)
+            except Exception as exc:
+                try:
+                    print(f"[ERROR] render_vtherm_config_page failed: {exc}")
+                except Exception:
+                    pass
+                body = (
+                    f"vTherm page error: {exc}\n\n"
+                    f"Try: hard refresh (Ctrl+F5) or open /menu and navigate again."
+                ).encode("utf-8", errors="ignore")
+                self._send(500, "text/plain; charset=utf-8", body)
             return
         if path.startswith("/api/vtherm/config"):
             meta = (self.state.snapshot().get("meta") or {})
@@ -13207,7 +13619,7 @@ class _Handler(BaseHTTPRequestHandler):
                 snap = self.state.snapshot()
                 snap["ui_rev"] = UI_REV
                 self.wfile.write(
-                    ("data: " + json.dumps(snap, ensure_ascii=False) + "\n\n").encode("utf-8")
+                    ("data: " + json.dumps(snap, ensure_ascii=False) + "").encode("utf-8")
                 )
                 self.wfile.flush()
 
@@ -13216,11 +13628,11 @@ class _Handler(BaseHTTPRequestHandler):
                         ev = q.get(timeout=15)
                     except queue.Empty:
                         # keep-alive
-                        self.wfile.write(b": ping\n\n")
+                        self.wfile.write(b": ping")
                         self.wfile.flush()
                         continue
                     self.wfile.write(
-                        ("data: " + json.dumps(ev, ensure_ascii=False) + "\n\n").encode("utf-8")
+                        ("data: " + json.dumps(ev, ensure_ascii=False) + "").encode("utf-8")
                     )
                     self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError):
@@ -13234,6 +13646,8 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
+        if not self._auth_require("", path):
+            return
         if path == "/api/ui_favorites":
             try:
                 length = int(self.headers.get("Content-Length") or "0")
@@ -13337,7 +13751,7 @@ def render_thermostats(snapshot):
     <meta http-equiv="Cache-Control" content="no-store, max-age=0"/>
     <meta http-equiv="Pragma" content="no-cache"/>
     <meta http-equiv="Expires" content="0"/>
-    <title>Ksenia Lares - Termostati</title>
+    <title>e-Therm Plus KS - Termostati</title>
     <style>
       :root {
         --bg0: #05070b;
@@ -13414,7 +13828,7 @@ def render_thermostats(snapshot):
 
     html = (
         tpl.replace("__ADDON_VERSION__", _html_escape(ADDON_VERSION))
-        .replace("__UI_REV__", _html_escape(UI_REV))
+        .replace("__UI_REV__", _html_escape(_addon_version_display()))
         .replace("__ITEMS__", items)
     )
     return html.encode("utf-8")
@@ -14322,75 +14736,568 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
 def render_vtherm_config_page(snapshot):
     cfg = (snapshot.get("meta") or {}).get("vtherm_config") or {}
     init = json.dumps(cfg, ensure_ascii=False)
+    meta = snapshot.get("meta") or {}
+    health = meta.get("health") or {}
+
+    def _esc(s: Any) -> str:
+        try:
+            return (
+                str(s)
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace('"', "&quot;")
+            )
+        except Exception:
+            return ""
+
+    def _age_str(v: Any) -> str:
+        try:
+            if v is None:
+                return "n/a"
+            f = float(v)
+            if f < 0:
+                return "n/a"
+            if f < 60:
+                return f"{int(round(f))}s"
+            return f"{int(round(f / 60.0))}m"
+        except Exception:
+            return "n/a"
+
+    try:
+        mqtt_ok = bool(health.get("mqtt_connected"))
+        chips = []
+        chips.append(f'<span class="chip">MQTT: {"OK" if mqtt_ok else "OFF"}</span>')
+        chips.append(f'<span class="chip">Sorgente: {_age_str(health.get("mqtt_last_source_age_sec"))}</span>')
+        chips.append(f'<span class="chip">Control: {_age_str(health.get("control_last_age_sec"))}</span>')
+        rr = str(health.get("last_reconnect_reason") or "").strip()
+        if rr:
+            chips.append(f'<span class="chip">Ultimo reconnect: {_esc(rr)}</span>')
+        health_html = '<div class="chips" style="margin-top:10px;">' + "".join(chips) + "</div>"
+    except Exception:
+        health_html = ""
     # Avoid f-strings because this HTML contains many braces.
     html = """<!doctype html>
 <html lang="it">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>e-Therm - Configurazione</title>
+  <title>e-Therm - Configurazione vTherm</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#0f1115; color:#e7eaf0; margin:0; }
-    .wrap { max-width: 980px; margin: 20px auto; padding: 0 16px; }
-    .card { background:#151923; border:1px solid #2a2f3a; border-radius:12px; padding:14px; }
-    textarea { width:100%; min-height: 360px; background:#0b0d12; color:#e7eaf0; border:1px solid #2a2f3a; border-radius:10px; padding:10px;
-              font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-    button { background:#24304a; color:#fff; border:0; border-radius:10px; padding:10px 14px; cursor:pointer; }
+    :root {
+      --bg0:#0f1115;
+      --card:#151923;
+      --border:#2a2f3a;
+      --fg:#e7eaf0;
+      --muted:#a9b1c3;
+      --btn:#24304a;
+      --btn2:#2e7df6;
+      --danger:#b91c1c;
+      --chip: rgba(255,255,255,0.08);
+    }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg0); color:var(--fg); margin:0; }
+    .wrap { max-width: 1100px; margin: 18px auto; padding: 0 16px 48px; }
+    .top { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .top h2 { margin: 10px 0; font-weight: 800; letter-spacing: 0.2px; }
+    a { color: var(--fg); text-decoration:none; opacity:0.9; }
+    a:hover { opacity:1; text-decoration:underline; }
+    .muted { color: var(--muted); }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; }
     .row { display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
-    .muted { color:#a9b1c3; }
-    a { color:#e7eaf0; }
+    .btn { background:var(--btn); color:#fff; border:1px solid rgba(255,255,255,0.10); border-radius:10px; padding:10px 12px; cursor:pointer; }
+    .btn:hover { filter: brightness(1.08); }
+    .btn.primary { background: var(--btn2); border-color: rgba(46,125,246,0.4); }
+    .btn.danger { background: rgba(185,28,28,0.25); border-color: rgba(185,28,28,0.4); }
+    .btn.ghost { background: transparent; }
+    .list { display:flex; flex-direction:column; gap:10px; margin-top: 10px; }
+    .item { border:1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.25); border-radius:12px; padding:12px; display:flex; gap:12px; align-items:center; justify-content:space-between; }
+    .left { min-width:0; }
+    .name { font-weight: 800; }
+    .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .chips { display:flex; gap:8px; flex-wrap:wrap; margin-top: 8px; }
+    .chip { display:inline-flex; gap:6px; align-items:center; padding:4px 8px; border-radius:999px; background: var(--chip); border:1px solid rgba(255,255,255,0.10); font-size: 12px; color: rgba(255,255,255,0.86); }
+    textarea { width:100%; min-height: 220px; background:#0b0d12; color:#e7eaf0; border:1px solid #2a2f3a; border-radius:10px; padding:10px;
+              font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    details { margin-top: 10px; }
+    details summary { cursor:pointer; color: rgba(255,255,255,0.85); }
+    dialog { border:1px solid rgba(255,255,255,0.16); border-radius: 16px; background: #0b0f18; color: var(--fg); padding: 0; max-width: 720px; width: calc(100% - 24px); }
+    dialog::backdrop { background: rgba(0,0,0,0.65); }
+    .dlgHead { padding: 12px 14px; border-bottom:1px solid rgba(255,255,255,0.10); display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .dlgBody { padding: 14px; }
+    .form { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 720px) { .form { grid-template-columns: 1fr; } }
+    label { font-size: 12px; color: var(--muted); display:block; margin-bottom: 6px; }
+    input, select { width:100%; padding: 10px 10px; border-radius: 10px; border:1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.35); color: var(--fg); }
+    .chkRow { display:flex; gap: 10px; align-items:center; flex-wrap:wrap; padding-top: 6px; }
+    .chk { display:flex; gap: 8px; align-items:center; border:1px solid rgba(255,255,255,0.10); border-radius: 999px; padding: 6px 10px; background: rgba(255,255,255,0.04); }
+    .msg { margin-top: 10px; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="row">
-      <h2>e-Therm • Configurazione manuale</h2>
+    <div class="top">
       <div>
+        <h2>e-Therm • vTherm</h2>
+        <div class="muted">
+          Configura qui i termostati virtuali (vTherm) che “clonano” i dati del termostato e-safe via MQTT e generano uscite e-Therm (PWM + 3 velocità).
+          Ogni vTherm crea in Home Assistant entità MQTT Discovery: un <b>climate</b> (clone bidirezionale) e, se abilitate, entità di uscita <b>power</b> (PWM) e <b>fan</b> (MIN/MED/MAX).
+        </div>
+        __HEALTH_HTML__
+      </div>
+      <div class="row">
         <a href="./menu">Menu</a> •
-        <a href="./thermostats">Termostati</a>
+        <a href="./thermostats">Termostati</a> •
+        <button class="btn ghost" onclick="reloadCfg()" title="Rilegge la config attuale dal runtime (annulla modifiche non salvate)">Ricarica</button>
       </div>
     </div>
 
-    <div class="card">
-      <p class="muted">Salva JSON configurazione termostati.</p>
-      <textarea id="cfg"></textarea>
-      <div class="row" style="margin-top:10px;">
-        <div class="muted">Esempio: { "thermostats":[{ "id":"1","name":"Cantina 1","source":{"type":"esafe","num":1},"outputs":{"fan3":true,"power":true},"profile":"WINE_CELLAR"}] }</div>
-        <button onclick="saveCfg()">Salva</button>
+    <div class="grid">
+      <div class="card">
+        <div class="row">
+          <div style="font-weight:800;">Termostati virtuali</div>
+          <div class="row">
+            <button class="btn" onclick="addNew()">+ Aggiungi</button>
+            <button class="btn danger" onclick="clearAll()">Svuota</button>
+          </div>
+        </div>
+        <div id="list" class="list"></div>
+        <div class="msg" id="hint">
+          <b>Come configurare (rapido ma accurato)</b><br/>
+          1) <b>ID</b>: deve essere <u>unico</u> (es. 1,2,3…). Se cambi ID, HA vedrà “nuovo dispositivo” e quello vecchio verrà rimosso (MQTT discovery retained).<br/>
+          2) <b>Nome</b>: etichetta visibile in UI e in HA.<br/>
+          3) <b>Source num</b>: è il numero del termostato e-safe da cui leggere (topic tipico <code>e-safe/thermostats/&lt;num&gt;</code>). Se il numero è sbagliato, il vTherm resterà senza valori.<br/>
+          4) <b>Uscite</b>:<br/>
+          &nbsp;&nbsp;• <b>Power (PWM 0–100)</b> pubblica <code>e-therm/thermostats/&lt;id&gt;/(heat|cool)/power</code> (o senza heat/cool se non separi).<br/>
+          &nbsp;&nbsp;• <b>Fan3</b> crea tre switch interbloccati <code>min/med/max</code> (uno solo ON).<br/>
+          &nbsp;&nbsp;• <b>Separa per stagione</b>: usa entità diverse per Inverno (heat/WIN) e Estate (cool/SUM) se hai impianti differenti.<br/>
+          5) <b>Auto control</b>: se ON, e-Therm calcola PWM e fan in automatico (in base a temperatura e setpoint e-safe). Se OFF, comandi tu manualmente (da HA).<br/>
+          6) <b>Salva</b>: premi “Salva” a destra. L’add-on ripubblica MQTT discovery; in HA compariranno/si aggiorneranno le entità. Se elimini un vTherm, l’add-on cancella automaticamente le entità discovery relative.
+        </div>
       </div>
-      <div id="msg" class="muted" style="margin-top:10px;"></div>
+
+      <div class="card">
+        <div class="row">
+          <div style="font-weight:800;">Salvataggio</div>
+          <div class="row">
+            <button class="btn" onclick="copyJson()">Copia JSON</button>
+            <button class="btn ghost" onclick="reloadCfg()" title="Rilegge la config attuale dal runtime (annulla modifiche non salvate)">Ricarica</button>
+            <button class="btn primary" onclick="saveCfg()">Salva</button>
+          </div>
+        </div>
+        <div class="msg" id="msg"></div>
+        <details>
+          <summary>Editor JSON (avanzato)</summary>
+          <div style="margin-top:10px;">
+            <textarea id="cfg"></textarea>
+            <div class="muted" style="margin-top:8px;">
+              Esempio: { "thermostats":[{ "id":"1","name":"Cantina 1","source":{"type":"esafe","num":1},"outputs":{"fan3":true,"power":true},"profile":"WINE_CELLAR"}] }
+            </div>
+          </div>
+        </details>
+      </div>
     </div>
   </div>
 
+  <dialog id="dlg">
+    <div class="dlgHead">
+      <div style="font-weight:800;" id="dlgTitle">Termostato</div>
+      <div class="row">
+        <button class="btn ghost" onclick="closeDlg()">Chiudi</button>
+        <button class="btn primary" onclick="saveItem()">Salva</button>
+      </div>
+    </div>
+    <div class="dlgBody">
+      <div class="form">
+        <div>
+          <label>ID (unico)</label>
+          <input id="f_id" placeholder="Es: 1" />
+        </div>
+        <div>
+          <label>Nome</label>
+          <input id="f_name" placeholder="Es: Cantina 1" />
+        </div>
+        <div>
+          <label>Source type</label>
+          <select id="f_src_type">
+            <option value="esafe">esafe</option>
+          </select>
+        </div>
+        <div>
+          <label>Source num (termostato e-safe)</label>
+          <input id="f_src_num" placeholder="Es: 1" inputmode="numeric" />
+        </div>
+        <div>
+          <label>Profilo (opzionale)</label>
+          <select id="f_profile">
+            <option value="">(nessuno)</option>
+            <option value="WINE_CELLAR">WINE_CELLAR</option>
+            <option value="HOUSE_ECO">HOUSE_ECO</option>
+            <option value="HOUSE_COMFORT">HOUSE_COMFORT</option>
+          </select>
+        </div>
+        <div>
+          <label>Auto control (per questo vTherm)</label>
+          <div class="chkRow">
+            <div class="chk"><input id="f_auto" type="checkbox" /> <span>Abilita auto PWM/fan</span></div>
+          </div>
+        </div>
+        <div>
+          <label>Uscite</label>
+          <div class="chkRow">
+            <div class="chk"><input id="f_split" type="checkbox" /> <span>Separa per stagione (Heat/Cool)</span></div>
+          </div>
+          <div style="margin-top:10px; display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="border:1px solid rgba(255,255,255,0.10); border-radius:12px; padding:10px; background: rgba(255,255,255,0.03);">
+              <div style="font-weight:800; margin-bottom:8px;">Heat (Inverno/WIN)</div>
+              <div class="chkRow">
+                <div class="chk"><input id="f_heat_power" type="checkbox" /> <span>Power (PWM 0–100)</span></div>
+                <div class="chk"><input id="f_heat_fan3" type="checkbox" /> <span>Fan3 (min/med/max)</span></div>
+              </div>
+            </div>
+            <div style="border:1px solid rgba(255,255,255,0.10); border-radius:12px; padding:10px; background: rgba(255,255,255,0.03);">
+              <div style="font-weight:800; margin-bottom:8px;">Cool (Estate/SUM)</div>
+              <div class="chkRow">
+                <div class="chk"><input id="f_cool_power" type="checkbox" /> <span>Power (PWM 0–100)</span></div>
+                <div class="chk"><input id="f_cool_fan3" type="checkbox" /> <span>Fan3 (min/med/max)</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="msg" id="dlgMsg"></div>
+    </div>
+  </dialog>
+
 <script>
 const init = __INIT_JSON__;
-document.getElementById('cfg').value = JSON.stringify(init, null, 2);
+let cfg = (init && typeof init === 'object') ? init : {};
+if (!cfg.thermostats || !Array.isArray(cfg.thermostats)) cfg.thermostats = [];
+let editIndex = -1;
 
-async function saveCfg() {
+function basePath() {
+  return window.location.pathname.split('/vtherm')[0] || '';
+}
+
+function setMsg(s) {
+  const el = document.getElementById('msg');
+  if (el) el.textContent = String(s || '');
+}
+
+function syncTextarea() {
   const el = document.getElementById('cfg');
-  let obj = {};
-  try { obj = JSON.parse(el.value || '{}'); } catch(e) {
-    document.getElementById('msg').textContent = 'JSON non valido: ' + e;
+  if (!el) return;
+  el.value = JSON.stringify(cfg, null, 2);
+}
+
+function sanitizeTherm(t) {
+  const id = String((t && t.id) ?? '').trim();
+  const name = String((t && t.name) ?? '').trim();
+  const src = (t && t.source && typeof t.source === 'object') ? t.source : {};
+  const srcType = String(src.type || 'esafe').trim().toLowerCase();
+  const srcNum = Number(src.num);
+  const outputs = (t && t.outputs && typeof t.outputs === 'object') ? t.outputs : {};
+  const outHeat = (t && t.outputs_heat && typeof t.outputs_heat === 'object') ? t.outputs_heat : null;
+  const outCool = (t && t.outputs_cool && typeof t.outputs_cool === 'object') ? t.outputs_cool : null;
+  const profile = String((t && t.profile) ?? '').trim();
+  const autoCtl = !!(t && t.auto_control_enabled);
+  const base = {
+    id: id,
+    name: name || ('e-Therm ' + (id || '?')),
+    source: { type: (srcType || 'esafe'), num: Number.isFinite(srcNum) ? srcNum : 1 },
+    outputs: { power: !!outputs.power, fan3: !!outputs.fan3 },
+    auto_control_enabled: autoCtl,
+    ...(profile ? { profile } : {}),
+  };
+  if (outHeat || outCool) {
+    // Split outputs by season
+    const h = outHeat || {};
+    const c = outCool || {};
+    base.outputs_heat = { power: !!h.power, fan3: !!h.fan3 };
+    base.outputs_cool = { power: !!c.power, fan3: !!c.fan3 };
+  }
+  return base;
+}
+
+function ensureUniqueId(id, idx) {
+  const sid = String(id || '').trim();
+  if (!sid) return false;
+  for (let i = 0; i < cfg.thermostats.length; i++) {
+    if (i === idx) continue;
+    if (String(cfg.thermostats[i].id) === sid) return false;
+  }
+  return true;
+}
+
+function renderList() {
+  const list = document.getElementById('list');
+  if (!list) return;
+  list.innerHTML = '';
+  const items = cfg.thermostats || [];
+  if (!items.length) {
+    const empty = document.createElement('div');
+    empty.className = 'muted';
+    empty.textContent = 'Nessun termostato configurato.';
+    list.appendChild(empty);
+    syncTextarea();
     return;
   }
-  const base = window.location.pathname.split('/vtherm')[0] || '';
+  items.forEach((raw, idx) => {
+    const t = sanitizeTherm(raw);
+    const split = !!(t.outputs_heat || t.outputs_cool);
+    const el = document.createElement('div');
+    el.className = 'item';
+    const left = document.createElement('div');
+    left.className = 'left';
+    left.innerHTML =
+      '<div class="name">' + escapeHtml(t.name) + '</div>' +
+      '<div class="sub">ID ' + escapeHtml(String(t.id)) + ' • source ' + escapeHtml(String(t.source.type)) + ':' + escapeHtml(String(t.source.num)) + '</div>';
+    const chips = document.createElement('div');
+    chips.className = 'chips';
+    if (!split) {
+      chips.innerHTML =
+        '<span class="chip">power: ' + (t.outputs.power ? 'ON' : 'OFF') + '</span>' +
+        '<span class="chip">fan3: ' + (t.outputs.fan3 ? 'ON' : 'OFF') + '</span>' +
+        (t.profile ? ('<span class="chip">profile: ' + escapeHtml(t.profile) + '</span>') : '');
+    } else {
+      const h = t.outputs_heat || { power:false, fan3:false };
+      const c = t.outputs_cool || { power:false, fan3:false };
+      chips.innerHTML =
+        '<span class="chip">Heat power: ' + (h.power ? 'ON' : 'OFF') + '</span>' +
+        '<span class="chip">Heat fan3: ' + (h.fan3 ? 'ON' : 'OFF') + '</span>' +
+        '<span class="chip">Cool power: ' + (c.power ? 'ON' : 'OFF') + '</span>' +
+        '<span class="chip">Cool fan3: ' + (c.fan3 ? 'ON' : 'OFF') + '</span>' +
+        (t.profile ? ('<span class="chip">profile: ' + escapeHtml(t.profile) + '</span>') : '');
+    }
+    left.appendChild(chips);
+
+    const right = document.createElement('div');
+    right.className = 'row';
+    right.innerHTML =
+      '<button class="btn" data-a="edit">Modifica</button>' +
+      '<button class="btn" data-a="dup">Duplica</button>' +
+      '<button class="btn danger" data-a="del">Elimina</button>';
+    right.querySelector('[data-a="edit"]').onclick = () => editItem(idx);
+    right.querySelector('[data-a="dup"]').onclick = () => dupItem(idx);
+    right.querySelector('[data-a="del"]').onclick = () => delItem(idx);
+
+    el.appendChild(left);
+    el.appendChild(right);
+    list.appendChild(el);
+  });
+  syncTextarea();
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',\"'\":'&#39;'}[c] || c));
+}
+
+function openDlg(title) {
+  const dlg = document.getElementById('dlg');
+  const t = document.getElementById('dlgTitle');
+  const m = document.getElementById('dlgMsg');
+  if (t) t.textContent = title || 'Termostato';
+  if (m) m.textContent = '';
+  if (dlg) dlg.showModal();
+}
+
+function closeDlg() {
+  const dlg = document.getElementById('dlg');
+  if (dlg) dlg.close();
+}
+
+function editItem(idx) {
+  editIndex = idx;
+  const t = sanitizeTherm(cfg.thermostats[idx] || {});
+  const split = !!(t.outputs_heat || t.outputs_cool);
+  document.getElementById('f_id').value = String(t.id || '');
+  document.getElementById('f_name').value = String(t.name || '');
+  document.getElementById('f_src_type').value = String(t.source.type || 'esafe');
+  document.getElementById('f_src_num').value = String(t.source.num || 1);
+  document.getElementById('f_profile').value = String(t.profile || '');
+  document.getElementById('f_auto').checked = !!t.auto_control_enabled;
+  document.getElementById('f_split').checked = !!split;
+  if (!split) {
+    document.getElementById('f_heat_power').checked = !!t.outputs.power;
+    document.getElementById('f_heat_fan3').checked = !!t.outputs.fan3;
+    document.getElementById('f_cool_power').checked = !!t.outputs.power;
+    document.getElementById('f_cool_fan3').checked = !!t.outputs.fan3;
+  } else {
+    const h = t.outputs_heat || {};
+    const c = t.outputs_cool || {};
+    document.getElementById('f_heat_power').checked = !!h.power;
+    document.getElementById('f_heat_fan3').checked = !!h.fan3;
+    document.getElementById('f_cool_power').checked = !!c.power;
+    document.getElementById('f_cool_fan3').checked = !!c.fan3;
+  }
+  openDlg('Modifica termostato');
+}
+
+function addNew() {
+  editIndex = -1;
+  const nextId = String(findNextId());
+  document.getElementById('f_id').value = nextId;
+  document.getElementById('f_name').value = 'Cantina ' + nextId;
+  document.getElementById('f_src_type').value = 'esafe';
+  document.getElementById('f_src_num').value = '1';
+  document.getElementById('f_profile').value = '';
+  document.getElementById('f_auto').checked = false;
+  document.getElementById('f_split').checked = false;
+  document.getElementById('f_heat_power').checked = true;
+  document.getElementById('f_heat_fan3').checked = true;
+  document.getElementById('f_cool_power').checked = true;
+  document.getElementById('f_cool_fan3').checked = true;
+  openDlg('Nuovo termostato');
+}
+
+function findNextId() {
+  const ids = new Set((cfg.thermostats || []).map(t => String((t||{}).id || '')).filter(Boolean));
+  for (let i = 1; i < 1000; i++) if (!ids.has(String(i))) return i;
+  return (cfg.thermostats || []).length + 1;
+}
+
+function saveItem() {
+  const id = String(document.getElementById('f_id').value || '').trim();
+  const name = String(document.getElementById('f_name').value || '').trim();
+  const srcType = String(document.getElementById('f_src_type').value || 'esafe').trim().toLowerCase();
+  const srcNum = Number(String(document.getElementById('f_src_num').value || '').trim());
+  const profile = String(document.getElementById('f_profile').value || '').trim();
+  const split = !!document.getElementById('f_split').checked;
+  const autoCtl = !!document.getElementById('f_auto').checked;
+  const hPower = !!document.getElementById('f_heat_power').checked;
+  const hFan3 = !!document.getElementById('f_heat_fan3').checked;
+  const cPower = !!document.getElementById('f_cool_power').checked;
+  const cFan3 = !!document.getElementById('f_cool_fan3').checked;
+  const msg = document.getElementById('dlgMsg');
+
+  if (!id) { if (msg) msg.textContent = 'ID obbligatorio.'; return; }
+  if (!ensureUniqueId(id, editIndex)) { if (msg) msg.textContent = 'ID già usato: scegli un ID unico.'; return; }
+  if (!Number.isFinite(srcNum) || srcNum <= 0) { if (msg) msg.textContent = 'Source num non valido (deve essere un numero > 0).'; return; }
+  if (!split) {
+    if (!hPower && !hFan3) { if (msg) msg.textContent = 'Seleziona almeno una uscita (power o fan3).'; return; }
+  } else {
+    if (!hPower && !hFan3 && !cPower && !cFan3) { if (msg) msg.textContent = 'Seleziona almeno una uscita (Heat o Cool).'; return; }
+  }
+
+  const itemBase = {
+    id: id,
+    name: name,
+    source: { type: srcType, num: srcNum },
+    profile: profile,
+    auto_control_enabled: autoCtl,
+  };
+  let item = null;
+  if (!split) {
+    item = sanitizeTherm({
+      ...itemBase,
+      outputs: { power: hPower, fan3: hFan3 },
+    });
+    // ensure no seasonal fields
+    delete item.outputs_heat;
+    delete item.outputs_cool;
+  } else {
+    item = sanitizeTherm({
+      ...itemBase,
+      outputs: { power: false, fan3: false },
+      outputs_heat: { power: hPower, fan3: hFan3 },
+      outputs_cool: { power: cPower, fan3: cFan3 },
+    });
+  }
+
+  if (editIndex >= 0) cfg.thermostats[editIndex] = item;
+  else cfg.thermostats.push(item);
+
+  closeDlg();
+  renderList();
+}
+
+function delItem(idx) {
+  const t = sanitizeTherm(cfg.thermostats[idx] || {});
+  if (!confirm('Eliminare ' + t.name + ' (ID ' + t.id + ')?\\n\\nNota: Home Assistant rimuoverà automaticamente le entità MQTT Discovery.')) return;
+  cfg.thermostats.splice(idx, 1);
+  renderList();
+}
+
+function dupItem(idx) {
+  const t = sanitizeTherm(cfg.thermostats[idx] || {});
+  const id = String(findNextId());
+  const c = { ...t, id: id, name: (t.name || 'Termostato') + ' (copia)' };
+  cfg.thermostats.push(c);
+  renderList();
+}
+
+function clearAll() {
+  if (!confirm('Svuotare tutti i termostati virtuali?')) return;
+  cfg.thermostats = [];
+  renderList();
+}
+
+function copyJson() {
+  try {
+    const txt = JSON.stringify(cfg, null, 2);
+    navigator.clipboard.writeText(txt);
+    setMsg('JSON copiato negli appunti.');
+  } catch (e) {
+    setMsg('Copia non disponibile: ' + e);
+  }
+}
+
+async function saveCfg() {
+  // If user edited the textarea, accept it as source of truth.
+  const el = document.getElementById('cfg');
+  if (el && el.value && el.value.trim().length) {
+    try {
+      const obj = JSON.parse(el.value || '{}');
+      if (obj && typeof obj === 'object') cfg = obj;
+      if (!cfg.thermostats || !Array.isArray(cfg.thermostats)) cfg.thermostats = [];
+    } catch (e) {
+      setMsg('JSON non valido: ' + e);
+      return;
+    }
+  }
+  // Sanitize list
+  cfg.thermostats = (cfg.thermostats || []).map(sanitizeTherm);
+  renderList();
+
+  const base = basePath();
   try {
     const res = await fetch(base + '/api/cmd', {
       method:'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({type:'vtherm_config', action:'save', value: obj})
+      body: JSON.stringify({type:'vtherm_config', action:'save', value: cfg})
     });
     const txt = await res.text();
-    document.getElementById('msg').textContent =
-      res.ok ? 'Salvato ✅' : ('Errore (' + res.status + '): ' + (txt || ''));
+    setMsg(res.ok ? 'Salvato ✅' : ('Errore (' + res.status + '): ' + (txt || '')));
   } catch (e) {
-    document.getElementById('msg').textContent = 'Errore fetch: ' + e;
+    setMsg('Errore fetch: ' + e);
   }
 }
+
+async function reloadCfg() {
+  try {
+    const res = await fetch(basePath() + '/api/vtherm/config', { cache: 'no-store' });
+    if (!res.ok) { setMsg('Ricarica fallita: ' + res.status); return; }
+    const obj = await res.json();
+    cfg = (obj && typeof obj === 'object') ? obj : {};
+    if (!cfg.thermostats || !Array.isArray(cfg.thermostats)) cfg.thermostats = [];
+    setMsg('Config ricaricata.');
+    renderList();
+  } catch (e) {
+    setMsg('Ricarica fallita: ' + e);
+  }
+}
+
+renderList();
 </script>
 </body>
 </html>"""
-    return html.replace("__INIT_JSON__", init).encode("utf-8")
+    return html.replace("__INIT_JSON__", init).replace("__HEALTH_HTML__", health_html).encode("utf-8")
+
+
+
+
+
 
 
 

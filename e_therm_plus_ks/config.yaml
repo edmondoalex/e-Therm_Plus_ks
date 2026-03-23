@@ -1,8 +1,7 @@
 name: e-Therm Plus KS
 slug: e_therm_plus_ks
-version: "2.0.4"
-description: Termostati virtuali manuali (fonte e-safe) con UI identica, PWM/3-relay (in sviluppo)
-url: https://github.com/edmondoalex/e-Therm_Plus_ks
+version: "2.6.6"
+description: Termostati virtuali manuali (fonte e-safe) con UI dedicata + MQTT Discovery; PWM/3-rel? in sviluppo
 startup: services
 boot: auto
 
@@ -36,6 +35,29 @@ options:
   control_interval_sec: 5
   default_profile: WINE_CELLAR
 
+  auto_control_enabled: false
+  auto_override_sec: 300
+
+  pwm_kp: 10.0
+  pwm_ki: 0.1
+  pwm_windup: 100.0
+  pwm_deadband: 0.2
+  pwm_min_to_med: 34
+  pwm_med_to_max: 67
+
+  watchdog_enabled: true
+  watchdog_stale_sec: 120
+
+  log_level: MIN
+  log_auto_pwm_step: 5
+  log_auto_min_sec: 60
+  log_temp_delta: 0.5
+  log_temp_max_sec: 600
+  log_rh_delta: 10
+  log_rh_max_sec: 600
+  log_ack_timeout_sec: 20
+  log_file_max_kb: 2048
+
 schema:
   mqtt_host: str
   mqtt_port: int
@@ -51,3 +73,26 @@ schema:
 
   control_interval_sec: int
   default_profile: list(WINE_CELLAR|HOUSE_ECO|HOUSE_COMFORT)
+
+  auto_control_enabled: bool
+  auto_override_sec: int
+
+  pwm_kp: float
+  pwm_ki: float
+  pwm_windup: float
+  pwm_deadband: float
+  pwm_min_to_med: int
+  pwm_med_to_max: int
+
+  watchdog_enabled: bool
+  watchdog_stale_sec: int
+
+  log_level: list(MIN|NORMAL|DEBUG)
+  log_auto_pwm_step: int
+  log_auto_min_sec: int
+  log_temp_delta: float
+  log_temp_max_sec: int
+  log_rh_delta: float
+  log_rh_max_sec: int
+  log_ack_timeout_sec: int
+  log_file_max_kb: int

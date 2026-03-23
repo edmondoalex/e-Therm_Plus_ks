@@ -20,6 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG = ROOT / "config.yaml"
 WORKLOG = ROOT / "worklog.md"
+DEBUG_SERVER = ROOT / "app" / "debug_server.py"
 
 
 def backup(p: Path) -> Path:
@@ -36,6 +37,18 @@ def update_config_version(cfg_path: Path, new_version: str) -> bool:
         raise RuntimeError(f"version: line not found in {cfg_path}")
     new_txt = pat.sub(lambda m: f"{m.group(1)}\"{new_version}\"", txt, count=1)
     cfg_path.write_text(new_txt, encoding="utf-8")
+    return True
+
+
+def update_code_version(py_path: Path, new_version: str) -> bool:
+    if not py_path.exists():
+        return False
+    txt = py_path.read_text(encoding="utf-8-sig")
+    pat = re.compile(r'(?m)^(\s*CODE_VERSION\s*=\s*)(["\'])([^"\']*)(["\'])\s*$')
+    if not pat.search(txt):
+        return False
+    new_txt = pat.sub(lambda m: f"{m.group(1)}\"{new_version}\"", txt, count=1)
+    py_path.write_text(new_txt, encoding="utf-8-sig")
     return True
 
 
@@ -86,6 +99,8 @@ def main() -> int:
 
     print(f"Updating {CONFIG} -> version {args.version}")
     update_config_version(CONFIG, args.version)
+    if update_code_version(DEBUG_SERVER, args.version):
+        print(f"Updated CODE_VERSION in {DEBUG_SERVER}")
 
     print(f"Appending worklog entry {args.version}")
     append_worklog(WORKLOG, args.version, args.author, args.notes, args.files)

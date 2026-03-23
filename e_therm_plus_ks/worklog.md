@@ -123,18 +123,172 @@ Step B (funzionalità "wow"):
 ## 2026-01-25 A
 - Added VTherm admin page and removed security PIN/WS UI items.
 
-
 ## 2026-01-25 — 2.0.3 — Autore: Automator
 - Automated test bump
 - File modificati: config.yaml, app/debug_server.py
-
-
-## 2026-01-25 — 2.0.3 — Autore: Automator
-- Automated test bump
-- File modificati: config.yaml, app/debug_server.py
-
 
 ## 2026-01-25  logo updated  Autore: Automator
-- Replaced addon logo with www/eTherm addon.png 
+- Replaced addon logo with www/eTherm addon.png
 
-2026-03-23 | 2.0.4 | codex | Aggiorna client MQTT (Callback API v2) e bump versione | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
+## 2026-01-25 — 2.0.4 — Autore: Automator
+- Bumped addon version to `2.0.4` after admin/UI fixes; updated `UI_REV` and worklog.
+- File modificati: `config.yaml`, `app/debug_server.py`, `worklog.md`.
+
+## 2026-01-25 — 2.0.5 — Autore: Automator
+- Automated bump to 2.0.5
+- File modificati: config.yaml, app/debug_server.py
+
+## 2026-01-25 — 2.0.6 — Autore: Automator
+- Bump to 2.0.6 before index_debug test
+- File modificati: config.yaml, app/debug_server.py
+
+## 2026-01-25 — 2.0.7 — Autore: Automator
+- Bump to 2.0.7; cleaned index_debug and worklog consolidation
+- File modificati: config.yaml, app/debug_server.py, worklog.md
+
+## 2026-01-25 — 2.0.8 — Autore: Codex
+- index_debug: logo in alto e versione mostrata = versione add-on (da `config.yaml` / `ADDON_VERSION`), non UI rev.
+- File modificati: `config.yaml`, `app/debug_server.py`, `worklog.md`.
+
+
+## 2026-01-25 — 2.0.9 — Autore: Codex
+- index_debug: logo in header; mostra versione add-on (non UI)
+- File modificati: config.yaml, app/debug_server.py, worklog.md
+
+
+## 2026-01-25 — 2.0.10 — Autore: Codex
+- index_debug: asset path compatibile con Ingress + fallback versione (CODE_VERSION)
+- File modificati: config.yaml, app/debug_server.py, scripts/bump_release.py, worklog.md
+
+## 2026-01-26 ? 2.1.0 ? Autore: Codex
+- Allineata documentazione/README a e-Therm Plus KS.
+- MQTT: comandi `power`/`fan3` funzionanti (subscribe su `.../set`), stato retained e interlock fan3; stato manuale persistito in `/data/vtherm_runtime.json`.
+- Web auth: `none`/`basic`/`token` (token via `?token=...` imposta cookie HttpOnly).
+- Packaging: Dockerfile copia `config.yaml` in image; `run.sh` non richiede pi? bashio.
+- File modificati: README.md, README_ADDON.md, config.yaml, Dockerfile, run.sh, app/main.py, app/debug_server.py, worklog.md
+
+
+## 2026-01-26 — 2.1.1 — Autore: Codex
+- Bump versione dopo fix runtime/UI/auth.
+- File modificati: config.yaml, app/debug_server.py, worklog.md
+
+
+## 2026-01-26 — 2.1.2 — Autore: Codex
+- Fix allineamento UI termostato: realtime.THERM + static WIN/SUM; implementati comandi set_season/set_mode/set_profile/set_schedule.
+- File modificati: app/main.py, config.yaml, app/debug_server.py, worklog.md
+
+
+## 2026-01-26 — 2.2.0 — Autore: Codex
+- Aggiunto clone bidirezionale MQTT climate (discovery) per termostati e-safe: comandi HA→e-safe (mode/preset/setpoint) e stato e-safe→HA.
+- File modificati: app/main.py, config.yaml, app/debug_server.py, worklog.md
+
+
+## 2026-01-26 — 2.3.0 — Autore: Codex
+- Aggiunto controllo automatico PWM (PI) + mapping fan3 (min/med/max) con override manuale; nuove opzioni in config.yaml.
+- File modificati: config.yaml, app/main.py, worklog.md
+
+
+## 2026-01-26 — 2.3.1 — Autore: Codex
+- Schema opzioni: esposte in UI auto_control_enabled e parametri PWM/fan3.
+- File modificati: config.yaml, worklog.md, app/debug_server.py
+
+
+## 2026-01-26 — 2.3.2 — Autore: Codex
+- Fix schema opzioni: pwm_* come float (risolve invalid options) + descrizione corretta.
+- File modificati: config.yaml, worklog.md, app/debug_server.py
+
+
+## 2026-01-26 — 2.3.3 — Autore: Codex
+- Auto cleanup MQTT Discovery: rimuovendo un vTherm da /vtherm l’add-on cancella i topic homeassistant/.../config retained (es. Cantina 2).
+- File modificati: app/main.py, config.yaml, app/debug_server.py, worklog.md
+
+
+## 2026-01-27 — 2.4.0 — Autore: Codex
+- UI vTherm user-friendly: CRUD termostati (aggiungi/modifica/duplica/elimina) + salvataggio, con editor JSON avanzato.
+- File modificati: app/debug_server.py, config.yaml, worklog.md
+
+
+## 2026-01-27 — 2.5.0 — Autore: Codex
+- Uscite separate per stagione: supporto outputs_heat/outputs_cool (heat vs cool) con topic MQTT e discovery distinti; UI vTherm aggiornata.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, worklog.md
+
+
+## 2026-01-27 — 2.5.1 — Autore: Codex
+- Auto control per-termometro: auto_control_enabled configurabile per ogni vTherm (fallback al globale); UI /vtherm aggiornata.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, worklog.md
+
+
+## 2026-01-27 — 2.5.2 — Autore: Codex
+- UI /vtherm: aggiunta descrizione accurata (guida configurazione e significato campi).
+- File modificati: app/debug_server.py, config.yaml, worklog.md
+
+
+## 2026-01-27 — 2.5.3 — Autore: Codex
+- UI vTherm: aggiunto pulsante Ricarica anche nel box Salvataggio e reso più visibile.
+- File modificati: app/debug_server.py
+
+
+## 2026-01-27 — 2.5.4 — Autore: Codex
+- README: spiegazione dettagliata (a prova di bambino) dei parametri default_profile e auto control (PWM/fan).
+- File modificati: README.md
+
+
+## 2026-01-27 — 2.5.5 — Autore: Codex
+- Watchdog stabile: auto-reconnect MQTT con backoff + ripartenza control thread; health visibile in /vtherm.
+- File modificati: app/main.py, config.yaml, app/debug_server.py
+
+
+## 2026-01-27 — 2.5.6 — Autore: Codex
+- Stabilita: ignora messaggi MQTT retained sui topic di comando */set per evitare override/auto bloccato dopo resubscribe.
+- File modificati: app/main.py
+
+
+## 2026-01-27 — 2.5.7 — Autore: Codex
+- Registro eventi e-Therm: log dettagliato con origine (esafe/ui/ha_mqtt/auto/system), persistito su /data/e_therm_events.jsonl; /logs include filtri origine/termostato e live update.
+- File modificati: app/main.py, app/debug_server.py
+
+
+## 2026-01-27 — 2.5.8 — Autore: Codex
+- Fix /logs vuoto: gli eventi e-Therm ora vengono pubblicati anche come entita type=logs (SSE live), oltre al salvataggio JSONL.
+- File modificati: app/main.py
+
+
+## 2026-01-27 — 2.5.9 — Autore: Codex
+- Diagnostica /logs: evento startup + pulsante Test log; handler e_therm/log_test.
+- File modificati: app/main.py, app/debug_server.py
+
+
+## 2026-01-27 — 2.6.0 — Autore: Codex
+- Fix /logs in Ingress: usa apiUrl() per /api/stream e /api/cmd; pulsante test log funziona anche via hassio_ingress.
+- File modificati: app/debug_server.py
+
+
+## 2026-01-28 — 2.6.1 — Autore: Codex
+- Fix /logs ancora vuoto: aggiunto polling /api/entities ogni 5s + refresh dopo Test log (fallback se SSE bloccato).
+- File modificati: app/debug_server.py
+
+
+## 2026-01-28 — 2.6.2 — Autore: Codex
+- Riduzione log: log_level (MIN/NORMAL/DEBUG), auto PWM throttling (step/time/stage), telemetria solo DEBUG, ACK/timeout per comandi UI/HA.
+- File modificati: config.yaml, app/main.py
+
+
+## 2026-01-28 — 2.6.3 — Autore: Codex
+- Logs UI: aggiunta esportazione TXT leggibile (rispetta filtri e ricerca).
+- File modificati: app/debug_server.py
+
+
+## 2026-01-28 — 2.6.4 — Autore: Codex
+- Log file cap: aggiunto log_file_max_kb e trimming automatico del file JSONL mantenendo gli eventi piu recenti.
+- File modificati: config.yaml, app/main.py
+
+
+## 2026-01-28 — 2.6.5 — Autore: Codex
+- Stabilita UI: /vtherm ora ha try/except e restituisce errore leggibile invece di pagina irraggiungibile.
+- File modificati: app/debug_server.py
+
+
+## 2026-01-28 — 2.6.6 — Autore: Codex
+- Fix /vtherm crash: import typing.Any in debug_server.
+- File modificati: app/debug_server.py
+
