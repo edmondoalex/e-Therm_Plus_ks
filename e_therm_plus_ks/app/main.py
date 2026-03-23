@@ -47,7 +47,17 @@ class ThermEngine:
         self.out_prefix = str(opts.get("out_prefix", "e-therm")).strip().rstrip("/")
         self.control_interval = int(opts.get("control_interval_sec", 5) or 5)
 
-        self.mqtt = mqtt.Client(client_id=f"e-therm-plus-{int(time.time())}")
+        client_id = f"e-therm-plus-{int(time.time())}"
+        # Use latest callback API when available (paho-mqtt >= 2.0)
+        try:
+            self.mqtt = mqtt.Client(
+                client_id=client_id,
+                protocol=mqtt.MQTTv311,
+                transport="tcp",
+                callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+            )
+        except Exception:
+            self.mqtt = mqtt.Client(client_id=client_id)
         user = (opts.get("mqtt_user") or "").strip()
         pw = (opts.get("mqtt_password") or "")
         if user:

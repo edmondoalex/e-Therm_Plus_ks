@@ -137,3 +137,4 @@ Step B (funzionalità "wow"):
 ## 2026-01-25  logo updated  Autore: Automator
 - Replaced addon logo with www/eTherm addon.png 
 
+2026-03-23 | 2.0.4 | codex | Aggiorna client MQTT (Callback API v2) e bump versione | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
