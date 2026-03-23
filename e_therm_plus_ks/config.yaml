@@ -1,0 +1,53 @@
+name: e-Therm Plus KS
+slug: e_therm_plus_ks
+version: "2.0.3"
+description: Termostati virtuali manuali (fonte e-safe) con UI identica, PWM/3-relay (in sviluppo)
+url: https://github.com/edmondoalex/e-Therm_Plus_ks
+startup: services
+boot: auto
+
+ingress: true
+ingress_port: 8080
+ingress_entry: /menu
+
+ports:
+  8080/tcp: 8080
+
+webui: http://[HOST]:[PORT:8080]/menu
+
+arch:
+  - amd64
+  - aarch64
+  - armv7
+
+options:
+  mqtt_host: core-mosquitto
+  mqtt_port: 1883
+  mqtt_user: ""
+  mqtt_password: ""
+  source_prefix: e-safe
+  out_prefix: e-therm
+
+  web_auth_mode: none
+  web_basic_user: ""
+  web_basic_pass: ""
+  web_token: ""
+
+  control_interval_sec: 5
+  default_profile: WINE_CELLAR
+
+schema:
+  mqtt_host: str
+  mqtt_port: int
+  mqtt_user: str?
+  mqtt_password: password?
+  source_prefix: str
+  out_prefix: str
+
+  web_auth_mode: list(none|basic|token)
+  web_basic_user: str?
+  web_basic_pass: password?
+  web_token: password?
+
+  control_interval_sec: int
+  default_profile: list(WINE_CELLAR|HOUSE_ECO|HOUSE_COMFORT)

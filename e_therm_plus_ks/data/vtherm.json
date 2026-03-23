@@ -1,0 +1,11 @@
+{
+  "thermostats": [
+    {
+      "id": "1",
+      "name": "Cantina 1",
+      "source": {"type": "esafe", "num": 1},
+      "outputs": {"fan3": true, "power": true},
+      "profile": "WINE_CELLAR"
+    }
+  ]
+}
