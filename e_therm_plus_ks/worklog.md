@@ -308,3 +308,4 @@ Step B (funzionalità "wow"):
 2026-03-24 | 2.6.20 | codex | Persist and restore realtime e-safe thermostat state on restart to align UI without manual setpoint change | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
 2026-03-24 | 2.6.21 | codex | Force MQTT callback API v1 compatibility and suppress related deprecation warning in logs | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
 2026-03-24 | 2.6.22 | codex | Add simple valve topic by thermostat id (e-therm/valv/<id>/set) for easier MQTT filtering | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
+2026-03-24 | 2.6.23 | codex | Add MQTT Discovery switch valv per thermostat device | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md

@@ -13,7 +13,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.22"
+APP_VERSION = "2.6.23"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -592,6 +592,7 @@ class ThermEngine:
         topics = [
             f"{base}/climate/e_therm_{tid}_climate/config",
             f"{base}/sensor/e_therm_{tid}_humidity/config",
+            f"{base}/switch/e_therm_{tid}_valv/config",
         ]
         if outputs.get("power"):
             topics.append(f"{base}/number/e_therm_{tid}_power/config")
@@ -632,6 +633,7 @@ class ThermEngine:
         topics = [
             f"{base}/climate/e_therm_{tid}_climate/config",
             f"{base}/sensor/e_therm_{tid}_humidity/config",
+            f"{base}/switch/e_therm_{tid}_valv/config",
         ]
         if heat_out.get("power"):
             topics.append(f"{base}/number/e_therm_{tid}_heat_power/config")
@@ -2095,6 +2097,22 @@ class ThermEngine:
                 "unit_of_measurement": "%",
             }
             self.mqtt.publish(hum_topic, json.dumps(hum_cfg, ensure_ascii=False), retain=True)
+
+            # Valve switch (state mirror)
+            valv_uid = f"e_therm_{tid}_valv"
+            valv_topic = f"{base}/switch/{valv_uid}/config"
+            valv_cfg = {
+                "name": f"{name} Valv",
+                "unique_id": valv_uid,
+                "availability_topic": f"{self.out_prefix}/status",
+                "payload_available": "online",
+                "payload_not_available": "offline",
+                "state_topic": f"{self.out_prefix}/valv/{tid}/set",
+                "payload_on": "ON",
+                "payload_off": "OFF",
+                "device": dev,
+            }
+            self.mqtt.publish(valv_topic, json.dumps(valv_cfg, ensure_ascii=False), retain=True)
 
             # Outputs discovery:
             # - legacy: e-therm/thermostats/<id>/power + /fan/<sp>
