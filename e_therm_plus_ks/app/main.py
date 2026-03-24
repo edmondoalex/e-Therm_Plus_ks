@@ -12,7 +12,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.17"
+APP_VERSION = "2.6.18"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 
 DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
@@ -464,6 +464,21 @@ class ThermEngine:
             pass
         return c
 
+    def _mqtt_target(self) -> tuple[str, int]:
+        """Read MQTT host/port from live options.json first, then fallback to cached opts."""
+        try:
+            live = load_options()
+            if isinstance(live, dict):
+                host = str(live.get("mqtt_host", self.opts.get("mqtt_host", "core-mosquitto"))).strip()
+                port = int(live.get("mqtt_port", self.opts.get("mqtt_port", 1883)) or 1883)
+                # Keep a synced in-memory view for watchdog/config reads.
+                self.opts["mqtt_host"] = host
+                self.opts["mqtt_port"] = port
+                return host, port
+        except Exception:
+            pass
+        return str(self.opts.get("mqtt_host", "core-mosquitto")).strip(), int(self.opts.get("mqtt_port", 1883) or 1883)
+
     def _on_connect_dispatch(self, *args, **kwargs):
         try:
             return self._on_connect(*args, **kwargs)
@@ -671,8 +686,7 @@ class ThermEngine:
     # -------------------- MQTT connect --------------------
 
     def connect(self):
-        host = str(self.opts.get("mqtt_host", "core-mosquitto"))
-        port = int(self.opts.get("mqtt_port", 1883))
+        host, port = self._mqtt_target()
         try:
             self.mqtt.connect(host, port, 60)
             self.mqtt.loop_start()
@@ -698,8 +712,7 @@ class ThermEngine:
             self._last_reconnect_reason = str(reason or "").strip()
 
         try:
-            host = str(self.opts.get("mqtt_host", "core-mosquitto"))
-            port = int(self.opts.get("mqtt_port", 1883))
+            host, port = self._mqtt_target()
             print(f"[WATCHDOG] MQTT reconnect: {host}:{port} reason={self._last_reconnect_reason}")
             try:
                 self._log_event(
