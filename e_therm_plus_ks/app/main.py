@@ -3,6 +3,8 @@ import os
 import time
 import threading
 import warnings
+import urllib.request
+import urllib.error
 from typing import Any, Dict, Optional, List
 
 import paho.mqtt.client as mqtt
@@ -13,7 +15,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.29"
+APP_VERSION = "2.6.30"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -179,6 +181,7 @@ class ThermEngine:
         self._last_reconnect_attempt_ts = 0.0
         self._reconnect_backoff_sec = 5.0
         self._last_reconnect_reason = ""
+        self._last_ha_poll_ts = 0.0
 
         # realtime cache per vtherm id
         self.rt: Dict[str, Dict[str, Any]] = {}
@@ -587,6 +590,106 @@ class ThermEngine:
                 return t
         return None
 
+    def _ha_climate_terms(self) -> List[Dict[str, Any]]:
+        out: List[Dict[str, Any]] = []
+        for t in self.therm_list():
+            src = t.get("source") or {}
+            st = str(src.get("type", "")).lower()
+            if st in ("ha_climate", "homeassistant_climate", "ha"):
+                ent = str(src.get("entity_id") or "").strip()
+                if ent:
+                    out.append(t)
+        return out
+
+    def _ha_api_request(self, method: str, path: str, payload: Optional[Dict[str, Any]] = None) -> Optional[Any]:
+        token = os.environ.get("SUPERVISOR_TOKEN", "").strip()
+        if not token:
+            return None
+        url = f"http://supervisor/core/api{path}"
+        data = None
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+        if payload is not None:
+            data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(url=url, data=data, headers=headers, method=method.upper())
+        try:
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                raw = resp.read().decode("utf-8", errors="ignore")
+                if not raw:
+                    return None
+                try:
+                    return json.loads(raw)
+                except Exception:
+                    return None
+        except Exception:
+            return None
+
+    def _poll_ha_climate_states(self, force: bool = False) -> None:
+        terms = self._ha_climate_terms()
+        if not terms:
+            return
+        now = time.time()
+        if not force and (now - float(self._last_ha_poll_ts or 0.0)) < 5.0:
+            return
+        self._last_ha_poll_ts = now
+
+        for t in terms:
+            tid = str(t.get("id"))
+            src = t.get("source") or {}
+            ent = str(src.get("entity_id") or "").strip()
+            if not ent:
+                continue
+            st = self._ha_api_request("GET", f"/states/{ent}")
+            if not isinstance(st, dict):
+                continue
+            attrs = st.get("attributes") if isinstance(st.get("attributes"), dict) else {}
+            if not isinstance(attrs, dict):
+                attrs = {}
+            cur = _as_float(attrs.get("current_temperature"))
+            rh = _as_float(attrs.get("current_humidity"))
+            tgt = _as_float(attrs.get("temperature"))
+            hvac = str(st.get("state") or "").strip().lower()
+            preset = str(attrs.get("preset_mode") or "").strip().upper()
+
+            with self.lock:
+                rt = self.rt.setdefault(tid, {})
+                th = rt.setdefault("THERM", {})
+                if cur is not None:
+                    rt["TEMP"] = float(cur)
+                if rh is not None:
+                    rt["RH"] = float(rh)
+                if tgt is not None:
+                    th["TEMP_THR"] = {"VAL": float(tgt)}
+                if hvac == "cool":
+                    th["ACT_SEA"] = "SUM"
+                elif hvac == "heat":
+                    th["ACT_SEA"] = "WIN"
+                elif hvac == "off":
+                    th["ACT_MODEL"] = "OFF"
+                if preset:
+                    th["ACT_MODEL"] = preset
+                elif hvac in ("heat", "cool"):
+                    th["ACT_MODEL"] = "MAN"
+                out_status = "OFF" if hvac == "off" else "ON"
+                th["OUT_STATUS"] = out_status
+
+            try:
+                self._last_source_ts = time.time()
+                self._ever_got_source = True
+            except Exception:
+                pass
+
+        self._sync_ui()
+        self._persist_rt_cache()
+
+    def _ha_climate_service(self, entity_id: str, service: str, data: Dict[str, Any]) -> bool:
+        payload = {"entity_id": entity_id}
+        payload.update(data or {})
+        res = self._ha_api_request("POST", f"/services/climate/{service}", payload)
+        return res is not None
+
     def _discovery_topics_for_therm(self, tid: str, outputs: Dict[str, Any]) -> List[str]:
         base = "homeassistant"
         topics = [
@@ -908,6 +1011,12 @@ class ThermEngine:
             except Exception:
                 pass
             self.start_control()
+
+        # Keep HA climate-backed thermostats refreshed even without MQTT source events.
+        try:
+            self._poll_ha_climate_states()
+        except Exception:
+            pass
 
         # If MQTT reports disconnected, attempt reconnect with backoff.
         if not bool(self._mqtt_connected):
@@ -1265,6 +1374,10 @@ class ThermEngine:
         client.subscribe(f"{self.out_prefix}/thermostats/+/preset_mode/set", qos=0)
 
         self._sync_ui()
+        try:
+            self._poll_ha_climate_states(force=True)
+        except Exception:
+            pass
         self._publish_discovery()
         client.publish(f"{self.out_prefix}/status", "online", retain=True)
 
@@ -1566,11 +1679,19 @@ class ThermEngine:
         if not t:
             return
         src = t.get("source") or {}
-        if str(src.get("type", "")).lower() not in ("esafe", "esafe_json"):
+        stype = str(src.get("type", "")).lower()
+        is_esafe = stype in ("esafe", "esafe_json")
+        is_ha = stype in ("ha_climate", "homeassistant_climate", "ha")
+        if not (is_esafe or is_ha):
             return
-        try:
-            num = int(src.get("num"))
-        except Exception:
+        num = None
+        if is_esafe:
+            try:
+                num = int(src.get("num"))
+            except Exception:
+                return
+        ent = str(src.get("entity_id") or "").strip() if is_ha else ""
+        if is_ha and not ent:
             return
         name = str(t.get("name") or f"vTherm {tid}")
 
@@ -1590,7 +1711,10 @@ class ThermEngine:
                 thr0 = th0.get("TEMP_THR") if isinstance(th0.get("TEMP_THR"), dict) else None
                 if thr0 and thr0.get("VAL") is not None:
                     old_v = _as_float(thr0.get("VAL"))
-            self.mqtt.publish(f"{self.source_prefix}/cmd/thermostat/{num}/temperature", str(v), retain=False)
+            if is_esafe:
+                self.mqtt.publish(f"{self.source_prefix}/cmd/thermostat/{num}/temperature", str(v), retain=False)
+            else:
+                self._ha_climate_service(ent, "set_temperature", {"temperature": float(v)})
             try:
                 self._register_ack(tid=str(tid), field="setpoint", origin=origin, expected=float(v))
             except Exception:
@@ -1625,7 +1749,10 @@ class ThermEngine:
                 rt0 = self.rt.setdefault(str(tid), {})
                 th0 = rt0.setdefault("THERM", {})
                 old_sea = str(th0.get("ACT_SEA") or "").upper() or None
-            self.mqtt.publish(f"{self.source_prefix}/cmd/thermostat/{num}/mode", m, retain=False)
+            if is_esafe:
+                self.mqtt.publish(f"{self.source_prefix}/cmd/thermostat/{num}/mode", m, retain=False)
+            else:
+                self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": m})
             new_sea = "WIN" if m == "heat" else ("SUM" if m == "cool" else "OFF")
             try:
                 self._register_ack(tid=str(tid), field="season", origin=origin, expected=new_sea)
@@ -1664,7 +1791,10 @@ class ThermEngine:
                 rt0 = self.rt.setdefault(str(tid), {})
                 th0 = rt0.setdefault("THERM", {})
                 old_p = str(th0.get("ACT_MODEL") or th0.get("ACT_MODE") or "").upper() or None
-            self.mqtt.publish(f"{self.source_prefix}/cmd/thermostat/{num}/preset_mode", p, retain=False)
+            if is_esafe:
+                self.mqtt.publish(f"{self.source_prefix}/cmd/thermostat/{num}/preset_mode", p, retain=False)
+            else:
+                self._ha_climate_service(ent, "set_preset_mode", {"preset_mode": p.lower()})
             try:
                 self._register_ack(tid=str(tid), field="mode", origin=origin, expected=p)
             except Exception:
