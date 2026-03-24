@@ -292,3 +292,4 @@ Step B (funzionalità "wow"):
 - Fix /vtherm crash: import typing.Any in debug_server.
 - File modificati: app/debug_server.py
 
+2026-03-24 | 2.6.7 | codex | Publish valve topic per termostato (PWM/stadi ON/OFF) | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md

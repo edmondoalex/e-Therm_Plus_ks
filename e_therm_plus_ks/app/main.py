@@ -107,6 +107,17 @@ def _get_any(d: Dict[str, Any], *candidates: Any) -> Any:
             continue
     return None
 
+def _topic_safe_name(name: Any) -> str:
+    try:
+        s = str(name or "").strip()
+        if not s:
+            return "unknown"
+        s = s.replace("/", "_").replace("\\", "_")
+        s = "_".join(s.split())
+        return s
+    except Exception:
+        return "unknown"
+
 
 class ThermEngine:
     def __init__(self, state: LaresState, opts: Dict[str, Any]):
@@ -1324,6 +1335,13 @@ class ThermEngine:
                         val,
                         retain=True,
                     )
+            if outputs.get("power") or outputs.get("fan3"):
+                power = int(desired.get("power", 0) or 0)
+                fan = desired.get("fan") or {}
+                fan_on = str(fan.get("min", "OFF")).upper() == "ON" or str(fan.get("med", "OFF")).upper() == "ON" or str(fan.get("max", "OFF")).upper() == "ON"
+                valv = "ON" if (power > 0 or fan_on) else "OFF"
+                name = _topic_safe_name(t.get("name") or f"vTherm_{tid}")
+                self.mqtt.publish(f"{self.out_prefix}/thermostats/{name}/valv/set", valv, retain=True)
             return
 
         sk = season_key or "heat"
@@ -1338,6 +1356,13 @@ class ThermEngine:
                 val = str(fan.get(sp, "OFF")).upper()
                 val = "ON" if val in ("ON", "1", "TRUE") else "OFF"
                 self.mqtt.publish(f"{base}/fan/{sp}", val, retain=True)
+        if outputs.get("power") or outputs.get("fan3"):
+            power = int(desired.get("power", 0) or 0)
+            fan = desired.get("fan") or {}
+            fan_on = str(fan.get("min", "OFF")).upper() == "ON" or str(fan.get("med", "OFF")).upper() == "ON" or str(fan.get("max", "OFF")).upper() == "ON"
+            valv = "ON" if (power > 0 or fan_on) else "OFF"
+            name = _topic_safe_name(t.get("name") or f"vTherm_{tid}")
+            self.mqtt.publish(f"{self.out_prefix}/thermostats/{name}/valv/set", valv, retain=True)
 
     # -------------------- HA clone (MQTT climate) --------------------
 
