@@ -2,6 +2,7 @@ import json
 import os
 import time
 import threading
+import warnings
 from typing import Any, Dict, Optional, List
 
 import paho.mqtt.client as mqtt
@@ -12,9 +13,16 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.20"
+APP_VERSION = "2.6.21"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
+
+# Keep logs clean in HA while we intentionally run callback API v1 for compatibility.
+warnings.filterwarnings(
+    "ignore",
+    message="Callback API version 1 is deprecated, update to latest version",
+    category=DeprecationWarning,
+)
 
 DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
 
@@ -471,7 +479,13 @@ class ThermEngine:
         client_id = f"e-therm-plus-{int(time.time())}"
         # Keep client creation conservative to avoid runtime mismatch between
         # callback API versions across environments.
-        c = mqtt.Client(client_id=client_id)
+        try:
+            c = mqtt.Client(
+                client_id=client_id,
+                callback_api_version=mqtt.CallbackAPIVersion.VERSION1,
+            )
+        except Exception:
+            c = mqtt.Client(client_id=client_id)
         user = (self.opts.get("mqtt_user") or "").strip()
         pw = (self.opts.get("mqtt_password") or "")
         if user:
