@@ -304,3 +304,4 @@ Step B (funzionalità "wow"):
 2026-03-24 | 2.6.16 | codex | Add explicit boot marker in logs to verify deployed code version | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
 2026-03-24 | 2.6.17 | codex | Add robust MQTT callback dispatchers with v1/v2 signature fallback | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
 2026-03-24 | 2.6.18 | codex | Reconnect now reads live MQTT host/port from options.json to avoid stale core-mosquitto fallback | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
+2026-03-24 | 2.6.19 | codex | Add diagnostics for options.json read and mqtt_host fallback source | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md

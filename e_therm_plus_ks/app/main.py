@@ -12,8 +12,9 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.18"
+APP_VERSION = "2.6.19"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
+_OPTIONS_WARNED = False
 
 DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
 
@@ -36,7 +37,22 @@ def _save_json(path: str, data: Dict[str, Any]) -> None:
 
 
 def load_options() -> Dict[str, Any]:
-    return _load_json("/data/options.json")
+    global _OPTIONS_WARNED
+    path = "/data/options.json"
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            return data
+        if not _OPTIONS_WARNED:
+            print(f"[WARN] options.json is not a dict: {type(data).__name__}")
+            _OPTIONS_WARNED = True
+        return {}
+    except Exception as e:
+        if not _OPTIONS_WARNED:
+            print(f"[WARN] cannot read {path}: {e}")
+            _OPTIONS_WARNED = True
+        return {}
 
 
 def load_config() -> Dict[str, Any]:
@@ -469,11 +485,15 @@ class ThermEngine:
         try:
             live = load_options()
             if isinstance(live, dict):
-                host = str(live.get("mqtt_host", self.opts.get("mqtt_host", "core-mosquitto"))).strip()
+                host_live = str(live.get("mqtt_host") or "").strip()
+                host_cached = str(self.opts.get("mqtt_host") or "").strip()
+                host = host_live or host_cached or "core-mosquitto"
                 port = int(live.get("mqtt_port", self.opts.get("mqtt_port", 1883)) or 1883)
                 # Keep a synced in-memory view for watchdog/config reads.
                 self.opts["mqtt_host"] = host
                 self.opts["mqtt_port"] = port
+                if host == "core-mosquitto":
+                    print("[WARN] mqtt_host fallback to core-mosquitto (live/cached empty)")
                 return host, port
         except Exception:
             pass
