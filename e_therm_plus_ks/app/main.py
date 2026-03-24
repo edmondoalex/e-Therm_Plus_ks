@@ -13,7 +13,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.23"
+APP_VERSION = "2.6.24"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -2107,6 +2107,7 @@ class ThermEngine:
                 "availability_topic": f"{self.out_prefix}/status",
                 "payload_available": "online",
                 "payload_not_available": "offline",
+                "command_topic": f"{self.out_prefix}/valv/{tid}/set",
                 "state_topic": f"{self.out_prefix}/valv/{tid}/set",
                 "payload_on": "ON",
                 "payload_off": "OFF",
