@@ -15,7 +15,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.31"
+APP_VERSION = "2.6.32"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -182,6 +182,7 @@ class ThermEngine:
         self._reconnect_backoff_sec = 5.0
         self._last_reconnect_reason = ""
         self._last_ha_poll_ts = 0.0
+        self._last_ha_warn_ts = 0.0
 
         # realtime cache per vtherm id
         self.rt: Dict[str, Dict[str, Any]] = {}
@@ -604,6 +605,10 @@ class ThermEngine:
     def _ha_api_request(self, method: str, path: str, payload: Optional[Dict[str, Any]] = None) -> Optional[Any]:
         token = os.environ.get("SUPERVISOR_TOKEN", "").strip()
         if not token:
+            now = time.time()
+            if (now - float(self._last_ha_warn_ts or 0.0)) > 60.0:
+                self._last_ha_warn_ts = now
+                print("[HA_API] SUPERVISOR_TOKEN missing, ha_climate sync unavailable")
             return None
         url = f"http://supervisor/core/api{path}"
         data = None
@@ -623,7 +628,17 @@ class ThermEngine:
                     return json.loads(raw)
                 except Exception:
                     return None
-        except Exception:
+        except urllib.error.HTTPError as e:
+            now = time.time()
+            if (now - float(self._last_ha_warn_ts or 0.0)) > 60.0:
+                self._last_ha_warn_ts = now
+                print(f"[HA_API] HTTP {int(getattr(e, 'code', 0) or 0)} on {method.upper()} {path}")
+            return None
+        except Exception as e:
+            now = time.time()
+            if (now - float(self._last_ha_warn_ts or 0.0)) > 60.0:
+                self._last_ha_warn_ts = now
+                print(f"[HA_API] request failed {method.upper()} {path}: {e}")
             return None
 
     def _poll_ha_climate_states(self, force: bool = False) -> None:
@@ -1067,6 +1082,12 @@ class ThermEngine:
         if (now - last) < float(self.opts.get("control_interval_sec", 5) or 5):
             return
         self.runtime["_last_control_ts"] = now
+
+        # Keep HA climate-backed thermostats in sync even when watchdog is disabled.
+        try:
+            self._poll_ha_climate_states()
+        except Exception:
+            pass
 
         for t in self.therm_list():
             try:
