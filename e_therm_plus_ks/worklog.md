@@ -300,3 +300,5 @@ Step B (funzionalità "wow"):
 2026-03-24 | 2.6.12 | codex | Force local build (build: true) to apply code updates | e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
 2026-03-24 | 2.6.13 | codex | Hardening MQTT callback compatibility (avoid v1/v2 mismatch crash) | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
 2026-03-24 | 2.6.14 | codex | Release bump for clean redeploy target | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
+2026-03-24 | 2.6.15 | codex | Definitive MQTT callback hardening using *args to avoid v1/v2 signature mismatch | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
+2026-03-24 | 2.6.16 | codex | Add explicit boot marker in logs to verify deployed code version | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
