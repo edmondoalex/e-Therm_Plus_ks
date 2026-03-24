@@ -12,6 +12,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
+APP_VERSION = "2.6.11"
 
 DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
 
@@ -184,7 +185,7 @@ class ThermEngine:
                 source_num=None,
                 category="system",
                 field="startup",
-                msg="ThermEngine init",
+                msg=f"ThermEngine init v{APP_VERSION}",
             )
         except Exception:
             pass
