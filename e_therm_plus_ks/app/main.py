@@ -441,16 +441,9 @@ class ThermEngine:
 
     def _create_mqtt_client(self) -> mqtt.Client:
         client_id = f"e-therm-plus-{int(time.time())}"
-        # Prefer callback API v2 when available (paho-mqtt >= 2.0)
-        try:
-            c = mqtt.Client(
-                client_id=client_id,
-                protocol=mqtt.MQTTv311,
-                transport="tcp",
-                callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
-            )
-        except Exception:
-            c = mqtt.Client(client_id=client_id)
+        # Keep client creation conservative to avoid runtime mismatch between
+        # callback API versions across environments.
+        c = mqtt.Client(client_id=client_id)
         user = (self.opts.get("mqtt_user") or "").strip()
         pw = (self.opts.get("mqtt_password") or "")
         if user:
@@ -459,9 +452,14 @@ class ThermEngine:
             c.will_set(f"{self.out_prefix}/status", "offline", retain=True)
         except Exception:
             pass
-        c.on_connect = self._on_connect
+        # Wrappers make callbacks tolerant to both v1/v2 paho signatures.
+        c.on_connect = lambda client, userdata, flags, rc, properties=None: self._on_connect(  # noqa: E731
+            client, userdata, flags, rc, properties
+        )
         c.on_message = self._on_message
-        c.on_disconnect = self._on_disconnect
+        c.on_disconnect = lambda client, userdata, rc, properties=None: self._on_disconnect(  # noqa: E731
+            client, userdata, rc, properties
+        )
         try:
             # Conservative auto-reconnect delays handled by paho (best effort)
             c.reconnect_delay_set(min_delay=2, max_delay=30)
