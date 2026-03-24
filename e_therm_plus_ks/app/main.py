@@ -13,7 +13,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.21"
+APP_VERSION = "2.6.22"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1433,6 +1433,7 @@ class ThermEngine:
                 valv = "ON" if (power > 0 or fan_on) else "OFF"
                 name = _topic_safe_name(t.get("name") or f"vTherm_{tid}")
                 self.mqtt.publish(f"{self.out_prefix}/thermostats/{name}/valv/set", valv, retain=True)
+                self.mqtt.publish(f"{self.out_prefix}/valv/{tid}/set", valv, retain=True)
             return
 
         sk = season_key or "heat"
@@ -1454,6 +1455,7 @@ class ThermEngine:
             valv = "ON" if (power > 0 or fan_on) else "OFF"
             name = _topic_safe_name(t.get("name") or f"vTherm_{tid}")
             self.mqtt.publish(f"{self.out_prefix}/thermostats/{name}/valv/set", valv, retain=True)
+            self.mqtt.publish(f"{self.out_prefix}/valv/{tid}/set", valv, retain=True)
 
     # -------------------- HA clone (MQTT climate) --------------------
 
