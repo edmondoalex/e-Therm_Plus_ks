@@ -13,7 +13,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.25"
+APP_VERSION = "2.6.27"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1452,14 +1452,10 @@ class ThermEngine:
                 self.mqtt.publish(f"{base}/fan/{sp}", val, retain=True)
         self._publish_valve_state(t)
 
-    def _publish_valve_state(self, t: Dict[str, Any]) -> None:
-        """Publish valve state ON when any relevant demand is active."""
+    def _valve_on_for_therm(self, t: Dict[str, Any]) -> bool:
         tid = str(t.get("id"))
         split = self._is_split_outputs(t)
-        valv = "OFF"
         if split:
-            # With split outputs, compute demand across both seasons to avoid
-            # inactive-season OFF writes overriding an active-season ON state.
             for sk in ("heat", "cool"):
                 outputs = self._outputs_for_season(t, sk)
                 if not (outputs.get("power") or outputs.get("fan3")):
@@ -1469,20 +1465,38 @@ class ThermEngine:
                 fan = desired.get("fan") or {}
                 fan_on = str(fan.get("min", "OFF")).upper() == "ON" or str(fan.get("med", "OFF")).upper() == "ON" or str(fan.get("max", "OFF")).upper() == "ON"
                 if power > 0 or fan_on:
-                    valv = "ON"
-                    break
-        else:
-            outputs = t.get("outputs") or {}
-            if outputs.get("power") or outputs.get("fan3"):
-                desired = self._get_desired(tid)
-                power = int(desired.get("power", 0) or 0)
-                fan = desired.get("fan") or {}
-                fan_on = str(fan.get("min", "OFF")).upper() == "ON" or str(fan.get("med", "OFF")).upper() == "ON" or str(fan.get("max", "OFF")).upper() == "ON"
-                valv = "ON" if (power > 0 or fan_on) else "OFF"
+                    return True
+            return False
+
+        outputs = t.get("outputs") or {}
+        if not (outputs.get("power") or outputs.get("fan3")):
+            return False
+        desired = self._get_desired(tid)
+        power = int(desired.get("power", 0) or 0)
+        fan = desired.get("fan") or {}
+        fan_on = str(fan.get("min", "OFF")).upper() == "ON" or str(fan.get("med", "OFF")).upper() == "ON" or str(fan.get("max", "OFF")).upper() == "ON"
+        return bool(power > 0 or fan_on)
+
+    def _publish_valve_state(self, t: Dict[str, Any]) -> None:
+        """Publish valve state ON when any relevant demand is active."""
+        tid = str(t.get("id"))
+        valv = "ON" if self._valve_on_for_therm(t) else "OFF"
 
         name = _topic_safe_name(t.get("name") or f"vTherm_{tid}")
         self.mqtt.publish(f"{self.out_prefix}/thermostats/{name}/valv/set", valv, retain=True)
         self.mqtt.publish(f"{self.out_prefix}/valv/{tid}/set", valv, retain=True)
+
+    def _publish_pdc_consensus(self) -> None:
+        """General PDC consensus: ON if at least one thermostat valve is ON."""
+        on = False
+        try:
+            for t in self.therm_list():
+                if self._valve_on_for_therm(t):
+                    on = True
+                    break
+        except Exception:
+            on = False
+        self.mqtt.publish(f"{self.out_prefix}/pdc/set", "ON" if on else "OFF", retain=True)
 
     # -------------------- HA clone (MQTT climate) --------------------
 
@@ -2070,11 +2084,36 @@ class ThermEngine:
                 else:
                     self._publish_outputs_state(t)
                 self._ha_publish_clone_state(tid)
+            self._publish_pdc_consensus()
         except Exception:
             pass
 
     def _publish_discovery(self):
         base = "homeassistant"
+        # General PDC consensus switch
+        pdc_uid = "e_therm_pdc"
+        pdc_topic = f"{base}/switch/{pdc_uid}/config"
+        pdc_dev = {
+            "identifiers": ["e_therm_pdc"],
+            "name": "e-therm PDC",
+            "manufacturer": "Ekonex",
+            "model": "e-Therm Plus KS",
+        }
+        pdc_cfg = {
+            "name": "e-Therm PDC Consenso",
+            "unique_id": pdc_uid,
+            "availability_topic": f"{self.out_prefix}/status",
+            "payload_available": "online",
+            "payload_not_available": "offline",
+            "command_topic": f"{self.out_prefix}/pdc/set",
+            "state_topic": f"{self.out_prefix}/pdc/set",
+            "payload_on": "ON",
+            "payload_off": "OFF",
+            "device": pdc_dev,
+            "icon": "mdi:hvac",
+        }
+        self.mqtt.publish(pdc_topic, json.dumps(pdc_cfg, ensure_ascii=False), retain=True)
+
         for t in self.therm_list():
             tid = str(t.get("id"))
             name = t.get("name") or f"e-Therm {tid}"
