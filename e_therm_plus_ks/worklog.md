@@ -297,3 +297,4 @@ Step B (funzionalità "wow"):
 2026-03-24 | 2.6.9 | codex | Fix callback signature for paho-mqtt v2 | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
 2026-03-24 | 2.6.10 | codex | Accept extra args in MQTT callbacks for compatibility | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
 2026-03-24 | 2.6.11 | codex | Log versione all'avvio per debug immagine | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
+2026-03-24 | 2.6.12 | codex | Force local build (build: true) to apply code updates | e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
