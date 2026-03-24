@@ -14922,11 +14922,16 @@ def render_vtherm_config_page(snapshot):
           <label>Source type</label>
           <select id="f_src_type">
             <option value="esafe">esafe</option>
+            <option value="ha_climate">ha_climate</option>
           </select>
         </div>
-        <div>
+        <div id="f_src_num_wrap">
           <label>Source num (termostato e-safe)</label>
           <input id="f_src_num" placeholder="Es: 1" inputmode="numeric" />
+        </div>
+        <div id="f_src_entity_wrap">
+          <label>Source entity_id (climate HA)</label>
+          <input id="f_src_entity_id" placeholder="Es: climate.sala" />
         </div>
         <div>
           <label>Profilo (opzionale)</label>
@@ -14991,12 +14996,30 @@ function syncTextarea() {
   el.value = JSON.stringify(cfg, null, 2);
 }
 
+function isHaSourceType(v) {
+  const s = String(v || '').trim().toLowerCase();
+  return s === 'ha_climate' || s === 'homeassistant_climate' || s === 'ha';
+}
+
+function canonicalSourceType(v) {
+  return isHaSourceType(v) ? 'ha_climate' : 'esafe';
+}
+
+function toggleSourceFields() {
+  const srcType = canonicalSourceType(document.getElementById('f_src_type').value || 'esafe');
+  const numWrap = document.getElementById('f_src_num_wrap');
+  const entWrap = document.getElementById('f_src_entity_wrap');
+  if (numWrap) numWrap.style.display = (srcType === 'esafe') ? '' : 'none';
+  if (entWrap) entWrap.style.display = (srcType === 'ha_climate') ? '' : 'none';
+}
+
 function sanitizeTherm(t) {
   const id = String((t && t.id) ?? '').trim();
   const name = String((t && t.name) ?? '').trim();
   const src = (t && t.source && typeof t.source === 'object') ? t.source : {};
-  const srcType = String(src.type || 'esafe').trim().toLowerCase();
+  const srcType = canonicalSourceType(String(src.type || 'esafe').trim().toLowerCase());
   const srcNum = Number(src.num);
+  const srcEntityId = String(src.entity_id || '').trim();
   const outputs = (t && t.outputs && typeof t.outputs === 'object') ? t.outputs : {};
   const outHeat = (t && t.outputs_heat && typeof t.outputs_heat === 'object') ? t.outputs_heat : null;
   const outCool = (t && t.outputs_cool && typeof t.outputs_cool === 'object') ? t.outputs_cool : null;
@@ -15005,7 +15028,9 @@ function sanitizeTherm(t) {
   const base = {
     id: id,
     name: name || ('e-Therm ' + (id || '?')),
-    source: { type: (srcType || 'esafe'), num: Number.isFinite(srcNum) ? srcNum : 1 },
+    source: isHaSourceType(srcType)
+      ? { type: 'ha_climate', entity_id: srcEntityId }
+      : { type: 'esafe', num: Number.isFinite(srcNum) ? srcNum : 1 },
     outputs: { power: !!outputs.power, fan3: !!outputs.fan3 },
     auto_control_enabled: autoCtl,
     ...(profile ? { profile } : {}),
@@ -15050,9 +15075,14 @@ function renderList() {
     el.className = 'item';
     const left = document.createElement('div');
     left.className = 'left';
+    const src = t.source || {};
+    const srcType = canonicalSourceType(src.type || 'esafe');
+    const srcInfo = isHaSourceType(srcType)
+      ? (String(srcType) + ':' + String(src.entity_id || '?'))
+      : (String(srcType) + ':' + String(src.num || 1));
     left.innerHTML =
       '<div class="name">' + escapeHtml(t.name) + '</div>' +
-      '<div class="sub">ID ' + escapeHtml(String(t.id)) + ' • source ' + escapeHtml(String(t.source.type)) + ':' + escapeHtml(String(t.source.num)) + '</div>';
+      '<div class="sub">ID ' + escapeHtml(String(t.id)) + ' • source ' + escapeHtml(srcInfo) + '</div>';
     const chips = document.createElement('div');
     chips.className = 'chips';
     if (!split) {
@@ -15113,8 +15143,10 @@ function editItem(idx) {
   const split = !!(t.outputs_heat || t.outputs_cool);
   document.getElementById('f_id').value = String(t.id || '');
   document.getElementById('f_name').value = String(t.name || '');
-  document.getElementById('f_src_type').value = String(t.source.type || 'esafe');
+  document.getElementById('f_src_type').value = canonicalSourceType(String((t.source || {}).type || 'esafe'));
   document.getElementById('f_src_num').value = String(t.source.num || 1);
+  document.getElementById('f_src_entity_id').value = String((t.source || {}).entity_id || '');
+  toggleSourceFields();
   document.getElementById('f_profile').value = String(t.profile || '');
   document.getElementById('f_auto').checked = !!t.auto_control_enabled;
   document.getElementById('f_split').checked = !!split;
@@ -15141,6 +15173,8 @@ function addNew() {
   document.getElementById('f_name').value = 'Cantina ' + nextId;
   document.getElementById('f_src_type').value = 'esafe';
   document.getElementById('f_src_num').value = '1';
+  document.getElementById('f_src_entity_id').value = '';
+  toggleSourceFields();
   document.getElementById('f_profile').value = '';
   document.getElementById('f_auto').checked = false;
   document.getElementById('f_split').checked = false;
@@ -15160,8 +15194,9 @@ function findNextId() {
 function saveItem() {
   const id = String(document.getElementById('f_id').value || '').trim();
   const name = String(document.getElementById('f_name').value || '').trim();
-  const srcType = String(document.getElementById('f_src_type').value || 'esafe').trim().toLowerCase();
+  const srcType = canonicalSourceType(String(document.getElementById('f_src_type').value || 'esafe').trim().toLowerCase());
   const srcNum = Number(String(document.getElementById('f_src_num').value || '').trim());
+  const srcEntityId = String(document.getElementById('f_src_entity_id').value || '').trim();
   const profile = String(document.getElementById('f_profile').value || '').trim();
   const split = !!document.getElementById('f_split').checked;
   const autoCtl = !!document.getElementById('f_auto').checked;
@@ -15173,7 +15208,11 @@ function saveItem() {
 
   if (!id) { if (msg) msg.textContent = 'ID obbligatorio.'; return; }
   if (!ensureUniqueId(id, editIndex)) { if (msg) msg.textContent = 'ID già usato: scegli un ID unico.'; return; }
-  if (!Number.isFinite(srcNum) || srcNum <= 0) { if (msg) msg.textContent = 'Source num non valido (deve essere un numero > 0).'; return; }
+  if (isHaSourceType(srcType)) {
+    if (!srcEntityId) { if (msg) msg.textContent = 'Source entity_id obbligatorio (es: climate.sala).'; return; }
+  } else {
+    if (!Number.isFinite(srcNum) || srcNum <= 0) { if (msg) msg.textContent = 'Source num non valido (deve essere un numero > 0).'; return; }
+  }
   if (!split) {
     if (!hPower && !hFan3) { if (msg) msg.textContent = 'Seleziona almeno una uscita (power o fan3).'; return; }
   } else {
@@ -15183,7 +15222,9 @@ function saveItem() {
   const itemBase = {
     id: id,
     name: name,
-    source: { type: srcType, num: srcNum },
+    source: isHaSourceType(srcType)
+      ? { type: 'ha_climate', entity_id: srcEntityId }
+      : { type: 'esafe', num: srcNum },
     profile: profile,
     auto_control_enabled: autoCtl,
   };
@@ -15289,6 +15330,9 @@ async function reloadCfg() {
 }
 
 renderList();
+const srcSel = document.getElementById('f_src_type');
+if (srcSel) srcSel.addEventListener('change', toggleSourceFields);
+toggleSourceFields();
 </script>
 </body>
 </html>"""
