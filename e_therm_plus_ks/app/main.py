@@ -1113,7 +1113,7 @@ class ThermEngine:
                             self.runtime["_last_auto_log"] = last
             except Exception:
                 pass
-    def _on_disconnect(self, client, userdata, rc, properties=None):
+    def _on_disconnect(self, client, userdata, rc, properties=None, *args, **kwargs):
         self._mqtt_connected = False
         try:
             self._log_event(
@@ -1134,7 +1134,7 @@ class ThermEngine:
         except Exception:
             pass
 
-    def _on_connect(self, client, userdata, flags, rc, properties=None):
+    def _on_connect(self, client, userdata, flags, rc, properties=None, *args, **kwargs):
         self._mqtt_connected = True
         try:
             self._reconnect_backoff_sec = 5.0
