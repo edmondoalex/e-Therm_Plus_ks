@@ -313,3 +313,4 @@ Step B (funzionalità "wow"):
 2026-03-24 | 2.6.25 | codex | Fix valve flapping with split heat/cool by computing valv across both seasons | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
 2026-03-24 | 2.6.27 | codex | Add general PDC consent switch and dedicated device group name 'e-therm PDC' | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
 2026-03-24 | 2.6.28 | codex | Recompute/publish PDC consensus on every valve state publish to avoid stale/off delay | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
+2026-03-24 | 2.6.29 | codex | Add separate PDC consensus states/switches for heat and cool while keeping single valve logic | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
