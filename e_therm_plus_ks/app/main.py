@@ -12,7 +12,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.19"
+APP_VERSION = "2.6.20"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -174,6 +174,9 @@ class ThermEngine:
 
         # realtime cache per vtherm id
         self.rt: Dict[str, Dict[str, Any]] = {}
+        rt_cache = self.runtime.get("rt_cache")
+        if isinstance(rt_cache, dict):
+            self.rt = rt_cache
         self.auto_control_enabled = bool(opts.get("auto_control_enabled", False))
         self.auto_override_sec = int(opts.get("auto_override_sec", 300) or 300)
         self.pwm_kp = float(opts.get("pwm_kp", 10.0) or 10.0)
@@ -219,6 +222,14 @@ class ThermEngine:
         self.log_rh_max_sec = int(opts.get("log_rh_max_sec", 600) or 600)
         self.log_ack_timeout_sec = int(opts.get("log_ack_timeout_sec", 20) or 20)
         self.log_file_max_kb = int(opts.get("log_file_max_kb", 2048) or 2048)
+
+    def _persist_rt_cache(self) -> None:
+        try:
+            with self.lock:
+                self.runtime["rt_cache"] = self.rt
+                save_runtime(self.runtime)
+        except Exception:
+            pass
 
     def _log_enabled(self, level: str) -> bool:
         want = str(level or "MIN").upper()
@@ -1923,6 +1934,7 @@ class ThermEngine:
                 pass
 
             self._sync_ui()
+            self._persist_rt_cache()
             try:
                 for d0 in diffs:
                     cat = str(d0.get("cat") or "")
