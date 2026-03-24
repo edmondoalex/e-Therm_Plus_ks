@@ -293,3 +293,4 @@ Step B (funzionalità "wow"):
 - File modificati: app/debug_server.py
 
 2026-03-24 | 2.6.7 | codex | Publish valve topic per termostato (PWM/stadi ON/OFF) | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
+2026-03-24 | 2.6.8 | codex | Aggiorna client MQTT (Callback API v2) | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md

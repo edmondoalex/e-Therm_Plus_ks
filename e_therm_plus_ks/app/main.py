@@ -439,7 +439,17 @@ class ThermEngine:
                 pass
 
     def _create_mqtt_client(self) -> mqtt.Client:
-        c = mqtt.Client(client_id=f"e-therm-plus-{int(time.time())}")
+        client_id = f"e-therm-plus-{int(time.time())}"
+        # Prefer callback API v2 when available (paho-mqtt >= 2.0)
+        try:
+            c = mqtt.Client(
+                client_id=client_id,
+                protocol=mqtt.MQTTv311,
+                transport="tcp",
+                callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+            )
+        except Exception:
+            c = mqtt.Client(client_id=client_id)
         user = (self.opts.get("mqtt_user") or "").strip()
         pw = (self.opts.get("mqtt_password") or "")
         if user:
