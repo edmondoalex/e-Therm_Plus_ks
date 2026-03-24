@@ -12,7 +12,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.16"
+APP_VERSION = "2.6.17"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 
 DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
@@ -453,20 +453,35 @@ class ThermEngine:
             c.will_set(f"{self.out_prefix}/status", "offline", retain=True)
         except Exception:
             pass
-        # Wrappers make callbacks tolerant to both v1/v2 paho signatures.
-        c.on_connect = lambda client, userdata, flags, rc, properties=None: self._on_connect(  # noqa: E731
-            client, userdata, flags, rc, properties
-        )
+        # Dispatchers are tolerant to paho callback signature differences.
+        c.on_connect = self._on_connect_dispatch
         c.on_message = self._on_message
-        c.on_disconnect = lambda client, userdata, rc, properties=None: self._on_disconnect(  # noqa: E731
-            client, userdata, rc, properties
-        )
+        c.on_disconnect = self._on_disconnect_dispatch
         try:
             # Conservative auto-reconnect delays handled by paho (best effort)
             c.reconnect_delay_set(min_delay=2, max_delay=30)
         except Exception:
             pass
         return c
+
+    def _on_connect_dispatch(self, *args, **kwargs):
+        try:
+            return self._on_connect(*args, **kwargs)
+        except TypeError:
+            # Fallback for environments that still invoke legacy signatures.
+            try:
+                return self._on_connect(*args[:4])
+            except Exception:
+                return None
+
+    def _on_disconnect_dispatch(self, *args, **kwargs):
+        try:
+            return self._on_disconnect(*args, **kwargs)
+        except TypeError:
+            try:
+                return self._on_disconnect(*args[:3])
+            except Exception:
+                return None
 
     def _auto_enabled_for(self, t: Dict[str, Any]) -> bool:
         try:

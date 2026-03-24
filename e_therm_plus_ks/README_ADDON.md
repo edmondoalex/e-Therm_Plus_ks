@@ -6,7 +6,7 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.16`
+- `config.yaml` -> `version`: `2.6.17`
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.
