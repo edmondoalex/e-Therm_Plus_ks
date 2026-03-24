@@ -12,7 +12,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.14"
+APP_VERSION = "2.6.15"
 
 DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
 
@@ -1112,7 +1112,9 @@ class ThermEngine:
                             self.runtime["_last_auto_log"] = last
             except Exception:
                 pass
-    def _on_disconnect(self, client, userdata, rc, properties=None, *args, **kwargs):
+    def _on_disconnect(self, *args, **kwargs):
+        client = args[0] if len(args) > 0 else None
+        rc = args[2] if len(args) > 2 else kwargs.get("rc", 0)
         self._mqtt_connected = False
         try:
             self._log_event(
@@ -1129,11 +1131,15 @@ class ThermEngine:
         except Exception:
             pass
         try:
-            client.publish(f"{self.out_prefix}/status", "offline", retain=True)
+            if client is not None:
+                client.publish(f"{self.out_prefix}/status", "offline", retain=True)
         except Exception:
             pass
 
-    def _on_connect(self, client, userdata, flags, rc, properties=None, *args, **kwargs):
+    def _on_connect(self, *args, **kwargs):
+        client = args[0] if len(args) > 0 else None
+        flags = args[2] if len(args) > 2 else kwargs.get("flags", {})
+        rc = args[3] if len(args) > 3 else kwargs.get("rc", 0)
         self._mqtt_connected = True
         try:
             self._reconnect_backoff_sec = 5.0
@@ -1163,6 +1169,8 @@ class ThermEngine:
         except Exception:
             pass
         # Source (e-safe)
+        if client is None:
+            return
         client.subscribe(f"{self.source_prefix}/thermostats/+", qos=0)
         client.subscribe(f"{self.source_prefix}/thermostats/+/+", qos=0)
 
