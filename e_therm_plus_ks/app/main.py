@@ -13,7 +13,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.24"
+APP_VERSION = "2.6.25"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1450,14 +1450,39 @@ class ThermEngine:
                 val = str(fan.get(sp, "OFF")).upper()
                 val = "ON" if val in ("ON", "1", "TRUE") else "OFF"
                 self.mqtt.publish(f"{base}/fan/{sp}", val, retain=True)
-        if outputs.get("power") or outputs.get("fan3"):
-            power = int(desired.get("power", 0) or 0)
-            fan = desired.get("fan") or {}
-            fan_on = str(fan.get("min", "OFF")).upper() == "ON" or str(fan.get("med", "OFF")).upper() == "ON" or str(fan.get("max", "OFF")).upper() == "ON"
-            valv = "ON" if (power > 0 or fan_on) else "OFF"
-            name = _topic_safe_name(t.get("name") or f"vTherm_{tid}")
-            self.mqtt.publish(f"{self.out_prefix}/thermostats/{name}/valv/set", valv, retain=True)
-            self.mqtt.publish(f"{self.out_prefix}/valv/{tid}/set", valv, retain=True)
+        self._publish_valve_state(t)
+
+    def _publish_valve_state(self, t: Dict[str, Any]) -> None:
+        """Publish valve state ON when any relevant demand is active."""
+        tid = str(t.get("id"))
+        split = self._is_split_outputs(t)
+        valv = "OFF"
+        if split:
+            # With split outputs, compute demand across both seasons to avoid
+            # inactive-season OFF writes overriding an active-season ON state.
+            for sk in ("heat", "cool"):
+                outputs = self._outputs_for_season(t, sk)
+                if not (outputs.get("power") or outputs.get("fan3")):
+                    continue
+                desired = self._get_desired_season(tid, sk)
+                power = int(desired.get("power", 0) or 0)
+                fan = desired.get("fan") or {}
+                fan_on = str(fan.get("min", "OFF")).upper() == "ON" or str(fan.get("med", "OFF")).upper() == "ON" or str(fan.get("max", "OFF")).upper() == "ON"
+                if power > 0 or fan_on:
+                    valv = "ON"
+                    break
+        else:
+            outputs = t.get("outputs") or {}
+            if outputs.get("power") or outputs.get("fan3"):
+                desired = self._get_desired(tid)
+                power = int(desired.get("power", 0) or 0)
+                fan = desired.get("fan") or {}
+                fan_on = str(fan.get("min", "OFF")).upper() == "ON" or str(fan.get("med", "OFF")).upper() == "ON" or str(fan.get("max", "OFF")).upper() == "ON"
+                valv = "ON" if (power > 0 or fan_on) else "OFF"
+
+        name = _topic_safe_name(t.get("name") or f"vTherm_{tid}")
+        self.mqtt.publish(f"{self.out_prefix}/thermostats/{name}/valv/set", valv, retain=True)
+        self.mqtt.publish(f"{self.out_prefix}/valv/{tid}/set", valv, retain=True)
 
     # -------------------- HA clone (MQTT climate) --------------------
 
