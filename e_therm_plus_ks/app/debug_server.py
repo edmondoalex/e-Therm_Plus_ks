@@ -15386,9 +15386,11 @@ function saveGroup() {
 function delGroup(idx) {
   const g = sanitizeGroup(cfg.consensus_groups[idx] || {});
   const name = String(g.name || '').trim();
-  const usedBy = (cfg.thermostats || []).filter(t => String((t || {}).consensus_group || '').trim() === name);
+  const norm = (s) => String(s || '').trim().toLowerCase();
+  const usedBy = (cfg.thermostats || []).filter(t => norm((t || {}).consensus_group || '') === norm(name));
   if (usedBy.length > 0) {
-    if (!confirm('Il gruppo "' + name + '" è usato da ' + usedBy.length + ' termostati.\\n\\nVuoi rimuovere il gruppo e cancellare il consenso dai termostati?')) return;
+    const names = usedBy.map(t => String((t || {}).name || (t || {}).id || '?')).join(', ');
+    if (!confirm('Il gruppo "' + name + '" è usato da ' + usedBy.length + ' termostati:\\n' + names + '\\n\\nVuoi rimuovere il gruppo e cancellare il consenso dai termostati?')) return;
     for (const t of usedBy) {
       t.consensus_group = '';
     }
