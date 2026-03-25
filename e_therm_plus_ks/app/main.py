@@ -15,7 +15,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.55"
+APP_VERSION = "2.6.56"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1906,14 +1906,14 @@ class ThermEngine:
             on_ha_cool = False
 
         # Legacy PDC topics: now driven only by legacy/e-safe thermostats.
-        self.mqtt.publish(f"{self.out_prefix}/pdc/set", "ON" if on_esafe else "OFF", retain=True)
-        self.mqtt.publish(f"{self.out_prefix}/pdc/heat/set", "ON" if on_esafe_heat else "OFF", retain=True)
-        self.mqtt.publish(f"{self.out_prefix}/pdc/cool/set", "ON" if on_esafe_cool else "OFF", retain=True)
+        self.mqtt.publish(f"{self.out_prefix}/pdc/state", "ON" if on_esafe else "OFF", retain=True)
+        self.mqtt.publish(f"{self.out_prefix}/pdc/heat/state", "ON" if on_esafe_heat else "OFF", retain=True)
+        self.mqtt.publish(f"{self.out_prefix}/pdc/cool/state", "ON" if on_esafe_cool else "OFF", retain=True)
 
         # Dedicated PDC topics for HA-climate sourced thermostats.
-        self.mqtt.publish(f"{self.out_prefix}/pdc/ha/set", "ON" if on_ha else "OFF", retain=True)
-        self.mqtt.publish(f"{self.out_prefix}/pdc/ha/heat/set", "ON" if on_ha_heat else "OFF", retain=True)
-        self.mqtt.publish(f"{self.out_prefix}/pdc/ha/cool/set", "ON" if on_ha_cool else "OFF", retain=True)
+        self.mqtt.publish(f"{self.out_prefix}/pdc/ha/state", "ON" if on_ha else "OFF", retain=True)
+        self.mqtt.publish(f"{self.out_prefix}/pdc/ha/heat/state", "ON" if on_ha_heat else "OFF", retain=True)
+        self.mqtt.publish(f"{self.out_prefix}/pdc/ha/cool/state", "ON" if on_ha_cool else "OFF", retain=True)
 
         # User-mapped consensus groups (per thermostat, persistent config field: consensus_group_heat/cool).
         groups: Dict[str, Dict[str, Any]] = {}
@@ -1978,14 +1978,14 @@ class ThermEngine:
             groups = {}
 
         for g_key, st in groups.items():
-            self.mqtt.publish(f"{self.out_prefix}/pdc/groups/{g_key}/set", "ON" if st.get("on") else "OFF", retain=True)
+            self.mqtt.publish(f"{self.out_prefix}/pdc/groups/{g_key}/state", "ON" if st.get("on") else "OFF", retain=True)
             self.mqtt.publish(
-                f"{self.out_prefix}/pdc/groups/{g_key}/heat/set",
+                f"{self.out_prefix}/pdc/groups/{g_key}/heat/state",
                 "ON" if st.get("on_heat") else "OFF",
                 retain=True,
             )
             self.mqtt.publish(
-                f"{self.out_prefix}/pdc/groups/{g_key}/cool/set",
+                f"{self.out_prefix}/pdc/groups/{g_key}/cool/state",
                 "ON" if st.get("on_cool") else "OFF",
                 retain=True,
             )
@@ -2698,7 +2698,7 @@ class ThermEngine:
             "payload_available": "online",
             "payload_not_available": "offline",
             "command_topic": f"{self.out_prefix}/pdc/set",
-            "state_topic": f"{self.out_prefix}/pdc/set",
+            "state_topic": f"{self.out_prefix}/pdc/state",
             "payload_on": "ON",
             "payload_off": "OFF",
             "device": pdc_dev,
@@ -2715,7 +2715,7 @@ class ThermEngine:
             "payload_available": "online",
             "payload_not_available": "offline",
             "command_topic": f"{self.out_prefix}/pdc/heat/set",
-            "state_topic": f"{self.out_prefix}/pdc/heat/set",
+            "state_topic": f"{self.out_prefix}/pdc/heat/state",
             "payload_on": "ON",
             "payload_off": "OFF",
             "device": pdc_dev,
@@ -2732,7 +2732,7 @@ class ThermEngine:
             "payload_available": "online",
             "payload_not_available": "offline",
             "command_topic": f"{self.out_prefix}/pdc/cool/set",
-            "state_topic": f"{self.out_prefix}/pdc/cool/set",
+            "state_topic": f"{self.out_prefix}/pdc/cool/state",
             "payload_on": "ON",
             "payload_off": "OFF",
             "device": pdc_dev,
@@ -2756,7 +2756,7 @@ class ThermEngine:
             "payload_available": "online",
             "payload_not_available": "offline",
             "command_topic": f"{self.out_prefix}/pdc/ha/set",
-            "state_topic": f"{self.out_prefix}/pdc/ha/set",
+            "state_topic": f"{self.out_prefix}/pdc/ha/state",
             "payload_on": "ON",
             "payload_off": "OFF",
             "device": pdc_ha_dev,
@@ -2773,7 +2773,7 @@ class ThermEngine:
             "payload_available": "online",
             "payload_not_available": "offline",
             "command_topic": f"{self.out_prefix}/pdc/ha/heat/set",
-            "state_topic": f"{self.out_prefix}/pdc/ha/heat/set",
+            "state_topic": f"{self.out_prefix}/pdc/ha/heat/state",
             "payload_on": "ON",
             "payload_off": "OFF",
             "device": pdc_ha_dev,
@@ -2790,7 +2790,7 @@ class ThermEngine:
             "payload_available": "online",
             "payload_not_available": "offline",
             "command_topic": f"{self.out_prefix}/pdc/ha/cool/set",
-            "state_topic": f"{self.out_prefix}/pdc/ha/cool/set",
+            "state_topic": f"{self.out_prefix}/pdc/ha/cool/state",
             "payload_on": "ON",
             "payload_off": "OFF",
             "device": pdc_ha_dev,
@@ -2839,7 +2839,7 @@ class ThermEngine:
                 "payload_available": "online",
                 "payload_not_available": "offline",
                 "command_topic": f"{self.out_prefix}/pdc/groups/{g_key}/set",
-                "state_topic": f"{self.out_prefix}/pdc/groups/{g_key}/set",
+                "state_topic": f"{self.out_prefix}/pdc/groups/{g_key}/state",
                 "payload_on": "ON",
                 "payload_off": "OFF",
                 "device": pdc_groups_dev,
@@ -2856,7 +2856,7 @@ class ThermEngine:
                 "payload_available": "online",
                 "payload_not_available": "offline",
                 "command_topic": f"{self.out_prefix}/pdc/groups/{g_key}/heat/set",
-                "state_topic": f"{self.out_prefix}/pdc/groups/{g_key}/heat/set",
+                "state_topic": f"{self.out_prefix}/pdc/groups/{g_key}/heat/state",
                 "payload_on": "ON",
                 "payload_off": "OFF",
                 "device": pdc_groups_dev,
@@ -2873,7 +2873,7 @@ class ThermEngine:
                 "payload_available": "online",
                 "payload_not_available": "offline",
                 "command_topic": f"{self.out_prefix}/pdc/groups/{g_key}/cool/set",
-                "state_topic": f"{self.out_prefix}/pdc/groups/{g_key}/cool/set",
+                "state_topic": f"{self.out_prefix}/pdc/groups/{g_key}/cool/state",
                 "payload_on": "ON",
                 "payload_off": "OFF",
                 "device": pdc_groups_dev,
