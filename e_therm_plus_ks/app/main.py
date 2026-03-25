@@ -15,7 +15,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.43"
+APP_VERSION = "2.6.44"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1803,7 +1803,14 @@ class ThermEngine:
                 g_key = _topic_safe_name(g_label).lower()
                 entry = groups.get(g_key)
                 if entry is None:
-                    groups[g_key] = {"label": g_label, "on": False, "on_heat": False, "on_cool": False}
+                    groups[g_key] = {
+                        "label": g_label,
+                        "on": False,
+                        "on_heat": False,
+                        "on_cool": False,
+                        "on_hot": False,
+                        "on_low": False,
+                    }
 
             # Include configured consensus_groups even if no thermostat currently references them.
             cfg_groups = self.cfg.get("consensus_groups") if isinstance(self.cfg, dict) else []
@@ -1816,7 +1823,14 @@ class ThermEngine:
                         continue
                     g_key = _topic_safe_name(g_label).lower()
                     if g_key not in groups:
-                        groups[g_key] = {"label": g_label, "on": False, "on_heat": False, "on_cool": False}
+                        groups[g_key] = {
+                            "label": g_label,
+                            "on": False,
+                            "on_heat": False,
+                            "on_cool": False,
+                            "on_hot": False,
+                            "on_low": False,
+                        }
 
             for t in all_therms:
                 g_label = str(t.get("consensus_group") or t.get("pdc_group") or "").strip()
@@ -1841,6 +1855,8 @@ class ThermEngine:
                     groups[g_key]["on_cool"] = True
                 else:
                     groups[g_key]["on_heat"] = True
+                    groups[g_key]["on_low"] = True
+                groups[g_key]["on_hot"] = True
         except Exception:
             groups = {}
 
@@ -1854,6 +1870,16 @@ class ThermEngine:
             self.mqtt.publish(
                 f"{self.out_prefix}/pdc/groups/{g_key}/cool/set",
                 "ON" if st.get("on_cool") else "OFF",
+                retain=True,
+            )
+            self.mqtt.publish(
+                f"{self.out_prefix}/pdc/groups/{g_key}/hot/set",
+                "ON" if st.get("on_hot") else "OFF",
+                retain=True,
+            )
+            self.mqtt.publish(
+                f"{self.out_prefix}/pdc/groups/{g_key}/low/set",
+                "ON" if st.get("on_low") else "OFF",
                 retain=True,
             )
 
@@ -1873,12 +1899,18 @@ class ThermEngine:
                 sw = str(g.get("switch") or g.get("general_switch") or g.get("consensus_switch") or "").strip()
                 sw_h = str(g.get("switch_heat") or g.get("heat_switch") or "").strip()
                 sw_c = str(g.get("switch_cool") or g.get("cool_switch") or "").strip()
+                sw_hot = str(g.get("switch_hot") or g.get("hot_switch") or "").strip()
+                sw_low = str(g.get("switch_low") or g.get("low_switch") or "").strip()
                 if sw:
                     self._apply_real_switch(sw, bool(st.get("on")))
                 if sw_h:
                     self._apply_real_switch(sw_h, bool(st.get("on_heat")))
                 if sw_c:
                     self._apply_real_switch(sw_c, bool(st.get("on_cool")))
+                if sw_hot:
+                    self._apply_real_switch(sw_hot, bool(st.get("on_hot")))
+                if sw_low:
+                    self._apply_real_switch(sw_low, bool(st.get("on_low")))
         except Exception:
             pass
 
@@ -2685,6 +2717,40 @@ class ThermEngine:
                 "icon": "mdi:snowflake",
             }
             self.mqtt.publish(g_cool_topic, json.dumps(g_cool_cfg, ensure_ascii=False), retain=True)
+
+            g_hot_uid = f"e_therm_pdc_group_{g_key}_hot"
+            g_hot_topic = f"{base}/switch/{g_hot_uid}/config"
+            g_hot_cfg = {
+                "name": f"PDC {g_label} HOT",
+                "unique_id": g_hot_uid,
+                "availability_topic": f"{self.out_prefix}/status",
+                "payload_available": "online",
+                "payload_not_available": "offline",
+                "command_topic": f"{self.out_prefix}/pdc/groups/{g_key}/hot/set",
+                "state_topic": f"{self.out_prefix}/pdc/groups/{g_key}/hot/set",
+                "payload_on": "ON",
+                "payload_off": "OFF",
+                "device": pdc_groups_dev,
+                "icon": "mdi:radiator",
+            }
+            self.mqtt.publish(g_hot_topic, json.dumps(g_hot_cfg, ensure_ascii=False), retain=True)
+
+            g_low_uid = f"e_therm_pdc_group_{g_key}_low"
+            g_low_topic = f"{base}/switch/{g_low_uid}/config"
+            g_low_cfg = {
+                "name": f"PDC {g_label} LOW",
+                "unique_id": g_low_uid,
+                "availability_topic": f"{self.out_prefix}/status",
+                "payload_available": "online",
+                "payload_not_available": "offline",
+                "command_topic": f"{self.out_prefix}/pdc/groups/{g_key}/low/set",
+                "state_topic": f"{self.out_prefix}/pdc/groups/{g_key}/low/set",
+                "payload_on": "ON",
+                "payload_off": "OFF",
+                "device": pdc_groups_dev,
+                "icon": "mdi:radiator",
+            }
+            self.mqtt.publish(g_low_topic, json.dumps(g_low_cfg, ensure_ascii=False), retain=True)
 
         for t in self.therm_list():
             tid = str(t.get("id"))

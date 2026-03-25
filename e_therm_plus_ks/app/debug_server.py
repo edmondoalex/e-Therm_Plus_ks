@@ -15041,6 +15041,14 @@ def render_vtherm_config_page(snapshot):
           <label>Switch consenso Cool</label>
           <input id="g_switch_cool" placeholder="Es: switch.pdc_a_cool" />
         </div>
+        <div>
+          <label>Switch consenso HOT</label>
+          <input id="g_switch_hot" placeholder="Es: switch.pdc_a_hot" />
+        </div>
+        <div>
+          <label>Switch consenso LOW</label>
+          <input id="g_switch_low" placeholder="Es: switch.pdc_a_low" />
+        </div>
       </div>
       <div class="msg" id="dlgGroupMsg"></div>
     </div>
@@ -15074,11 +15082,15 @@ function sanitizeGroup(g) {
   const sw = String((g && (g.switch || g.general_switch || g.consensus_switch)) ?? '').trim();
   const swHeat = String((g && (g.switch_heat || g.heat_switch)) ?? '').trim();
   const swCool = String((g && (g.switch_cool || g.cool_switch)) ?? '').trim();
+  const swHot = String((g && (g.switch_hot || g.hot_switch)) ?? '').trim();
+  const swLow = String((g && (g.switch_low || g.low_switch)) ?? '').trim();
   return {
     name,
     ...(sw ? { switch: sw } : {}),
     ...(swHeat ? { switch_heat: swHeat } : {}),
     ...(swCool ? { switch_cool: swCool } : {}),
+    ...(swHot ? { switch_hot: swHot } : {}),
+    ...(swLow ? { switch_low: swLow } : {}),
   };
 }
 
@@ -15296,6 +15308,8 @@ function renderGroups() {
         'gen: ' + escapeHtml(g.switch || '-') +
         ' • heat: ' + escapeHtml(g.switch_heat || '-') +
         ' • cool: ' + escapeHtml(g.switch_cool || '-') +
+        ' • hot: ' + escapeHtml(g.switch_hot || '-') +
+        ' • low: ' + escapeHtml(g.switch_low || '-') +
       '</div>';
     const right = document.createElement('div');
     right.className = 'row';
@@ -15332,6 +15346,8 @@ function editGroup(idx) {
   document.getElementById('g_switch').value = String(g.switch || '');
   document.getElementById('g_switch_heat').value = String(g.switch_heat || '');
   document.getElementById('g_switch_cool').value = String(g.switch_cool || '');
+  document.getElementById('g_switch_hot').value = String(g.switch_hot || '');
+  document.getElementById('g_switch_low').value = String(g.switch_low || '');
   openGroupDlg('Modifica gruppo');
 }
 
@@ -15341,6 +15357,8 @@ function addGroup() {
   document.getElementById('g_switch').value = '';
   document.getElementById('g_switch_heat').value = '';
   document.getElementById('g_switch_cool').value = '';
+  document.getElementById('g_switch_hot').value = '';
+  document.getElementById('g_switch_low').value = '';
   openGroupDlg('Nuovo gruppo');
 }
 
@@ -15349,13 +15367,15 @@ function saveGroup() {
   const sw = String(document.getElementById('g_switch').value || '').trim();
   const swHeat = String(document.getElementById('g_switch_heat').value || '').trim();
   const swCool = String(document.getElementById('g_switch_cool').value || '').trim();
+  const swHot = String(document.getElementById('g_switch_hot').value || '').trim();
+  const swLow = String(document.getElementById('g_switch_low').value || '').trim();
   const msg = document.getElementById('dlgGroupMsg');
 
   if (!name) { if (msg) msg.textContent = 'Nome gruppo obbligatorio.'; return; }
   if (!ensureUniqueGroup(name, editGroupIndex)) { if (msg) msg.textContent = 'Nome già usato: scegli un nome unico.'; return; }
   // Switch reali opzionali: si possono impostare anche in un secondo momento.
 
-  const item = sanitizeGroup({ name, switch: sw, switch_heat: swHeat, switch_cool: swCool });
+  const item = sanitizeGroup({ name, switch: sw, switch_heat: swHeat, switch_cool: swCool, switch_hot: swHot, switch_low: swLow });
   if (editGroupIndex >= 0) cfg.consensus_groups[editGroupIndex] = item;
   else cfg.consensus_groups.push(item);
 
