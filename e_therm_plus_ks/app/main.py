@@ -15,7 +15,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.34"
+APP_VERSION = "2.6.35"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1675,6 +1675,58 @@ class ThermEngine:
         self.mqtt.publish(f"{self.out_prefix}/pdc/ha/heat/set", "ON" if on_ha_heat else "OFF", retain=True)
         self.mqtt.publish(f"{self.out_prefix}/pdc/ha/cool/set", "ON" if on_ha_cool else "OFF", retain=True)
 
+        # User-mapped consensus groups (per thermostat, persistent config field: consensus_group).
+        groups: Dict[str, Dict[str, Any]] = {}
+        try:
+            all_therms = list(self.therm_list())
+            for t in all_therms:
+                g_label = str(t.get("consensus_group") or t.get("pdc_group") or "").strip()
+                if not g_label:
+                    continue
+                g_key = _topic_safe_name(g_label).lower()
+                entry = groups.get(g_key)
+                if entry is None:
+                    groups[g_key] = {"label": g_label, "on": False, "on_heat": False, "on_cool": False}
+
+            for t in all_therms:
+                g_label = str(t.get("consensus_group") or t.get("pdc_group") or "").strip()
+                if not g_label:
+                    continue
+                g_key = _topic_safe_name(g_label).lower()
+                if g_key not in groups:
+                    continue
+                if not self._valve_on_for_therm(t):
+                    continue
+
+                groups[g_key]["on"] = True
+                tid = str(t.get("id"))
+                sea = ""
+                try:
+                    rt = self.rt.get(tid) or {}
+                    th = rt.get("THERM") if isinstance(rt.get("THERM"), dict) else {}
+                    sea = str(th.get("ACT_SEA") or "").upper()
+                except Exception:
+                    sea = ""
+                if sea == "SUM":
+                    groups[g_key]["on_cool"] = True
+                else:
+                    groups[g_key]["on_heat"] = True
+        except Exception:
+            groups = {}
+
+        for g_key, st in groups.items():
+            self.mqtt.publish(f"{self.out_prefix}/pdc/groups/{g_key}/set", "ON" if st.get("on") else "OFF", retain=True)
+            self.mqtt.publish(
+                f"{self.out_prefix}/pdc/groups/{g_key}/heat/set",
+                "ON" if st.get("on_heat") else "OFF",
+                retain=True,
+            )
+            self.mqtt.publish(
+                f"{self.out_prefix}/pdc/groups/{g_key}/cool/set",
+                "ON" if st.get("on_cool") else "OFF",
+                retain=True,
+            )
+
     # -------------------- HA clone (MQTT climate) --------------------
 
     def _ha_base(self, tid: str) -> str:
@@ -2399,6 +2451,73 @@ class ThermEngine:
             "icon": "mdi:snowflake",
         }
         self.mqtt.publish(pdc_ha_cool_topic, json.dumps(pdc_ha_cool_cfg, ensure_ascii=False), retain=True)
+
+        # Dynamic user-defined consensus groups.
+        pdc_groups_dev = {
+            "identifiers": ["e_therm_pdc_groups"],
+            "name": "e-therm PDC Groups",
+            "manufacturer": "Ekonex",
+            "model": "e-Therm Plus KS",
+        }
+        groups: Dict[str, str] = {}
+        for t in self.therm_list():
+            g_label = str(t.get("consensus_group") or t.get("pdc_group") or "").strip()
+            if not g_label:
+                continue
+            g_key = _topic_safe_name(g_label).lower()
+            if g_key not in groups:
+                groups[g_key] = g_label
+        for g_key, g_label in groups.items():
+            g_uid = f"e_therm_pdc_group_{g_key}"
+            g_topic = f"{base}/switch/{g_uid}/config"
+            g_cfg = {
+                "name": f"PDC {g_label} Consenso",
+                "unique_id": g_uid,
+                "availability_topic": f"{self.out_prefix}/status",
+                "payload_available": "online",
+                "payload_not_available": "offline",
+                "command_topic": f"{self.out_prefix}/pdc/groups/{g_key}/set",
+                "state_topic": f"{self.out_prefix}/pdc/groups/{g_key}/set",
+                "payload_on": "ON",
+                "payload_off": "OFF",
+                "device": pdc_groups_dev,
+                "icon": "mdi:hvac",
+            }
+            self.mqtt.publish(g_topic, json.dumps(g_cfg, ensure_ascii=False), retain=True)
+
+            g_heat_uid = f"e_therm_pdc_group_{g_key}_heat"
+            g_heat_topic = f"{base}/switch/{g_heat_uid}/config"
+            g_heat_cfg = {
+                "name": f"PDC {g_label} Heat",
+                "unique_id": g_heat_uid,
+                "availability_topic": f"{self.out_prefix}/status",
+                "payload_available": "online",
+                "payload_not_available": "offline",
+                "command_topic": f"{self.out_prefix}/pdc/groups/{g_key}/heat/set",
+                "state_topic": f"{self.out_prefix}/pdc/groups/{g_key}/heat/set",
+                "payload_on": "ON",
+                "payload_off": "OFF",
+                "device": pdc_groups_dev,
+                "icon": "mdi:radiator",
+            }
+            self.mqtt.publish(g_heat_topic, json.dumps(g_heat_cfg, ensure_ascii=False), retain=True)
+
+            g_cool_uid = f"e_therm_pdc_group_{g_key}_cool"
+            g_cool_topic = f"{base}/switch/{g_cool_uid}/config"
+            g_cool_cfg = {
+                "name": f"PDC {g_label} Cool",
+                "unique_id": g_cool_uid,
+                "availability_topic": f"{self.out_prefix}/status",
+                "payload_available": "online",
+                "payload_not_available": "offline",
+                "command_topic": f"{self.out_prefix}/pdc/groups/{g_key}/cool/set",
+                "state_topic": f"{self.out_prefix}/pdc/groups/{g_key}/cool/set",
+                "payload_on": "ON",
+                "payload_off": "OFF",
+                "device": pdc_groups_dev,
+                "icon": "mdi:snowflake",
+            }
+            self.mqtt.publish(g_cool_topic, json.dumps(g_cool_cfg, ensure_ascii=False), retain=True)
 
         for t in self.therm_list():
             tid = str(t.get("id"))

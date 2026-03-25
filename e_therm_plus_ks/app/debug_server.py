@@ -14943,6 +14943,10 @@ def render_vtherm_config_page(snapshot):
           </select>
         </div>
         <div>
+          <label>Consenso gruppo (opzionale)</label>
+          <input id="f_consensus_group" placeholder="Es: PDC_NUOVA" />
+        </div>
+        <div>
           <label>Auto control (per questo vTherm)</label>
           <div class="chkRow">
             <div class="chk"><input id="f_auto" type="checkbox" /> <span>Abilita auto PWM/fan</span></div>
@@ -15024,6 +15028,7 @@ function sanitizeTherm(t) {
   const outHeat = (t && t.outputs_heat && typeof t.outputs_heat === 'object') ? t.outputs_heat : null;
   const outCool = (t && t.outputs_cool && typeof t.outputs_cool === 'object') ? t.outputs_cool : null;
   const profile = String((t && t.profile) ?? '').trim();
+  const consensusGroup = String((t && t.consensus_group) ?? '').trim();
   const autoCtl = !!(t && t.auto_control_enabled);
   const base = {
     id: id,
@@ -15034,6 +15039,7 @@ function sanitizeTherm(t) {
     outputs: { power: !!outputs.power, fan3: !!outputs.fan3 },
     auto_control_enabled: autoCtl,
     ...(profile ? { profile } : {}),
+    ...(consensusGroup ? { consensus_group: consensusGroup } : {}),
   };
   if (outHeat || outCool) {
     // Split outputs by season
@@ -15100,6 +15106,9 @@ function renderList() {
         '<span class="chip">Cool fan3: ' + (c.fan3 ? 'ON' : 'OFF') + '</span>' +
         (t.profile ? ('<span class="chip">profile: ' + escapeHtml(t.profile) + '</span>') : '');
     }
+    if (t.consensus_group) {
+      chips.innerHTML += '<span class="chip">consenso: ' + escapeHtml(t.consensus_group) + '</span>';
+    }
     left.appendChild(chips);
 
     const right = document.createElement('div');
@@ -15148,6 +15157,7 @@ function editItem(idx) {
   document.getElementById('f_src_entity_id').value = String((t.source || {}).entity_id || '');
   toggleSourceFields();
   document.getElementById('f_profile').value = String(t.profile || '');
+  document.getElementById('f_consensus_group').value = String(t.consensus_group || '');
   document.getElementById('f_auto').checked = !!t.auto_control_enabled;
   document.getElementById('f_split').checked = !!split;
   if (!split) {
@@ -15176,6 +15186,7 @@ function addNew() {
   document.getElementById('f_src_entity_id').value = '';
   toggleSourceFields();
   document.getElementById('f_profile').value = '';
+  document.getElementById('f_consensus_group').value = '';
   document.getElementById('f_auto').checked = false;
   document.getElementById('f_split').checked = false;
   document.getElementById('f_heat_power').checked = true;
@@ -15198,6 +15209,7 @@ function saveItem() {
   const srcNum = Number(String(document.getElementById('f_src_num').value || '').trim());
   const srcEntityId = String(document.getElementById('f_src_entity_id').value || '').trim();
   const profile = String(document.getElementById('f_profile').value || '').trim();
+  const consensusGroup = String(document.getElementById('f_consensus_group').value || '').trim();
   const split = !!document.getElementById('f_split').checked;
   const autoCtl = !!document.getElementById('f_auto').checked;
   const hPower = !!document.getElementById('f_heat_power').checked;
@@ -15226,6 +15238,7 @@ function saveItem() {
       ? { type: 'ha_climate', entity_id: srcEntityId }
       : { type: 'esafe', num: srcNum },
     profile: profile,
+    consensus_group: consensusGroup,
     auto_control_enabled: autoCtl,
   };
   let item = null;
