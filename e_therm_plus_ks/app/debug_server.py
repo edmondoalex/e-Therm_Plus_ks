@@ -15078,6 +15078,19 @@ function sanitizeGroup(g) {
   };
 }
 
+function ensureGroupsFromTherms() {
+  // Auto-create group entries for any consensus_group used by thermostats.
+  const groups = cfg.consensus_groups || [];
+  const existing = new Set(groups.map(g => String((g || {}).name || '').trim()).filter(Boolean));
+  for (const t of (cfg.thermostats || [])) {
+    const g = String((t || {}).consensus_group || '').trim();
+    if (!g || existing.has(g)) continue;
+    groups.push({ name: g });
+    existing.add(g);
+  }
+  cfg.consensus_groups = groups;
+}
+
 function ensureUniqueGroup(name, idx) {
   const s = String(name || '').trim();
   if (!s) return false;
@@ -15224,6 +15237,7 @@ function renderList() {
 function renderGroups() {
   const list = document.getElementById('group_list');
   if (!list) return;
+  ensureGroupsFromTherms();
   list.innerHTML = '';
   const items = cfg.consensus_groups || [];
   if (!items.length) {
@@ -15540,6 +15554,7 @@ async function saveCfg() {
   }
   // Sanitize list
   cfg.thermostats = (cfg.thermostats || []).map(sanitizeTherm);
+  ensureGroupsFromTherms();
   cfg.consensus_groups = (cfg.consensus_groups || []).map(sanitizeGroup);
   renderList();
   renderGroups();
