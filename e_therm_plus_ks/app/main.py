@@ -15,7 +15,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.53"
+APP_VERSION = "2.6.54"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1850,12 +1850,12 @@ class ThermEngine:
 
         valv = "ON" if (hot_on or low_on) else "OFF"
         name = _topic_safe_name(t.get("name") or f"vTherm_{tid}")
-        self.mqtt.publish(f"{self.out_prefix}/thermostats/{name}/valv/set", valv, retain=True)
-        self.mqtt.publish(f"{self.out_prefix}/valv/{tid}/set", valv, retain=True)
-        self.mqtt.publish(f"{self.out_prefix}/thermostats/{name}/valv_hot/set", "ON" if hot_on else "OFF", retain=True)
-        self.mqtt.publish(f"{self.out_prefix}/valv_hot/{tid}/set", "ON" if hot_on else "OFF", retain=True)
-        self.mqtt.publish(f"{self.out_prefix}/thermostats/{name}/valv_low/set", "ON" if low_on else "OFF", retain=True)
-        self.mqtt.publish(f"{self.out_prefix}/valv_low/{tid}/set", "ON" if low_on else "OFF", retain=True)
+        self.mqtt.publish(f"{self.out_prefix}/thermostats/{name}/valv/state", valv, retain=True)
+        self.mqtt.publish(f"{self.out_prefix}/valv/{tid}/state", valv, retain=True)
+        self.mqtt.publish(f"{self.out_prefix}/thermostats/{name}/valv_hot/state", "ON" if hot_on else "OFF", retain=True)
+        self.mqtt.publish(f"{self.out_prefix}/valv_hot/{tid}/state", "ON" if hot_on else "OFF", retain=True)
+        self.mqtt.publish(f"{self.out_prefix}/thermostats/{name}/valv_low/state", "ON" if low_on else "OFF", retain=True)
+        self.mqtt.publish(f"{self.out_prefix}/valv_low/{tid}/state", "ON" if low_on else "OFF", retain=True)
         self._apply_real_valves(t, low_on, hot_on)
         # Keep global PDC consensus in sync with every valve update.
         self._publish_pdc_consensus()
@@ -2919,7 +2919,7 @@ class ThermEngine:
                 "payload_available": "online",
                 "payload_not_available": "offline",
                 "command_topic": f"{self.out_prefix}/valv/{tid}/set",
-                "state_topic": f"{self.out_prefix}/valv/{tid}/set",
+                "state_topic": f"{self.out_prefix}/valv/{tid}/state",
                 "payload_on": "ON",
                 "payload_off": "OFF",
                 "device": dev,
@@ -2936,7 +2936,7 @@ class ThermEngine:
                 "payload_available": "online",
                 "payload_not_available": "offline",
                 "command_topic": f"{self.out_prefix}/valv_hot/{tid}/set",
-                "state_topic": f"{self.out_prefix}/valv_hot/{tid}/set",
+                "state_topic": f"{self.out_prefix}/valv_hot/{tid}/state",
                 "payload_on": "ON",
                 "payload_off": "OFF",
                 "device": dev,
@@ -2953,12 +2953,20 @@ class ThermEngine:
                 "payload_available": "online",
                 "payload_not_available": "offline",
                 "command_topic": f"{self.out_prefix}/valv_low/{tid}/set",
-                "state_topic": f"{self.out_prefix}/valv_low/{tid}/set",
+                "state_topic": f"{self.out_prefix}/valv_low/{tid}/state",
                 "payload_on": "ON",
                 "payload_off": "OFF",
                 "device": dev,
             }
             self.mqtt.publish(valv_low_topic, json.dumps(valv_low_cfg, ensure_ascii=False), retain=True)
+
+            # Clear any retained command topics from previous versions
+            try:
+                self.mqtt.publish(f"{self.out_prefix}/valv/{tid}/set", "", retain=True)
+                self.mqtt.publish(f"{self.out_prefix}/valv_hot/{tid}/set", "", retain=True)
+                self.mqtt.publish(f"{self.out_prefix}/valv_low/{tid}/set", "", retain=True)
+            except Exception:
+                pass
 
             # Outputs discovery:
             # - legacy: e-therm/thermostats/<id>/power + /fan/<sp>
