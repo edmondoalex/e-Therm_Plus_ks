@@ -15385,9 +15385,19 @@ function saveGroup() {
 
 function delGroup(idx) {
   const g = sanitizeGroup(cfg.consensus_groups[idx] || {});
-  if (!confirm('Eliminare gruppo ' + (g.name || '?') + '?')) return;
+  const name = String(g.name || '').trim();
+  const usedBy = (cfg.thermostats || []).filter(t => String((t || {}).consensus_group || '').trim() === name);
+  if (usedBy.length > 0) {
+    if (!confirm('Il gruppo "' + name + '" è usato da ' + usedBy.length + ' termostati.\\n\\nVuoi rimuovere il gruppo e cancellare il consenso dai termostati?')) return;
+    for (const t of usedBy) {
+      t.consensus_group = '';
+    }
+  } else {
+    if (!confirm('Eliminare gruppo ' + (name || '?') + '?')) return;
+  }
   cfg.consensus_groups.splice(idx, 1);
   renderGroups();
+  renderList();
 }
 
 function clearGroups() {
