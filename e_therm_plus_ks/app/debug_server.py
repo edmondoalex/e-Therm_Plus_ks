@@ -14947,6 +14947,10 @@ def render_vtherm_config_page(snapshot):
           <input id="f_consensus_group" placeholder="Es: PDC_NUOVA" />
         </div>
         <div>
+          <label>Entità reali (JSON, opzionale)</label>
+          <textarea id="f_real_targets" rows="6" placeholder='Es: {"power_light":"light.ins...","fan_switches":{"min":"switch.a","med":"switch.b","max":"switch.c"},"valve_switch":"switch.valv"}'></textarea>
+        </div>
+        <div>
           <label>Auto control (per questo vTherm)</label>
           <div class="chkRow">
             <div class="chk"><input id="f_auto" type="checkbox" /> <span>Abilita auto PWM/fan</span></div>
@@ -15029,6 +15033,7 @@ function sanitizeTherm(t) {
   const outCool = (t && t.outputs_cool && typeof t.outputs_cool === 'object') ? t.outputs_cool : null;
   const profile = String((t && t.profile) ?? '').trim();
   const consensusGroup = String((t && t.consensus_group) ?? '').trim();
+  const realTargets = (t && t.real_targets && typeof t.real_targets === 'object') ? t.real_targets : null;
   const autoCtl = !!(t && t.auto_control_enabled);
   const base = {
     id: id,
@@ -15040,6 +15045,7 @@ function sanitizeTherm(t) {
     auto_control_enabled: autoCtl,
     ...(profile ? { profile } : {}),
     ...(consensusGroup ? { consensus_group: consensusGroup } : {}),
+    ...(realTargets ? { real_targets: realTargets } : {}),
   };
   if (outHeat || outCool) {
     // Split outputs by season
@@ -15109,6 +15115,9 @@ function renderList() {
     if (t.consensus_group) {
       chips.innerHTML += '<span class="chip">consenso: ' + escapeHtml(t.consensus_group) + '</span>';
     }
+    if (t.real_targets) {
+      chips.innerHTML += '<span class="chip">reali: ON</span>';
+    }
     left.appendChild(chips);
 
     const right = document.createElement('div');
@@ -15158,6 +15167,7 @@ function editItem(idx) {
   toggleSourceFields();
   document.getElementById('f_profile').value = String(t.profile || '');
   document.getElementById('f_consensus_group').value = String(t.consensus_group || '');
+  document.getElementById('f_real_targets').value = t.real_targets ? JSON.stringify(t.real_targets, null, 2) : '';
   document.getElementById('f_auto').checked = !!t.auto_control_enabled;
   document.getElementById('f_split').checked = !!split;
   if (!split) {
@@ -15187,6 +15197,7 @@ function addNew() {
   toggleSourceFields();
   document.getElementById('f_profile').value = '';
   document.getElementById('f_consensus_group').value = '';
+  document.getElementById('f_real_targets').value = '';
   document.getElementById('f_auto').checked = false;
   document.getElementById('f_split').checked = false;
   document.getElementById('f_heat_power').checked = true;
@@ -15210,6 +15221,7 @@ function saveItem() {
   const srcEntityId = String(document.getElementById('f_src_entity_id').value || '').trim();
   const profile = String(document.getElementById('f_profile').value || '').trim();
   const consensusGroup = String(document.getElementById('f_consensus_group').value || '').trim();
+  const realTargetsRaw = String(document.getElementById('f_real_targets').value || '').trim();
   const split = !!document.getElementById('f_split').checked;
   const autoCtl = !!document.getElementById('f_auto').checked;
   const hPower = !!document.getElementById('f_heat_power').checked;
@@ -15230,6 +15242,17 @@ function saveItem() {
   } else {
     if (!hPower && !hFan3 && !cPower && !cFan3) { if (msg) msg.textContent = 'Seleziona almeno una uscita (Heat o Cool).'; return; }
   }
+  let realTargets = null;
+  if (realTargetsRaw) {
+    try {
+      const obj = JSON.parse(realTargetsRaw);
+      if (!obj || typeof obj !== 'object' || Array.isArray(obj)) { if (msg) msg.textContent = 'Entità reali: JSON deve essere un oggetto.'; return; }
+      realTargets = obj;
+    } catch (e) {
+      if (msg) msg.textContent = 'Entità reali: JSON non valido.';
+      return;
+    }
+  }
 
   const itemBase = {
     id: id,
@@ -15239,6 +15262,7 @@ function saveItem() {
       : { type: 'esafe', num: srcNum },
     profile: profile,
     consensus_group: consensusGroup,
+    real_targets: realTargets,
     auto_control_enabled: autoCtl,
   };
   let item = null;

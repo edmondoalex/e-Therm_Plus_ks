@@ -15,7 +15,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.35"
+APP_VERSION = "2.6.36"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -199,6 +199,7 @@ class ThermEngine:
         self.pwm_med_to_max = int(opts.get("pwm_med_to_max", 67) or 67)
         self._pwm: Dict[str, PWMController] = {}
         self._manual_override_until: Dict[str, float] = {}
+        self._real_target_last: Dict[str, Any] = {}
         self._control_thread: Optional[threading.Thread] = None
         self._watchdog_thread: Optional[threading.Thread] = None
 
@@ -704,6 +705,90 @@ class ThermEngine:
         payload.update(data or {})
         res = self._ha_api_request("POST", f"/services/climate/{service}", payload)
         return res is not None
+
+    def _ha_service_call(self, domain: str, service: str, data: Dict[str, Any]) -> bool:
+        res = self._ha_api_request("POST", f"/services/{domain}/{service}", data or {})
+        return res is not None
+
+    def _real_targets_for(self, t: Dict[str, Any], season_key: Optional[str] = None) -> Dict[str, Any]:
+        rt = t.get("real_targets") if isinstance(t.get("real_targets"), dict) else {}
+        if not isinstance(rt, dict):
+            rt = {}
+        out: Dict[str, Any] = {}
+        try:
+            # base/default keys
+            out.update(rt)
+            if season_key and isinstance(rt.get(season_key), dict):
+                out.update(rt.get(season_key) or {})
+        except Exception:
+            pass
+        return out
+
+    def _apply_real_switch(self, entity_id: str, on: bool) -> None:
+        ent = str(entity_id or "").strip()
+        if not ent.startswith("switch."):
+            return
+        desired = "ON" if on else "OFF"
+        cache_key = f"sw:{ent}"
+        if str(self._real_target_last.get(cache_key) or "") == desired:
+            return
+        ok = self._ha_service_call("switch", "turn_on" if on else "turn_off", {"entity_id": ent})
+        if ok:
+            self._real_target_last[cache_key] = desired
+
+    def _apply_real_pwm_light(self, entity_id: str, pwm_value: int) -> None:
+        ent = str(entity_id or "").strip()
+        if not ent.startswith("light."):
+            return
+        pwm = int(max(0, min(100, int(pwm_value))))
+        cache_key = f"li:{ent}"
+        if int(self._real_target_last.get(cache_key, -1)) == pwm:
+            return
+        if pwm <= 0:
+            ok = self._ha_service_call("light", "turn_off", {"entity_id": ent})
+        else:
+            # Keep exact PWM percentage semantics (0..100).
+            ok = self._ha_service_call("light", "turn_on", {"entity_id": ent, "brightness_pct": pwm})
+        if ok:
+            self._real_target_last[cache_key] = pwm
+
+    def _apply_real_outputs(self, t: Dict[str, Any], desired: Dict[str, Any], outputs: Dict[str, Any], season_key: Optional[str] = None) -> None:
+        targets = self._real_targets_for(t, season_key)
+        if not isinstance(targets, dict):
+            return
+
+        if outputs.get("power"):
+            pwm = int(desired.get("power", 0) or 0)
+            pwm_light = str(
+                targets.get("power_light")
+                or targets.get("pwm_light")
+                or targets.get("dimmer_light")
+                or ""
+            ).strip()
+            if pwm_light:
+                self._apply_real_pwm_light(pwm_light, pwm)
+
+        if outputs.get("fan3"):
+            fan = desired.get("fan") if isinstance(desired.get("fan"), dict) else {}
+            fan_sw = targets.get("fan_switches") if isinstance(targets.get("fan_switches"), dict) else {}
+            for sp in ("min", "med", "max"):
+                ent = str(
+                    fan_sw.get(sp)
+                    or targets.get(f"fan_{sp}_switch")
+                    or ""
+                ).strip()
+                if not ent:
+                    continue
+                on = str((fan or {}).get(sp, "OFF")).upper() == "ON"
+                self._apply_real_switch(ent, on)
+
+    def _apply_real_valve(self, t: Dict[str, Any], valv_on: bool) -> None:
+        targets = self._real_targets_for(t, None)
+        if not isinstance(targets, dict):
+            return
+        ent = str(targets.get("valve_switch") or targets.get("valv_switch") or "").strip()
+        if ent:
+            self._apply_real_switch(ent, bool(valv_on))
 
     def _discovery_topics_for_therm(self, tid: str, outputs: Dict[str, Any]) -> List[str]:
         base = "homeassistant"
@@ -1570,6 +1655,7 @@ class ThermEngine:
                 name = _topic_safe_name(t.get("name") or f"vTherm_{tid}")
                 self.mqtt.publish(f"{self.out_prefix}/thermostats/{name}/valv/set", valv, retain=True)
                 self.mqtt.publish(f"{self.out_prefix}/valv/{tid}/set", valv, retain=True)
+            self._apply_real_outputs(t, desired, outputs, None)
             return
 
         sk = season_key or "heat"
@@ -1584,6 +1670,7 @@ class ThermEngine:
                 val = str(fan.get(sp, "OFF")).upper()
                 val = "ON" if val in ("ON", "1", "TRUE") else "OFF"
                 self.mqtt.publish(f"{base}/fan/{sp}", val, retain=True)
+        self._apply_real_outputs(t, desired, outputs, sk)
         self._publish_valve_state(t)
 
     def _valve_on_for_therm(self, t: Dict[str, Any]) -> bool:
@@ -1619,6 +1706,7 @@ class ThermEngine:
         name = _topic_safe_name(t.get("name") or f"vTherm_{tid}")
         self.mqtt.publish(f"{self.out_prefix}/thermostats/{name}/valv/set", valv, retain=True)
         self.mqtt.publish(f"{self.out_prefix}/valv/{tid}/set", valv, retain=True)
+        self._apply_real_valve(t, valv == "ON")
         # Keep global PDC consensus in sync with every valve update.
         self._publish_pdc_consensus()
 
