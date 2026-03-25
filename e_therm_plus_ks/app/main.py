@@ -15,7 +15,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.33"
+APP_VERSION = "2.6.34"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1623,15 +1623,20 @@ class ThermEngine:
         self._publish_pdc_consensus()
 
     def _publish_pdc_consensus(self) -> None:
-        """Publish general and seasonal PDC consensus topics."""
-        on = False
-        on_heat = False
-        on_cool = False
+        """Publish general and seasonal PDC consensus topics by source group."""
+        on_esafe = False
+        on_esafe_heat = False
+        on_esafe_cool = False
+        on_ha = False
+        on_ha_heat = False
+        on_ha_cool = False
         try:
             for t in self.therm_list():
                 if not self._valve_on_for_therm(t):
                     continue
-                on = True
+                src = t.get("source") if isinstance(t.get("source"), dict) else {}
+                src_type = str((src or {}).get("type") or "").strip().lower()
+                is_ha = src_type in ("ha_climate", "homeassistant_climate", "ha")
                 tid = str(t.get("id"))
                 sea = ""
                 try:
@@ -1640,17 +1645,35 @@ class ThermEngine:
                     sea = str(th.get("ACT_SEA") or "").upper()
                 except Exception:
                     sea = ""
-                if sea == "SUM":
-                    on_cool = True
+                if is_ha:
+                    on_ha = True
+                    if sea == "SUM":
+                        on_ha_cool = True
+                    else:
+                        on_ha_heat = True
                 else:
-                    on_heat = True
+                    on_esafe = True
+                    if sea == "SUM":
+                        on_esafe_cool = True
+                    else:
+                        on_esafe_heat = True
         except Exception:
-            on = False
-            on_heat = False
-            on_cool = False
-        self.mqtt.publish(f"{self.out_prefix}/pdc/set", "ON" if on else "OFF", retain=True)
-        self.mqtt.publish(f"{self.out_prefix}/pdc/heat/set", "ON" if on_heat else "OFF", retain=True)
-        self.mqtt.publish(f"{self.out_prefix}/pdc/cool/set", "ON" if on_cool else "OFF", retain=True)
+            on_esafe = False
+            on_esafe_heat = False
+            on_esafe_cool = False
+            on_ha = False
+            on_ha_heat = False
+            on_ha_cool = False
+
+        # Legacy PDC topics: now driven only by legacy/e-safe thermostats.
+        self.mqtt.publish(f"{self.out_prefix}/pdc/set", "ON" if on_esafe else "OFF", retain=True)
+        self.mqtt.publish(f"{self.out_prefix}/pdc/heat/set", "ON" if on_esafe_heat else "OFF", retain=True)
+        self.mqtt.publish(f"{self.out_prefix}/pdc/cool/set", "ON" if on_esafe_cool else "OFF", retain=True)
+
+        # Dedicated PDC topics for HA-climate sourced thermostats.
+        self.mqtt.publish(f"{self.out_prefix}/pdc/ha/set", "ON" if on_ha else "OFF", retain=True)
+        self.mqtt.publish(f"{self.out_prefix}/pdc/ha/heat/set", "ON" if on_ha_heat else "OFF", retain=True)
+        self.mqtt.publish(f"{self.out_prefix}/pdc/ha/cool/set", "ON" if on_ha_cool else "OFF", retain=True)
 
     # -------------------- HA clone (MQTT climate) --------------------
 
@@ -2318,6 +2341,64 @@ class ThermEngine:
             "icon": "mdi:snowflake",
         }
         self.mqtt.publish(pdc_cool_topic, json.dumps(pdc_cool_cfg, ensure_ascii=False), retain=True)
+
+        # HA-climate sourced thermostats PDC consensus switch group
+        pdc_ha_dev = {
+            "identifiers": ["e_therm_pdc_ha"],
+            "name": "e-therm PDC HA",
+            "manufacturer": "Ekonex",
+            "model": "e-Therm Plus KS",
+        }
+        pdc_ha_uid = "e_therm_pdc_ha"
+        pdc_ha_topic = f"{base}/switch/{pdc_ha_uid}/config"
+        pdc_ha_cfg = {
+            "name": "e-Therm PDC HA Consenso",
+            "unique_id": pdc_ha_uid,
+            "availability_topic": f"{self.out_prefix}/status",
+            "payload_available": "online",
+            "payload_not_available": "offline",
+            "command_topic": f"{self.out_prefix}/pdc/ha/set",
+            "state_topic": f"{self.out_prefix}/pdc/ha/set",
+            "payload_on": "ON",
+            "payload_off": "OFF",
+            "device": pdc_ha_dev,
+            "icon": "mdi:hvac",
+        }
+        self.mqtt.publish(pdc_ha_topic, json.dumps(pdc_ha_cfg, ensure_ascii=False), retain=True)
+
+        pdc_ha_heat_uid = "e_therm_pdc_ha_heat"
+        pdc_ha_heat_topic = f"{base}/switch/{pdc_ha_heat_uid}/config"
+        pdc_ha_heat_cfg = {
+            "name": "e-Therm PDC HA Heat",
+            "unique_id": pdc_ha_heat_uid,
+            "availability_topic": f"{self.out_prefix}/status",
+            "payload_available": "online",
+            "payload_not_available": "offline",
+            "command_topic": f"{self.out_prefix}/pdc/ha/heat/set",
+            "state_topic": f"{self.out_prefix}/pdc/ha/heat/set",
+            "payload_on": "ON",
+            "payload_off": "OFF",
+            "device": pdc_ha_dev,
+            "icon": "mdi:radiator",
+        }
+        self.mqtt.publish(pdc_ha_heat_topic, json.dumps(pdc_ha_heat_cfg, ensure_ascii=False), retain=True)
+
+        pdc_ha_cool_uid = "e_therm_pdc_ha_cool"
+        pdc_ha_cool_topic = f"{base}/switch/{pdc_ha_cool_uid}/config"
+        pdc_ha_cool_cfg = {
+            "name": "e-Therm PDC HA Cool",
+            "unique_id": pdc_ha_cool_uid,
+            "availability_topic": f"{self.out_prefix}/status",
+            "payload_available": "online",
+            "payload_not_available": "offline",
+            "command_topic": f"{self.out_prefix}/pdc/ha/cool/set",
+            "state_topic": f"{self.out_prefix}/pdc/ha/cool/set",
+            "payload_on": "ON",
+            "payload_off": "OFF",
+            "device": pdc_ha_dev,
+            "icon": "mdi:snowflake",
+        }
+        self.mqtt.publish(pdc_ha_cool_topic, json.dumps(pdc_ha_cool_cfg, ensure_ascii=False), retain=True)
 
         for t in self.therm_list():
             tid = str(t.get("id"))
