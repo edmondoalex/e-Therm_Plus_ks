@@ -15,7 +15,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.54"
+APP_VERSION = "2.6.55"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1543,6 +1543,8 @@ class ThermEngine:
         # Source (e-safe)
         if client is None:
             return
+        # Clear any retained /set commands before subscribing, to avoid spurious manual overrides.
+        self._clear_retained_valve_commands()
         client.subscribe(f"{self.source_prefix}/thermostats/+", qos=0)
         client.subscribe(f"{self.source_prefix}/thermostats/+/+", qos=0)
 
@@ -2382,6 +2384,24 @@ class ThermEngine:
         self._manual_valve_until[str(tid)] = time.time() + float(self._override_sec_for(t))
         self._publish_valve_state(t)
         return True
+
+    def _clear_retained_valve_commands(self) -> None:
+        try:
+            ids: List[int] = []
+            for t in self.therm_list():
+                try:
+                    ids.append(int(t.get("id")))
+                except Exception:
+                    continue
+            if not ids:
+                return
+            max_id = max(ids)
+            for tid in range(1, max_id + 1):
+                self.mqtt.publish(f"{self.out_prefix}/valv/{tid}/set", "", retain=True)
+                self.mqtt.publish(f"{self.out_prefix}/valv_hot/{tid}/set", "", retain=True)
+                self.mqtt.publish(f"{self.out_prefix}/valv_low/{tid}/set", "", retain=True)
+        except Exception:
+            pass
 
     # -------------------- Source handler --------------------
 
