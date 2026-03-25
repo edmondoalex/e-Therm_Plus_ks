@@ -15,7 +15,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.58"
+APP_VERSION = "2.6.59"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -732,6 +732,22 @@ class ThermEngine:
             pass
         return out
 
+    def _split_entities(self, v: Any) -> List[str]:
+        if v is None:
+            return []
+        if isinstance(v, list):
+            return [str(x).strip() for x in v if str(x).strip()]
+        s = str(v).strip()
+        if not s:
+            return []
+        parts = []
+        for raw in s.replace(";", ",").split(","):
+            raw = raw.strip()
+            if not raw:
+                continue
+            parts.append(raw)
+        return [p for p in parts if p]
+
     def _apply_real_switch(self, entity_id: str, on: bool) -> None:
         ent = str(entity_id or "").strip()
         if not ent.startswith("switch."):
@@ -743,6 +759,10 @@ class ThermEngine:
         ok = self._ha_service_call("switch", "turn_on" if on else "turn_off", {"entity_id": ent})
         if ok:
             self._real_target_last[cache_key] = desired
+
+    def _apply_real_switches(self, entities: Any, on: bool) -> None:
+        for ent in self._split_entities(entities):
+            self._apply_real_switch(ent, on)
 
     def _apply_real_pwm_light(self, entity_id: str, pwm_value: int) -> None:
         ent = str(entity_id or "").strip()
@@ -760,6 +780,10 @@ class ThermEngine:
         if ok:
             self._real_target_last[cache_key] = pwm
 
+    def _apply_real_pwm_lights(self, entities: Any, pwm_value: int) -> None:
+        for ent in self._split_entities(entities):
+            self._apply_real_pwm_light(ent, pwm_value)
+
     def _apply_real_outputs(self, t: Dict[str, Any], desired: Dict[str, Any], outputs: Dict[str, Any], season_key: Optional[str] = None) -> None:
         targets = self._real_targets_for(t, season_key)
         if not isinstance(targets, dict):
@@ -767,61 +791,61 @@ class ThermEngine:
 
         if outputs.get("power"):
             pwm = int(desired.get("power", 0) or 0)
-            pwm_light = str(
+            pwm_light = (
                 targets.get("power_light")
                 or targets.get("pwm_light")
                 or targets.get("dimmer_light")
                 or ""
-            ).strip()
+            )
             if pwm_light:
-                self._apply_real_pwm_light(pwm_light, pwm)
+                self._apply_real_pwm_lights(pwm_light, pwm)
 
         if outputs.get("fan3"):
             fan = desired.get("fan") if isinstance(desired.get("fan"), dict) else {}
             fan_sw = targets.get("fan_switches") if isinstance(targets.get("fan_switches"), dict) else {}
             for sp in ("min", "med", "max"):
-                ent = str(
+                ent = (
                     fan_sw.get(sp)
                     or targets.get(f"fan_{sp}_switch")
                     or ""
-                ).strip()
+                )
                 if not ent:
                     continue
                 on = str((fan or {}).get(sp, "OFF")).upper() == "ON"
-                self._apply_real_switch(ent, on)
+                self._apply_real_switches(ent, on)
 
     def _apply_real_valve(self, t: Dict[str, Any], valv_on: bool) -> None:
         targets = self._real_targets_for(t, None)
         if not isinstance(targets, dict):
             return
-        ent = str(targets.get("valve_switch") or targets.get("valv_switch") or "").strip()
+        ent = targets.get("valve_switch") or targets.get("valv_switch") or ""
         if ent:
-            self._apply_real_switch(ent, bool(valv_on))
+            self._apply_real_switches(ent, bool(valv_on))
 
     def _apply_real_valves(self, t: Dict[str, Any], low_on: bool, hot_on: bool) -> None:
         targets = self._real_targets_for(t, None)
         if not isinstance(targets, dict):
             return
-        ent_low = str(
+        ent_low = (
             targets.get("valve_switch_low")
             or targets.get("valv_switch_low")
             or targets.get("valve_switch_bassa")
             or ""
-        ).strip()
-        ent_hot = str(
+        )
+        ent_hot = (
             targets.get("valve_switch_hot")
             or targets.get("valv_switch_hot")
             or targets.get("valve_switch_alta")
             or ""
-        ).strip()
+        )
         if ent_low:
-            self._apply_real_switch(ent_low, bool(low_on))
+            self._apply_real_switches(ent_low, bool(low_on))
         if ent_hot:
-            self._apply_real_switch(ent_hot, bool(hot_on))
+            self._apply_real_switches(ent_hot, bool(hot_on))
         # Back-compat: drive single valve if configured
-        ent = str(targets.get("valve_switch") or targets.get("valv_switch") or "").strip()
+        ent = targets.get("valve_switch") or targets.get("valv_switch") or ""
         if ent:
-            self._apply_real_switch(ent, bool(low_on or hot_on))
+            self._apply_real_switches(ent, bool(low_on or hot_on))
 
     def _discovery_topics_for_therm(self, tid: str, outputs: Dict[str, Any]) -> List[str]:
         base = "homeassistant"

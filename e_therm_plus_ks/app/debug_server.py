@@ -14968,13 +14968,13 @@ def render_vtherm_config_page(snapshot):
         </div>
         <div>
           <label>Entità reale PWM (light, opzionale)</label>
-          <input id="f_rt_power_light" placeholder="Es: light.insona_hdl_dimmer_ventil_fc2_suite_5" />
+          <input id="f_rt_power_light" placeholder="Es: light.xxx, light.yyy" />
         </div>
         <div>
           <label>Entità reale Valvola (switch, opzionale)</label>
           <div class="row">
-            <input id="f_rt_valve_low_switch" placeholder="Bassa: switch.xxx" />
-            <input id="f_rt_valve_hot_switch" placeholder="Alta: switch.xxx" />
+            <input id="f_rt_valve_low_switch" placeholder="Bassa: switch.xxx, switch.yyy" />
+            <input id="f_rt_valve_hot_switch" placeholder="Alta: switch.xxx, switch.yyy" />
           </div>
         </div>
         <div>
