@@ -15317,7 +15317,7 @@ function saveGroup() {
 
   if (!name) { if (msg) msg.textContent = 'Nome gruppo obbligatorio.'; return; }
   if (!ensureUniqueGroup(name, editGroupIndex)) { if (msg) msg.textContent = 'Nome già usato: scegli un nome unico.'; return; }
-  if (!sw && !swHeat && !swCool) { if (msg) msg.textContent = 'Inserisci almeno uno switch reale.'; return; }
+  // Switch reali opzionali: si possono impostare anche in un secondo momento.
 
   const item = sanitizeGroup({ name, switch: sw, switch_heat: swHeat, switch_cool: swCool });
   if (editGroupIndex >= 0) cfg.consensus_groups[editGroupIndex] = item;
