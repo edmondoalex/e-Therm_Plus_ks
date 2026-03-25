@@ -15,7 +15,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.40"
+APP_VERSION = "2.6.41"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1776,6 +1776,19 @@ class ThermEngine:
                 if entry is None:
                     groups[g_key] = {"label": g_label, "on": False, "on_heat": False, "on_cool": False}
 
+            # Include configured consensus_groups even if no thermostat currently references them.
+            cfg_groups = self.cfg.get("consensus_groups") if isinstance(self.cfg, dict) else []
+            if isinstance(cfg_groups, list):
+                for g in cfg_groups:
+                    if not isinstance(g, dict):
+                        continue
+                    g_label = str(g.get("name") or "").strip()
+                    if not g_label:
+                        continue
+                    g_key = _topic_safe_name(g_label).lower()
+                    if g_key not in groups:
+                        groups[g_key] = {"label": g_label, "on": False, "on_heat": False, "on_cool": False}
+
             for t in all_therms:
                 g_label = str(t.get("consensus_group") or t.get("pdc_group") or "").strip()
                 if not g_label:
@@ -2580,6 +2593,18 @@ class ThermEngine:
             g_key = _topic_safe_name(g_label).lower()
             if g_key not in groups:
                 groups[g_key] = g_label
+        # Add configured groups (even if no thermostat references them yet).
+        cfg_groups = self.cfg.get("consensus_groups") if isinstance(self.cfg, dict) else []
+        if isinstance(cfg_groups, list):
+            for g in cfg_groups:
+                if not isinstance(g, dict):
+                    continue
+                g_label = str(g.get("name") or "").strip()
+                if not g_label:
+                    continue
+                g_key = _topic_safe_name(g_label).lower()
+                if g_key not in groups:
+                    groups[g_key] = g_label
         for g_key, g_label in groups.items():
             g_uid = f"e_therm_pdc_group_{g_key}"
             g_topic = f"{base}/switch/{g_uid}/config"
