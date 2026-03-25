@@ -15,7 +15,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.56"
+APP_VERSION = "2.6.57"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1262,6 +1262,11 @@ class ThermEngine:
                 self._control_one(t, now)
             except Exception:
                 continue
+        # Keep consensus states fresh even if no outputs changed.
+        try:
+            self._publish_pdc_consensus()
+        except Exception:
+            pass
 
         try:
             save_runtime(self.runtime)
@@ -1571,6 +1576,10 @@ class ThermEngine:
         except Exception:
             pass
         self._publish_discovery()
+        try:
+            self._publish_pdc_consensus()
+        except Exception:
+            pass
         client.publish(f"{self.out_prefix}/status", "online", retain=True)
 
     # -------------------- Static (profiles/schedule) --------------------
