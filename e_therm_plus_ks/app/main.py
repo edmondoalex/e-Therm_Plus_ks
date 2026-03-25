@@ -15,7 +15,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.51"
+APP_VERSION = "2.6.52"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -199,6 +199,8 @@ class ThermEngine:
         self.pwm_med_to_max = int(opts.get("pwm_med_to_max", 67) or 67)
         self._pwm: Dict[str, PWMController] = {}
         self._manual_override_until: Dict[str, float] = {}
+        self._manual_valve_until: Dict[str, float] = {}
+        self._manual_valve_state: Dict[str, Dict[str, bool]] = {}
         self._real_target_last: Dict[str, Any] = {}
         self._control_thread: Optional[threading.Thread] = None
         self._watchdog_thread: Optional[threading.Thread] = None
@@ -1557,6 +1559,9 @@ class ThermEngine:
         client.subscribe(f"{self.out_prefix}/thermostats/+/target_temperature/set", qos=0)
         client.subscribe(f"{self.out_prefix}/thermostats/+/mode/set", qos=0)
         client.subscribe(f"{self.out_prefix}/thermostats/+/preset_mode/set", qos=0)
+        client.subscribe(f"{self.out_prefix}/valv/+/set", qos=0)
+        client.subscribe(f"{self.out_prefix}/valv_hot/+/set", qos=0)
+        client.subscribe(f"{self.out_prefix}/valv_low/+/set", qos=0)
 
         self._sync_ui()
         try:
@@ -1770,15 +1775,35 @@ class ThermEngine:
 
         outputs = t.get("outputs") or {}
         if not (outputs.get("power") or outputs.get("fan3")):
+            # fall back to realtime OUT_STATUS if available
+            try:
+                rt = self.rt.get(tid) or {}
+                th = rt.get("THERM") if isinstance(rt.get("THERM"), dict) else {}
+                out_status = str(th.get("OUT_STATUS") or "").upper()
+                if out_status and out_status != "OFF":
+                    return True
+            except Exception:
+                pass
             return False
         desired = self._get_desired(tid)
         power = int(desired.get("power", 0) or 0)
         fan = desired.get("fan") or {}
         fan_on = str(fan.get("min", "OFF")).upper() == "ON" or str(fan.get("med", "OFF")).upper() == "ON" or str(fan.get("max", "OFF")).upper() == "ON"
-        return bool(power > 0 or fan_on)
+        if power > 0 or fan_on:
+            return True
+        # fallback to realtime OUT_STATUS if available
+        try:
+            rt = self.rt.get(tid) or {}
+            th = rt.get("THERM") if isinstance(rt.get("THERM"), dict) else {}
+            out_status = str(th.get("OUT_STATUS") or "").upper()
+            if out_status and out_status != "OFF":
+                return True
+        except Exception:
+            pass
+        return False
 
-    def _publish_valve_state(self, t: Dict[str, Any]) -> None:
-        """Publish valve state ON when any relevant demand is active."""
+    def _calc_auto_valves(self, t: Dict[str, Any]) -> tuple[bool, bool]:
+        """Return (low_on, hot_on) for automatic logic."""
         tid = str(t.get("id"))
         demand = self._valve_on_for_therm(t)
         sea = ""
@@ -1788,7 +1813,6 @@ class ThermEngine:
             sea = str(th.get("ACT_SEA") or "").upper()
         except Exception:
             sea = ""
-
         hot_on = False
         low_on = False
         if demand:
@@ -1798,6 +1822,22 @@ class ThermEngine:
             else:
                 hot_on = True
                 low_on = True
+        return (low_on, hot_on)
+
+    def _publish_valve_state(self, t: Dict[str, Any]) -> None:
+        """Publish valve state ON when any relevant demand is active."""
+        tid = str(t.get("id"))
+        now = time.time()
+        ov_until = float(self._manual_valve_until.get(tid, 0.0) or 0.0)
+        if ov_until and now < ov_until:
+            st = self._manual_valve_state.get(tid) or {}
+            low_on = bool(st.get("low"))
+            hot_on = bool(st.get("hot"))
+        else:
+            if ov_until and now >= ov_until:
+                self._manual_valve_until.pop(tid, None)
+                self._manual_valve_state.pop(tid, None)
+            low_on, hot_on = self._calc_auto_valves(t)
 
         valv = "ON" if (hot_on or low_on) else "OFF"
         name = _topic_safe_name(t.get("name") or f"vTherm_{tid}")
@@ -2304,6 +2344,36 @@ class ThermEngine:
             self._handle_ha_clone_command(tid, parts[1], payload_raw, origin="ha_mqtt")
             return
 
+    def _handle_valv_command(self, topic: str, payload_raw: str) -> bool:
+        base = f"{self.out_prefix}/"
+        if not topic.startswith(base):
+            return False
+        rest = topic[len(base) :]
+        parts = [p for p in rest.split("/") if p]
+        if len(parts) != 3 or parts[2] != "set":
+            return False
+        kind = parts[0]
+        if kind not in ("valv", "valv_hot", "valv_low"):
+            return False
+        tid = parts[1]
+        t = self._find_by_id(tid)
+        if not t:
+            return True
+        on = str(payload_raw or "").strip().upper() in ("ON", "1", "TRUE", "YES")
+        low_on, hot_on = self._calc_auto_valves(t)
+        if kind == "valv":
+            low_on = on
+            hot_on = on
+        elif kind == "valv_hot":
+            hot_on = on
+        elif kind == "valv_low":
+            low_on = on
+
+        self._manual_valve_state[str(tid)] = {"low": bool(low_on), "hot": bool(hot_on)}
+        self._manual_valve_until[str(tid)] = time.time() + float(self._override_sec_for(t))
+        self._publish_valve_state(t)
+        return True
+
     # -------------------- Source handler --------------------
 
     def _on_message(self, client, userdata, msg):
@@ -2326,6 +2396,16 @@ class ThermEngine:
                 pass
             self._handle_out_prefix_command(topic, payload_raw)
             return
+
+        if topic.startswith(f"{self.out_prefix}/valv") or topic.startswith(f"{self.out_prefix}/valv_hot") or topic.startswith(f"{self.out_prefix}/valv_low"):
+            try:
+                if bool(getattr(msg, "retain", False)) and topic.endswith("/set"):
+                    print(f"[WARN] Ignoring retained command on {topic}")
+                    return
+            except Exception:
+                pass
+            if self._handle_valv_command(topic, payload_raw):
+                return
 
         if not topic.startswith(f"{self.source_prefix}/thermostats/"):
             return
