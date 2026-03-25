@@ -15,7 +15,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.52"
+APP_VERSION = "2.6.53"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1761,6 +1761,15 @@ class ThermEngine:
         tid = str(t.get("id"))
         split = self._is_split_outputs(t)
         if split:
+            # fall back to realtime OUT_STATUS if available (HA climate)
+            try:
+                rt = self.rt.get(tid) or {}
+                th = rt.get("THERM") if isinstance(rt.get("THERM"), dict) else {}
+                out_status = str(th.get("OUT_STATUS") or "").upper()
+                if out_status and out_status != "OFF":
+                    return True
+            except Exception:
+                pass
             for sk in ("heat", "cool"):
                 outputs = self._outputs_for_season(t, sk)
                 if not (outputs.get("power") or outputs.get("fan3")):
