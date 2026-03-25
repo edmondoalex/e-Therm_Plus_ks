@@ -14959,20 +14959,20 @@ def render_vtherm_config_page(snapshot):
           </select>
         </div>
         <div>
-          <label>Consenso gruppo (opzionale)</label>
-          <select id="f_consensus_group"></select>
+          <label>Consenso gruppo HEAT (opzionale)</label>
+          <select id="f_consensus_group_heat"></select>
+        </div>
+        <div>
+          <label>Consenso gruppo COOL (opzionale)</label>
+          <select id="f_consensus_group_cool"></select>
         </div>
         <div>
           <label>Entità reale PWM (light, opzionale)</label>
           <input id="f_rt_power_light" placeholder="Es: light.insona_hdl_dimmer_ventil_fc2_suite_5" />
         </div>
         <div>
-          <label>Entità reale Valvola Alta T (switch, opzionale)</label>
-          <input id="f_rt_valve_hot_switch" placeholder="Es: switch.valv_hot_fc2" />
-        </div>
-        <div>
-          <label>Entità reale Valvola Bassa T (switch, opzionale)</label>
-          <input id="f_rt_valve_low_switch" placeholder="Es: switch.valv_low_fc2" />
+          <label>Entità reale Valvola (switch, opzionale)</label>
+          <input id="f_rt_valve_switch" placeholder="Es: switch.valv_fc2" />
         </div>
         <div>
           <label>Entità reali Fan (switch, opzionale)</label>
@@ -15041,14 +15041,6 @@ def render_vtherm_config_page(snapshot):
           <label>Switch consenso Cool</label>
           <input id="g_switch_cool" placeholder="Es: switch.pdc_a_cool" />
         </div>
-        <div>
-          <label>Switch consenso HOT</label>
-          <input id="g_switch_hot" placeholder="Es: switch.pdc_a_hot" />
-        </div>
-        <div>
-          <label>Switch consenso LOW</label>
-          <input id="g_switch_low" placeholder="Es: switch.pdc_a_low" />
-        </div>
       </div>
       <div class="msg" id="dlgGroupMsg"></div>
     </div>
@@ -15082,15 +15074,11 @@ function sanitizeGroup(g) {
   const sw = String((g && (g.switch || g.general_switch || g.consensus_switch)) ?? '').trim();
   const swHeat = String((g && (g.switch_heat || g.heat_switch)) ?? '').trim();
   const swCool = String((g && (g.switch_cool || g.cool_switch)) ?? '').trim();
-  const swHot = String((g && (g.switch_hot || g.hot_switch)) ?? '').trim();
-  const swLow = String((g && (g.switch_low || g.low_switch)) ?? '').trim();
   return {
     name,
     ...(sw ? { switch: sw } : {}),
     ...(swHeat ? { switch_heat: swHeat } : {}),
     ...(swCool ? { switch_cool: swCool } : {}),
-    ...(swHot ? { switch_hot: swHot } : {}),
-    ...(swLow ? { switch_low: swLow } : {}),
   };
 }
 
@@ -15101,14 +15089,16 @@ function groupOptions() {
     if (n) names.add(n);
   }
   for (const t of (cfg.thermostats || [])) {
-    const n = String((t || {}).consensus_group || '').trim();
-    if (n) names.add(n);
+    const nHeat = String((t || {}).consensus_group_heat || (t || {}).consensus_group || '').trim();
+    const nCool = String((t || {}).consensus_group_cool || (t || {}).consensus_group || '').trim();
+    if (nHeat) names.add(nHeat);
+    if (nCool) names.add(nCool);
   }
   return Array.from(names).sort((a, b) => a.localeCompare(b));
 }
 
-function renderConsensusSelect(selected) {
-  const el = document.getElementById('f_consensus_group');
+function renderConsensusSelect(id, selected) {
+  const el = document.getElementById(id);
   if (!el) return;
   const cur = String(selected || '').trim();
   el.innerHTML = '';
@@ -15131,10 +15121,16 @@ function ensureGroupsFromTherms() {
   const groups = cfg.consensus_groups || [];
   const existing = new Set(groups.map(g => String((g || {}).name || '').trim()).filter(Boolean));
   for (const t of (cfg.thermostats || [])) {
-    const g = String((t || {}).consensus_group || '').trim();
-    if (!g || existing.has(g)) continue;
-    groups.push({ name: g });
-    existing.add(g);
+    const gHeat = String((t || {}).consensus_group_heat || (t || {}).consensus_group || '').trim();
+    const gCool = String((t || {}).consensus_group_cool || (t || {}).consensus_group || '').trim();
+    if (gHeat && !existing.has(gHeat)) {
+      groups.push({ name: gHeat });
+      existing.add(gHeat);
+    }
+    if (gCool && !existing.has(gCool)) {
+      groups.push({ name: gCool });
+      existing.add(gCool);
+    }
   }
   cfg.consensus_groups = groups;
 }
@@ -15177,7 +15173,8 @@ function sanitizeTherm(t) {
   const outHeat = (t && t.outputs_heat && typeof t.outputs_heat === 'object') ? t.outputs_heat : null;
   const outCool = (t && t.outputs_cool && typeof t.outputs_cool === 'object') ? t.outputs_cool : null;
   const profile = String((t && t.profile) ?? '').trim();
-  const consensusGroup = String((t && t.consensus_group) ?? '').trim();
+  const consensusGroupHeat = String((t && (t.consensus_group_heat || t.consensus_group)) ?? '').trim();
+  const consensusGroupCool = String((t && (t.consensus_group_cool || t.consensus_group)) ?? '').trim();
   const realTargets = (t && t.real_targets && typeof t.real_targets === 'object') ? t.real_targets : null;
   const autoCtl = !!(t && t.auto_control_enabled);
   const base = {
@@ -15189,7 +15186,8 @@ function sanitizeTherm(t) {
     outputs: { power: !!outputs.power, fan3: !!outputs.fan3 },
     auto_control_enabled: autoCtl,
     ...(profile ? { profile } : {}),
-    ...(consensusGroup ? { consensus_group: consensusGroup } : {}),
+    ...(consensusGroupHeat ? { consensus_group_heat: consensusGroupHeat } : {}),
+    ...(consensusGroupCool ? { consensus_group_cool: consensusGroupCool } : {}),
     ...(realTargets ? { real_targets: realTargets } : {}),
   };
   if (outHeat || outCool) {
@@ -15257,8 +15255,11 @@ function renderList() {
         '<span class="chip">Cool fan3: ' + (c.fan3 ? 'ON' : 'OFF') + '</span>' +
         (t.profile ? ('<span class="chip">profile: ' + escapeHtml(t.profile) + '</span>') : '');
     }
-    if (t.consensus_group) {
-      chips.innerHTML += '<span class="chip">consenso: ' + escapeHtml(t.consensus_group) + '</span>';
+    if (t.consensus_group_heat) {
+      chips.innerHTML += '<span class="chip">heat: ' + escapeHtml(t.consensus_group_heat) + '</span>';
+    }
+    if (t.consensus_group_cool) {
+      chips.innerHTML += '<span class="chip">cool: ' + escapeHtml(t.consensus_group_cool) + '</span>';
     }
     if (t.real_targets) {
       chips.innerHTML += '<span class="chip">reali: ON</span>';
@@ -15308,8 +15309,6 @@ function renderGroups() {
         'gen: ' + escapeHtml(g.switch || '-') +
         ' • heat: ' + escapeHtml(g.switch_heat || '-') +
         ' • cool: ' + escapeHtml(g.switch_cool || '-') +
-        ' • hot: ' + escapeHtml(g.switch_hot || '-') +
-        ' • low: ' + escapeHtml(g.switch_low || '-') +
       '</div>';
     const right = document.createElement('div');
     right.className = 'row';
@@ -15346,8 +15345,6 @@ function editGroup(idx) {
   document.getElementById('g_switch').value = String(g.switch || '');
   document.getElementById('g_switch_heat').value = String(g.switch_heat || '');
   document.getElementById('g_switch_cool').value = String(g.switch_cool || '');
-  document.getElementById('g_switch_hot').value = String(g.switch_hot || '');
-  document.getElementById('g_switch_low').value = String(g.switch_low || '');
   openGroupDlg('Modifica gruppo');
 }
 
@@ -15357,8 +15354,6 @@ function addGroup() {
   document.getElementById('g_switch').value = '';
   document.getElementById('g_switch_heat').value = '';
   document.getElementById('g_switch_cool').value = '';
-  document.getElementById('g_switch_hot').value = '';
-  document.getElementById('g_switch_low').value = '';
   openGroupDlg('Nuovo gruppo');
 }
 
@@ -15367,15 +15362,13 @@ function saveGroup() {
   const sw = String(document.getElementById('g_switch').value || '').trim();
   const swHeat = String(document.getElementById('g_switch_heat').value || '').trim();
   const swCool = String(document.getElementById('g_switch_cool').value || '').trim();
-  const swHot = String(document.getElementById('g_switch_hot').value || '').trim();
-  const swLow = String(document.getElementById('g_switch_low').value || '').trim();
   const msg = document.getElementById('dlgGroupMsg');
 
   if (!name) { if (msg) msg.textContent = 'Nome gruppo obbligatorio.'; return; }
   if (!ensureUniqueGroup(name, editGroupIndex)) { if (msg) msg.textContent = 'Nome già usato: scegli un nome unico.'; return; }
   // Switch reali opzionali: si possono impostare anche in un secondo momento.
 
-  const item = sanitizeGroup({ name, switch: sw, switch_heat: swHeat, switch_cool: swCool, switch_hot: swHot, switch_low: swLow });
+  const item = sanitizeGroup({ name, switch: sw, switch_heat: swHeat, switch_cool: swCool });
   if (editGroupIndex >= 0) cfg.consensus_groups[editGroupIndex] = item;
   else cfg.consensus_groups.push(item);
 
@@ -15387,12 +15380,17 @@ function delGroup(idx) {
   const g = sanitizeGroup(cfg.consensus_groups[idx] || {});
   const name = String(g.name || '').trim();
   const norm = (s) => String(s || '').trim().toLowerCase();
-  const usedBy = (cfg.thermostats || []).filter(t => norm((t || {}).consensus_group || '') === norm(name));
+  const usedBy = (cfg.thermostats || []).filter(t =>
+    norm((t || {}).consensus_group_heat || (t || {}).consensus_group || '') === norm(name) ||
+    norm((t || {}).consensus_group_cool || (t || {}).consensus_group || '') === norm(name)
+  );
   if (usedBy.length > 0) {
     const names = usedBy.map(t => String((t || {}).name || (t || {}).id || '?')).join(', ');
     if (!confirm('Il gruppo "' + name + '" è usato da ' + usedBy.length + ' termostati:\\n' + names + '\\n\\nVuoi rimuovere il gruppo e cancellare il consenso dai termostati?')) return;
     for (const t of usedBy) {
       t.consensus_group = '';
+      t.consensus_group_heat = '';
+      t.consensus_group_cool = '';
     }
   } else {
     if (!confirm('Eliminare gruppo ' + (name || '?') + '?')) return;
@@ -15441,12 +15439,12 @@ function editItem(idx) {
   document.getElementById('f_src_entity_id').value = String((t.source || {}).entity_id || '');
   toggleSourceFields();
   document.getElementById('f_profile').value = String(t.profile || '');
-  renderConsensusSelect(String(t.consensus_group || ''));
+  renderConsensusSelect('f_consensus_group_heat', String(t.consensus_group_heat || ''));
+  renderConsensusSelect('f_consensus_group_cool', String(t.consensus_group_cool || ''));
   const rt = (t.real_targets && typeof t.real_targets === 'object') ? t.real_targets : {};
   const fanSw = (rt.fan_switches && typeof rt.fan_switches === 'object') ? rt.fan_switches : {};
   document.getElementById('f_rt_power_light').value = String(rt.power_light || '');
-  document.getElementById('f_rt_valve_hot_switch').value = String(rt.valve_hot_switch || rt.valve_high_switch || '');
-  document.getElementById('f_rt_valve_low_switch').value = String(rt.valve_low_switch || '');
+  document.getElementById('f_rt_valve_switch').value = String(rt.valve_switch || '');
   document.getElementById('f_rt_fan_min_switch').value = String(fanSw.min || '');
   document.getElementById('f_rt_fan_med_switch').value = String(fanSw.med || '');
   document.getElementById('f_rt_fan_max_switch').value = String(fanSw.max || '');
@@ -15478,10 +15476,10 @@ function addNew() {
   document.getElementById('f_src_entity_id').value = '';
   toggleSourceFields();
   document.getElementById('f_profile').value = '';
-  renderConsensusSelect('');
+  renderConsensusSelect('f_consensus_group_heat', '');
+  renderConsensusSelect('f_consensus_group_cool', '');
   document.getElementById('f_rt_power_light').value = '';
-  document.getElementById('f_rt_valve_hot_switch').value = '';
-  document.getElementById('f_rt_valve_low_switch').value = '';
+  document.getElementById('f_rt_valve_switch').value = '';
   document.getElementById('f_rt_fan_min_switch').value = '';
   document.getElementById('f_rt_fan_med_switch').value = '';
   document.getElementById('f_rt_fan_max_switch').value = '';
@@ -15507,10 +15505,10 @@ function saveItem() {
   const srcNum = Number(String(document.getElementById('f_src_num').value || '').trim());
   const srcEntityId = String(document.getElementById('f_src_entity_id').value || '').trim();
   const profile = String(document.getElementById('f_profile').value || '').trim();
-  const consensusGroup = String(document.getElementById('f_consensus_group').value || '').trim();
+  const consensusGroupHeat = String(document.getElementById('f_consensus_group_heat').value || '').trim();
+  const consensusGroupCool = String(document.getElementById('f_consensus_group_cool').value || '').trim();
   const rtPowerLight = String(document.getElementById('f_rt_power_light').value || '').trim();
-  const rtValveHot = String(document.getElementById('f_rt_valve_hot_switch').value || '').trim();
-  const rtValveLow = String(document.getElementById('f_rt_valve_low_switch').value || '').trim();
+  const rtValveSwitch = String(document.getElementById('f_rt_valve_switch').value || '').trim();
   const rtFanMin = String(document.getElementById('f_rt_fan_min_switch').value || '').trim();
   const rtFanMed = String(document.getElementById('f_rt_fan_med_switch').value || '').trim();
   const rtFanMax = String(document.getElementById('f_rt_fan_max_switch').value || '').trim();
@@ -15535,11 +15533,10 @@ function saveItem() {
     if (!hPower && !hFan3 && !cPower && !cFan3) { if (msg) msg.textContent = 'Seleziona almeno una uscita (Heat o Cool).'; return; }
   }
   let realTargets = null;
-  if (rtPowerLight || rtValveHot || rtValveLow || rtFanMin || rtFanMed || rtFanMax) {
+  if (rtPowerLight || rtValveSwitch || rtFanMin || rtFanMed || rtFanMax) {
     realTargets = {};
     if (rtPowerLight) realTargets.power_light = rtPowerLight;
-    if (rtValveHot) realTargets.valve_hot_switch = rtValveHot;
-    if (rtValveLow) realTargets.valve_low_switch = rtValveLow;
+    if (rtValveSwitch) realTargets.valve_switch = rtValveSwitch;
     const fanSwitches = {};
     if (rtFanMin) fanSwitches.min = rtFanMin;
     if (rtFanMed) fanSwitches.med = rtFanMed;
@@ -15554,7 +15551,8 @@ function saveItem() {
       ? { type: 'ha_climate', entity_id: srcEntityId }
       : { type: 'esafe', num: srcNum },
     profile: profile,
-    consensus_group: consensusGroup,
+    consensus_group_heat: consensusGroupHeat,
+    consensus_group_cool: consensusGroupCool,
     real_targets: realTargets,
     auto_control_enabled: autoCtl,
   };
@@ -15670,7 +15668,8 @@ renderGroups();
 const srcSel = document.getElementById('f_src_type');
 if (srcSel) srcSel.addEventListener('change', toggleSourceFields);
 toggleSourceFields();
-renderConsensusSelect('');
+renderConsensusSelect('f_consensus_group_heat', '');
+renderConsensusSelect('f_consensus_group_cool', '');
 </script>
 </body>
 </html>"""
