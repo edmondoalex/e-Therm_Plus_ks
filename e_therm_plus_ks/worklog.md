@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-03-25 ? v2.6.50 ? Autore: Codex
+- Consenso gruppi: in HEAT attiva sia gruppo heat che gruppo cool; in COOL attiva solo cool.
+- Allineata versione add-on.
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-01-25 — v2.0.2-1 — Autore: MarioR
 - Aggiunto modulo `app/pwm_controller.py` che fornisce una base PI e la mappatura PWM->stadi (MIN/MED/MAX) con interlock logico.
 - Modificato `app/main.py` per pubblicare gli stati MQTT iniziali per ogni termostato (`.../thermostats/<id>/power` e `.../fan/<sp>`) dopo il sync realtime, in modo che le entità create tramite MQTT Discovery abbiano uno stato iniziale.
