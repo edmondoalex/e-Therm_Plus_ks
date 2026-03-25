@@ -14972,7 +14972,10 @@ def render_vtherm_config_page(snapshot):
         </div>
         <div>
           <label>Entità reale Valvola (switch, opzionale)</label>
-          <input id="f_rt_valve_switch" placeholder="Es: switch.valv_fc2" />
+          <div class="row">
+            <input id="f_rt_valve_low_switch" placeholder="Bassa: switch.xxx" />
+            <input id="f_rt_valve_hot_switch" placeholder="Alta: switch.xxx" />
+          </div>
         </div>
         <div>
           <label>Entità reali Fan (switch, opzionale)</label>
@@ -15444,7 +15447,8 @@ function editItem(idx) {
   const rt = (t.real_targets && typeof t.real_targets === 'object') ? t.real_targets : {};
   const fanSw = (rt.fan_switches && typeof rt.fan_switches === 'object') ? rt.fan_switches : {};
   document.getElementById('f_rt_power_light').value = String(rt.power_light || '');
-  document.getElementById('f_rt_valve_switch').value = String(rt.valve_switch || '');
+  document.getElementById('f_rt_valve_low_switch').value = String(rt.valve_switch_low || rt.valv_switch_low || rt.valve_switch_bassa || '');
+  document.getElementById('f_rt_valve_hot_switch').value = String(rt.valve_switch_hot || rt.valv_switch_hot || rt.valve_switch_alta || '');
   document.getElementById('f_rt_fan_min_switch').value = String(fanSw.min || '');
   document.getElementById('f_rt_fan_med_switch').value = String(fanSw.med || '');
   document.getElementById('f_rt_fan_max_switch').value = String(fanSw.max || '');
@@ -15479,7 +15483,8 @@ function addNew() {
   renderConsensusSelect('f_consensus_group_heat', '');
   renderConsensusSelect('f_consensus_group_cool', '');
   document.getElementById('f_rt_power_light').value = '';
-  document.getElementById('f_rt_valve_switch').value = '';
+  document.getElementById('f_rt_valve_low_switch').value = '';
+  document.getElementById('f_rt_valve_hot_switch').value = '';
   document.getElementById('f_rt_fan_min_switch').value = '';
   document.getElementById('f_rt_fan_med_switch').value = '';
   document.getElementById('f_rt_fan_max_switch').value = '';
@@ -15508,7 +15513,8 @@ function saveItem() {
   const consensusGroupHeat = String(document.getElementById('f_consensus_group_heat').value || '').trim();
   const consensusGroupCool = String(document.getElementById('f_consensus_group_cool').value || '').trim();
   const rtPowerLight = String(document.getElementById('f_rt_power_light').value || '').trim();
-  const rtValveSwitch = String(document.getElementById('f_rt_valve_switch').value || '').trim();
+  const rtValveLow = String(document.getElementById('f_rt_valve_low_switch').value || '').trim();
+  const rtValveHot = String(document.getElementById('f_rt_valve_hot_switch').value || '').trim();
   const rtFanMin = String(document.getElementById('f_rt_fan_min_switch').value || '').trim();
   const rtFanMed = String(document.getElementById('f_rt_fan_med_switch').value || '').trim();
   const rtFanMax = String(document.getElementById('f_rt_fan_max_switch').value || '').trim();
@@ -15533,10 +15539,11 @@ function saveItem() {
     if (!hPower && !hFan3 && !cPower && !cFan3) { if (msg) msg.textContent = 'Seleziona almeno una uscita (Heat o Cool).'; return; }
   }
   let realTargets = null;
-  if (rtPowerLight || rtValveSwitch || rtFanMin || rtFanMed || rtFanMax) {
+  if (rtPowerLight || rtValveLow || rtValveHot || rtFanMin || rtFanMed || rtFanMax) {
     realTargets = {};
     if (rtPowerLight) realTargets.power_light = rtPowerLight;
-    if (rtValveSwitch) realTargets.valve_switch = rtValveSwitch;
+    if (rtValveLow) realTargets.valve_switch_low = rtValveLow;
+    if (rtValveHot) realTargets.valve_switch_hot = rtValveHot;
     const fanSwitches = {};
     if (rtFanMin) fanSwitches.min = rtFanMin;
     if (rtFanMed) fanSwitches.med = rtFanMed;
