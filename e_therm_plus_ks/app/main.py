@@ -15,7 +15,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.57"
+APP_VERSION = "2.6.58"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -669,6 +669,7 @@ class ThermEngine:
             rh = _as_float(attrs.get("current_humidity"))
             tgt = _as_float(attrs.get("temperature"))
             hvac = str(st.get("state") or "").strip().lower()
+            hvac_action = str(attrs.get("hvac_action") or "").strip().lower()
             preset = str(attrs.get("preset_mode") or "").strip().upper()
 
             with self.lock:
@@ -690,7 +691,12 @@ class ThermEngine:
                     th["ACT_MODEL"] = preset
                 elif hvac in ("heat", "cool"):
                     th["ACT_MODEL"] = "MAN"
-                out_status = "OFF" if hvac == "off" else "ON"
+                if hvac_action in ("heating", "cooling"):
+                    out_status = "ON"
+                elif hvac_action in ("idle", "off"):
+                    out_status = "OFF"
+                else:
+                    out_status = "OFF" if hvac == "off" else "ON"
                 th["OUT_STATUS"] = out_status
 
             try:
