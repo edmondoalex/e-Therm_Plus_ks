@@ -1876,8 +1876,14 @@ class ThermEngine:
                             groups[gk]["on"] = True
                             groups[gk]["on_cool"] = True
                 else:
+                    # In HEAT, enable both: heat group + cool group
                     if g_heat:
                         gk = _topic_safe_name(g_heat).lower()
+                        if gk in groups:
+                            groups[gk]["on"] = True
+                            groups[gk]["on_heat"] = True
+                    if g_cool:
+                        gk = _topic_safe_name(g_cool).lower()
                         if gk in groups:
                             groups[gk]["on"] = True
                             groups[gk]["on_heat"] = True
