@@ -15400,12 +15400,16 @@ function delGroup(idx) {
   cfg.consensus_groups.splice(idx, 1);
   renderGroups();
   renderList();
+  // Auto-save to clear MQTT discovery for removed group
+  saveCfg(true);
 }
 
 function clearGroups() {
   if (!confirm('Svuotare tutti i gruppi consenso?')) return;
   cfg.consensus_groups = [];
   renderGroups();
+  renderList();
+  saveCfg(true);
 }
 
 function escapeHtml(s) {
@@ -15610,10 +15614,10 @@ function copyJson() {
   }
 }
 
-async function saveCfg() {
-  // If user edited the textarea, accept it as source of truth.
+async function saveCfg(skipTextarea) {
+  // If user edited the textarea, accept it as source of truth (unless skipTextarea).
   const el = document.getElementById('cfg');
-  if (el && el.value && el.value.trim().length) {
+  if (!skipTextarea && el && el.value && el.value.trim().length) {
     try {
       const obj = JSON.parse(el.value || '{}');
       if (obj && typeof obj === 'object') cfg = obj;

@@ -15,7 +15,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.46"
+APP_VERSION = "2.6.48"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -864,6 +864,16 @@ class ThermEngine:
             topics.append(f"{base}/switch/e_therm_{tid}_cool_fan_max/config")
         return topics
 
+    def _discovery_topics_for_group(self, g_key: str) -> List[str]:
+        base = "homeassistant"
+        return [
+            f"{base}/switch/e_therm_pdc_group_{g_key}/config",
+            f"{base}/switch/e_therm_pdc_group_{g_key}_heat/config",
+            f"{base}/switch/e_therm_pdc_group_{g_key}_cool/config",
+            f"{base}/switch/e_therm_pdc_group_{g_key}_hot/config",
+            f"{base}/switch/e_therm_pdc_group_{g_key}_low/config",
+        ]
+
     def _cleanup_discovery_topics(self, topics: List[str]) -> None:
         # Publish empty retained payload to remove MQTT Discovery entities from Home Assistant.
         if not topics:
@@ -934,6 +944,45 @@ class ThermEngine:
                     to_cleanup.append(f"homeassistant/switch/e_therm_{tid}_fan_max/config")
         if to_cleanup:
             self._cleanup_discovery_topics(to_cleanup)
+
+        # Cleanup discovery for removed consensus groups.
+        try:
+            old_group_keys: set[str] = set()
+            new_group_keys: set[str] = set()
+
+            def _collect(keys: set[str], cfg_obj: Dict[str, Any]) -> None:
+                # from consensus_groups config
+                groups = cfg_obj.get("consensus_groups") if isinstance(cfg_obj, dict) else []
+                if isinstance(groups, list):
+                    for g in groups:
+                        if not isinstance(g, dict):
+                            continue
+                        name = str(g.get("name") or "").strip()
+                        if not name:
+                            continue
+                        keys.add(_topic_safe_name(name).lower())
+                # from thermostat consensus_group fields
+                therms = cfg_obj.get("thermostats") if isinstance(cfg_obj, dict) else []
+                if isinstance(therms, list):
+                    for t in therms:
+                        if not isinstance(t, dict):
+                            continue
+                        name = str(t.get("consensus_group") or t.get("pdc_group") or "").strip()
+                        if not name:
+                            continue
+                        keys.add(_topic_safe_name(name).lower())
+
+            _collect(old_group_keys, old)
+            _collect(new_group_keys, cfg or {})
+
+            removed = sorted(k for k in old_group_keys if k not in new_group_keys)
+            if removed:
+                grp_cleanup: List[str] = []
+                for gk in removed:
+                    grp_cleanup.extend(self._discovery_topics_for_group(gk))
+                self._cleanup_discovery_topics(grp_cleanup)
+        except Exception:
+            pass
 
         with self.lock:
             self.cfg = cfg or {}
