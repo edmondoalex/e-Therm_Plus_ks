@@ -14879,6 +14879,22 @@ def render_vtherm_config_page(snapshot):
 
       <div class="card">
         <div class="row">
+          <div style="font-weight:800;">Gruppi consenso</div>
+          <div class="row">
+            <button class="btn" onclick="addGroup()">+ Aggiungi gruppo</button>
+            <button class="btn danger" onclick="clearGroups()">Svuota gruppi</button>
+          </div>
+        </div>
+        <div id="group_list" class="list"></div>
+        <div class="msg">
+          Assegna un nome gruppo (es. <code>PDC_A</code>) e le entità reali HA da comandare
+          per consenso generale/heat/cool. I termostati con <b>Consenso gruppo</b> uguale
+          useranno questi switch reali.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row">
           <div style="font-weight:800;">Salvataggio</div>
           <div class="row">
             <button class="btn" onclick="copyJson()">Copia JSON</button>
@@ -14995,11 +15011,44 @@ def render_vtherm_config_page(snapshot):
     </div>
   </dialog>
 
+  <dialog id="dlg_group">
+    <div class="dlgHead">
+      <div style="font-weight:800;" id="dlgGroupTitle">Gruppo consenso</div>
+      <div class="row">
+        <button class="btn ghost" onclick="closeGroupDlg()">Chiudi</button>
+        <button class="btn primary" onclick="saveGroup()">Salva</button>
+      </div>
+    </div>
+    <div class="dlgBody">
+      <div class="form">
+        <div>
+          <label>Nome gruppo (unico)</label>
+          <input id="g_name" placeholder="Es: PDC_A" />
+        </div>
+        <div>
+          <label>Switch consenso generale</label>
+          <input id="g_switch" placeholder="Es: switch.pdc_a" />
+        </div>
+        <div>
+          <label>Switch consenso Heat</label>
+          <input id="g_switch_heat" placeholder="Es: switch.pdc_a_heat" />
+        </div>
+        <div>
+          <label>Switch consenso Cool</label>
+          <input id="g_switch_cool" placeholder="Es: switch.pdc_a_cool" />
+        </div>
+      </div>
+      <div class="msg" id="dlgGroupMsg"></div>
+    </div>
+  </dialog>
+
 <script>
 const init = __INIT_JSON__;
 let cfg = (init && typeof init === 'object') ? init : {};
 if (!cfg.thermostats || !Array.isArray(cfg.thermostats)) cfg.thermostats = [];
+if (!cfg.consensus_groups || !Array.isArray(cfg.consensus_groups)) cfg.consensus_groups = [];
 let editIndex = -1;
+let editGroupIndex = -1;
 
 function basePath() {
   return window.location.pathname.split('/vtherm')[0] || '';
@@ -15014,6 +15063,29 @@ function syncTextarea() {
   const el = document.getElementById('cfg');
   if (!el) return;
   el.value = JSON.stringify(cfg, null, 2);
+}
+
+function sanitizeGroup(g) {
+  const name = String((g && g.name) ?? '').trim();
+  const sw = String((g && (g.switch || g.general_switch || g.consensus_switch)) ?? '').trim();
+  const swHeat = String((g && (g.switch_heat || g.heat_switch)) ?? '').trim();
+  const swCool = String((g && (g.switch_cool || g.cool_switch)) ?? '').trim();
+  return {
+    name,
+    ...(sw ? { switch: sw } : {}),
+    ...(swHeat ? { switch_heat: swHeat } : {}),
+    ...(swCool ? { switch_cool: swCool } : {}),
+  };
+}
+
+function ensureUniqueGroup(name, idx) {
+  const s = String(name || '').trim();
+  if (!s) return false;
+  for (let i = 0; i < cfg.consensus_groups.length; i++) {
+    if (i === idx) continue;
+    if (String(cfg.consensus_groups[i].name) === s) return false;
+  }
+  return true;
 }
 
 function isHaSourceType(v) {
@@ -15147,6 +15219,111 @@ function renderList() {
     list.appendChild(el);
   });
   syncTextarea();
+}
+
+function renderGroups() {
+  const list = document.getElementById('group_list');
+  if (!list) return;
+  list.innerHTML = '';
+  const items = cfg.consensus_groups || [];
+  if (!items.length) {
+    const empty = document.createElement('div');
+    empty.className = 'muted';
+    empty.textContent = 'Nessun gruppo consenso configurato.';
+    list.appendChild(empty);
+    syncTextarea();
+    return;
+  }
+  items.forEach((raw, idx) => {
+    const g = sanitizeGroup(raw);
+    const el = document.createElement('div');
+    el.className = 'item';
+    const left = document.createElement('div');
+    left.className = 'left';
+    left.innerHTML =
+      '<div class="name">' + escapeHtml(g.name || '(senza nome)') + '</div>' +
+      '<div class="sub">' +
+        'gen: ' + escapeHtml(g.switch || '-') +
+        ' • heat: ' + escapeHtml(g.switch_heat || '-') +
+        ' • cool: ' + escapeHtml(g.switch_cool || '-') +
+      '</div>';
+    const right = document.createElement('div');
+    right.className = 'row';
+    right.innerHTML =
+      '<button class="btn" data-a="edit">Modifica</button>' +
+      '<button class="btn danger" data-a="del">Elimina</button>';
+    right.querySelector('[data-a="edit"]').onclick = () => editGroup(idx);
+    right.querySelector('[data-a="del"]').onclick = () => delGroup(idx);
+    el.appendChild(left);
+    el.appendChild(right);
+    list.appendChild(el);
+  });
+  syncTextarea();
+}
+
+function openGroupDlg(title) {
+  const dlg = document.getElementById('dlg_group');
+  const t = document.getElementById('dlgGroupTitle');
+  const m = document.getElementById('dlgGroupMsg');
+  if (t) t.textContent = title || 'Gruppo consenso';
+  if (m) m.textContent = '';
+  if (dlg) dlg.showModal();
+}
+
+function closeGroupDlg() {
+  const dlg = document.getElementById('dlg_group');
+  if (dlg) dlg.close();
+}
+
+function editGroup(idx) {
+  editGroupIndex = idx;
+  const g = sanitizeGroup(cfg.consensus_groups[idx] || {});
+  document.getElementById('g_name').value = String(g.name || '');
+  document.getElementById('g_switch').value = String(g.switch || '');
+  document.getElementById('g_switch_heat').value = String(g.switch_heat || '');
+  document.getElementById('g_switch_cool').value = String(g.switch_cool || '');
+  openGroupDlg('Modifica gruppo');
+}
+
+function addGroup() {
+  editGroupIndex = -1;
+  document.getElementById('g_name').value = '';
+  document.getElementById('g_switch').value = '';
+  document.getElementById('g_switch_heat').value = '';
+  document.getElementById('g_switch_cool').value = '';
+  openGroupDlg('Nuovo gruppo');
+}
+
+function saveGroup() {
+  const name = String(document.getElementById('g_name').value || '').trim();
+  const sw = String(document.getElementById('g_switch').value || '').trim();
+  const swHeat = String(document.getElementById('g_switch_heat').value || '').trim();
+  const swCool = String(document.getElementById('g_switch_cool').value || '').trim();
+  const msg = document.getElementById('dlgGroupMsg');
+
+  if (!name) { if (msg) msg.textContent = 'Nome gruppo obbligatorio.'; return; }
+  if (!ensureUniqueGroup(name, editGroupIndex)) { if (msg) msg.textContent = 'Nome già usato: scegli un nome unico.'; return; }
+  if (!sw && !swHeat && !swCool) { if (msg) msg.textContent = 'Inserisci almeno uno switch reale.'; return; }
+
+  const item = sanitizeGroup({ name, switch: sw, switch_heat: swHeat, switch_cool: swCool });
+  if (editGroupIndex >= 0) cfg.consensus_groups[editGroupIndex] = item;
+  else cfg.consensus_groups.push(item);
+
+  closeGroupDlg();
+  renderGroups();
+}
+
+function delGroup(idx) {
+  const g = sanitizeGroup(cfg.consensus_groups[idx] || {});
+  if (!confirm('Eliminare gruppo ' + (g.name || '?') + '?')) return;
+  cfg.consensus_groups.splice(idx, 1);
+  renderGroups();
+}
+
+function clearGroups() {
+  if (!confirm('Svuotare tutti i gruppi consenso?')) return;
+  cfg.consensus_groups = [];
+  renderGroups();
 }
 
 function escapeHtml(s) {
@@ -15355,6 +15532,7 @@ async function saveCfg() {
       const obj = JSON.parse(el.value || '{}');
       if (obj && typeof obj === 'object') cfg = obj;
       if (!cfg.thermostats || !Array.isArray(cfg.thermostats)) cfg.thermostats = [];
+      if (!cfg.consensus_groups || !Array.isArray(cfg.consensus_groups)) cfg.consensus_groups = [];
     } catch (e) {
       setMsg('JSON non valido: ' + e);
       return;
@@ -15362,7 +15540,9 @@ async function saveCfg() {
   }
   // Sanitize list
   cfg.thermostats = (cfg.thermostats || []).map(sanitizeTherm);
+  cfg.consensus_groups = (cfg.consensus_groups || []).map(sanitizeGroup);
   renderList();
+  renderGroups();
 
   const base = basePath();
   try {
@@ -15385,14 +15565,17 @@ async function reloadCfg() {
     const obj = await res.json();
     cfg = (obj && typeof obj === 'object') ? obj : {};
     if (!cfg.thermostats || !Array.isArray(cfg.thermostats)) cfg.thermostats = [];
+    if (!cfg.consensus_groups || !Array.isArray(cfg.consensus_groups)) cfg.consensus_groups = [];
     setMsg('Config ricaricata.');
     renderList();
+    renderGroups();
   } catch (e) {
     setMsg('Ricarica fallita: ' + e);
   }
 }
 
 renderList();
+renderGroups();
 const srcSel = document.getElementById('f_src_type');
 if (srcSel) srcSel.addEventListener('change', toggleSourceFields);
 toggleSourceFields();

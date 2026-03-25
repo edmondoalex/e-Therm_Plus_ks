@@ -15,7 +15,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.37"
+APP_VERSION = "2.6.38"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1814,6 +1814,31 @@ class ThermEngine:
                 "ON" if st.get("on_cool") else "OFF",
                 retain=True,
             )
+
+        # Drive real HA switches for consensus groups (if configured).
+        try:
+            cfg_groups = self.cfg.get("consensus_groups") if isinstance(self.cfg, dict) else []
+            if not isinstance(cfg_groups, list):
+                cfg_groups = []
+            for g in cfg_groups:
+                if not isinstance(g, dict):
+                    continue
+                name = str(g.get("name") or "").strip()
+                if not name:
+                    continue
+                g_key = _topic_safe_name(name).lower()
+                st = groups.get(g_key) or {}
+                sw = str(g.get("switch") or g.get("general_switch") or g.get("consensus_switch") or "").strip()
+                sw_h = str(g.get("switch_heat") or g.get("heat_switch") or "").strip()
+                sw_c = str(g.get("switch_cool") or g.get("cool_switch") or "").strip()
+                if sw:
+                    self._apply_real_switch(sw, bool(st.get("on")))
+                if sw_h:
+                    self._apply_real_switch(sw_h, bool(st.get("on_heat")))
+                if sw_c:
+                    self._apply_real_switch(sw_c, bool(st.get("on_cool")))
+        except Exception:
+            pass
 
     # -------------------- HA clone (MQTT climate) --------------------
 
