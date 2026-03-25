@@ -326,3 +326,4 @@ Step B (funzionalità "wow"):
 2026-03-25 | 2.6.39 | codex | Auto-populate consensus group UI from existing thermostat consensus_group values | e_therm_plus_ks/app/debug_server.py, e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
 2026-03-25 | 2.6.40 | codex | Allow creating consensus groups without real switches (optional mapping) | e_therm_plus_ks/app/debug_server.py, e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
 2026-03-25 | 2.6.41 | codex | Publish PDC group discovery and state for configured consensus_groups even if no thermostat references them yet | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
+2026-03-25 | 2.6.42 | codex | Add consensus_group dropdown listing existing groups in vTherm Add/Edit UI | e_therm_plus_ks/app/debug_server.py, e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md

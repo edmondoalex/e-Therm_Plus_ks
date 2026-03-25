@@ -1,6 +1,6 @@
 name: e-Therm Plus KS
 slug: e_therm_plus_ks
-version: "2.6.41"
+version: "2.6.42"
 description: Termostati virtuali manuali (fonte e-safe) con UI dedicata + MQTT Discovery; PWM/3-rel? in sviluppo
 startup: services
 boot: auto

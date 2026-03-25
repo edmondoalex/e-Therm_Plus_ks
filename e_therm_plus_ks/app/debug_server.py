@@ -14960,7 +14960,7 @@ def render_vtherm_config_page(snapshot):
         </div>
         <div>
           <label>Consenso gruppo (opzionale)</label>
-          <input id="f_consensus_group" placeholder="Es: PDC_NUOVA" />
+          <select id="f_consensus_group"></select>
         </div>
         <div>
           <label>Entità reale PWM (light, opzionale)</label>
@@ -15076,6 +15076,38 @@ function sanitizeGroup(g) {
     ...(swHeat ? { switch_heat: swHeat } : {}),
     ...(swCool ? { switch_cool: swCool } : {}),
   };
+}
+
+function groupOptions() {
+  const names = new Set();
+  for (const g of (cfg.consensus_groups || [])) {
+    const n = String((g || {}).name || '').trim();
+    if (n) names.add(n);
+  }
+  for (const t of (cfg.thermostats || [])) {
+    const n = String((t || {}).consensus_group || '').trim();
+    if (n) names.add(n);
+  }
+  return Array.from(names).sort((a, b) => a.localeCompare(b));
+}
+
+function renderConsensusSelect(selected) {
+  const el = document.getElementById('f_consensus_group');
+  if (!el) return;
+  const cur = String(selected || '').trim();
+  el.innerHTML = '';
+  const optEmpty = document.createElement('option');
+  optEmpty.value = '';
+  optEmpty.textContent = '(nessuno)';
+  el.appendChild(optEmpty);
+  const opts = groupOptions();
+  for (const g of opts) {
+    const opt = document.createElement('option');
+    opt.value = g;
+    opt.textContent = g;
+    el.appendChild(opt);
+  }
+  el.value = cur;
 }
 
 function ensureGroupsFromTherms() {
@@ -15369,7 +15401,7 @@ function editItem(idx) {
   document.getElementById('f_src_entity_id').value = String((t.source || {}).entity_id || '');
   toggleSourceFields();
   document.getElementById('f_profile').value = String(t.profile || '');
-  document.getElementById('f_consensus_group').value = String(t.consensus_group || '');
+  renderConsensusSelect(String(t.consensus_group || ''));
   const rt = (t.real_targets && typeof t.real_targets === 'object') ? t.real_targets : {};
   const fanSw = (rt.fan_switches && typeof rt.fan_switches === 'object') ? rt.fan_switches : {};
   document.getElementById('f_rt_power_light').value = String(rt.power_light || '');
@@ -15405,7 +15437,7 @@ function addNew() {
   document.getElementById('f_src_entity_id').value = '';
   toggleSourceFields();
   document.getElementById('f_profile').value = '';
-  document.getElementById('f_consensus_group').value = '';
+  renderConsensusSelect('');
   document.getElementById('f_rt_power_light').value = '';
   document.getElementById('f_rt_valve_switch').value = '';
   document.getElementById('f_rt_fan_min_switch').value = '';
@@ -15594,6 +15626,7 @@ renderGroups();
 const srcSel = document.getElementById('f_src_type');
 if (srcSel) srcSel.addEventListener('change', toggleSourceFields);
 toggleSourceFields();
+renderConsensusSelect('');
 </script>
 </body>
 </html>"""
