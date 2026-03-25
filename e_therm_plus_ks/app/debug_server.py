@@ -14967,8 +14967,12 @@ def render_vtherm_config_page(snapshot):
           <input id="f_rt_power_light" placeholder="Es: light.insona_hdl_dimmer_ventil_fc2_suite_5" />
         </div>
         <div>
-          <label>Entità reale Valvola (switch, opzionale)</label>
-          <input id="f_rt_valve_switch" placeholder="Es: switch.valv_fc2" />
+          <label>Entità reale Valvola Alta T (switch, opzionale)</label>
+          <input id="f_rt_valve_hot_switch" placeholder="Es: switch.valv_hot_fc2" />
+        </div>
+        <div>
+          <label>Entità reale Valvola Bassa T (switch, opzionale)</label>
+          <input id="f_rt_valve_low_switch" placeholder="Es: switch.valv_low_fc2" />
         </div>
         <div>
           <label>Entità reali Fan (switch, opzionale)</label>
@@ -15405,7 +15409,8 @@ function editItem(idx) {
   const rt = (t.real_targets && typeof t.real_targets === 'object') ? t.real_targets : {};
   const fanSw = (rt.fan_switches && typeof rt.fan_switches === 'object') ? rt.fan_switches : {};
   document.getElementById('f_rt_power_light').value = String(rt.power_light || '');
-  document.getElementById('f_rt_valve_switch').value = String(rt.valve_switch || '');
+  document.getElementById('f_rt_valve_hot_switch').value = String(rt.valve_hot_switch || rt.valve_high_switch || '');
+  document.getElementById('f_rt_valve_low_switch').value = String(rt.valve_low_switch || '');
   document.getElementById('f_rt_fan_min_switch').value = String(fanSw.min || '');
   document.getElementById('f_rt_fan_med_switch').value = String(fanSw.med || '');
   document.getElementById('f_rt_fan_max_switch').value = String(fanSw.max || '');
@@ -15439,7 +15444,8 @@ function addNew() {
   document.getElementById('f_profile').value = '';
   renderConsensusSelect('');
   document.getElementById('f_rt_power_light').value = '';
-  document.getElementById('f_rt_valve_switch').value = '';
+  document.getElementById('f_rt_valve_hot_switch').value = '';
+  document.getElementById('f_rt_valve_low_switch').value = '';
   document.getElementById('f_rt_fan_min_switch').value = '';
   document.getElementById('f_rt_fan_med_switch').value = '';
   document.getElementById('f_rt_fan_max_switch').value = '';
@@ -15467,7 +15473,8 @@ function saveItem() {
   const profile = String(document.getElementById('f_profile').value || '').trim();
   const consensusGroup = String(document.getElementById('f_consensus_group').value || '').trim();
   const rtPowerLight = String(document.getElementById('f_rt_power_light').value || '').trim();
-  const rtValveSwitch = String(document.getElementById('f_rt_valve_switch').value || '').trim();
+  const rtValveHot = String(document.getElementById('f_rt_valve_hot_switch').value || '').trim();
+  const rtValveLow = String(document.getElementById('f_rt_valve_low_switch').value || '').trim();
   const rtFanMin = String(document.getElementById('f_rt_fan_min_switch').value || '').trim();
   const rtFanMed = String(document.getElementById('f_rt_fan_med_switch').value || '').trim();
   const rtFanMax = String(document.getElementById('f_rt_fan_max_switch').value || '').trim();
@@ -15492,10 +15499,11 @@ function saveItem() {
     if (!hPower && !hFan3 && !cPower && !cFan3) { if (msg) msg.textContent = 'Seleziona almeno una uscita (Heat o Cool).'; return; }
   }
   let realTargets = null;
-  if (rtPowerLight || rtValveSwitch || rtFanMin || rtFanMed || rtFanMax) {
+  if (rtPowerLight || rtValveHot || rtValveLow || rtFanMin || rtFanMed || rtFanMax) {
     realTargets = {};
     if (rtPowerLight) realTargets.power_light = rtPowerLight;
-    if (rtValveSwitch) realTargets.valve_switch = rtValveSwitch;
+    if (rtValveHot) realTargets.valve_hot_switch = rtValveHot;
+    if (rtValveLow) realTargets.valve_low_switch = rtValveLow;
     const fanSwitches = {};
     if (rtFanMin) fanSwitches.min = rtFanMin;
     if (rtFanMed) fanSwitches.med = rtFanMed;

@@ -15,7 +15,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.42"
+APP_VERSION = "2.6.43"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -782,13 +782,21 @@ class ThermEngine:
                 on = str((fan or {}).get(sp, "OFF")).upper() == "ON"
                 self._apply_real_switch(ent, on)
 
-    def _apply_real_valve(self, t: Dict[str, Any], valv_on: bool) -> None:
+    def _apply_real_valve(self, t: Dict[str, Any], valv_hot_on: bool, valv_low_on: bool) -> None:
         targets = self._real_targets_for(t, None)
         if not isinstance(targets, dict):
             return
-        ent = str(targets.get("valve_switch") or targets.get("valv_switch") or "").strip()
-        if ent:
-            self._apply_real_switch(ent, bool(valv_on))
+        ent_hot = str(
+            targets.get("valve_hot_switch")
+            or targets.get("valve_high_switch")
+            or targets.get("valv_hot_switch")
+            or ""
+        ).strip()
+        ent_low = str(targets.get("valve_low_switch") or targets.get("valv_low_switch") or "").strip()
+        if ent_hot:
+            self._apply_real_switch(ent_hot, bool(valv_hot_on))
+        if ent_low:
+            self._apply_real_switch(ent_low, bool(valv_low_on))
 
     def _discovery_topics_for_therm(self, tid: str, outputs: Dict[str, Any]) -> List[str]:
         base = "homeassistant"
@@ -796,6 +804,8 @@ class ThermEngine:
             f"{base}/climate/e_therm_{tid}_climate/config",
             f"{base}/sensor/e_therm_{tid}_humidity/config",
             f"{base}/switch/e_therm_{tid}_valv/config",
+            f"{base}/switch/e_therm_{tid}_valv_hot/config",
+            f"{base}/switch/e_therm_{tid}_valv_low/config",
         ]
         if outputs.get("power"):
             topics.append(f"{base}/number/e_therm_{tid}_power/config")
@@ -837,6 +847,8 @@ class ThermEngine:
             f"{base}/climate/e_therm_{tid}_climate/config",
             f"{base}/sensor/e_therm_{tid}_humidity/config",
             f"{base}/switch/e_therm_{tid}_valv/config",
+            f"{base}/switch/e_therm_{tid}_valv_hot/config",
+            f"{base}/switch/e_therm_{tid}_valv_low/config",
         ]
         if heat_out.get("power"):
             topics.append(f"{base}/number/e_therm_{tid}_heat_power/config")
@@ -1701,12 +1713,29 @@ class ThermEngine:
     def _publish_valve_state(self, t: Dict[str, Any]) -> None:
         """Publish valve state ON when any relevant demand is active."""
         tid = str(t.get("id"))
-        valv = "ON" if self._valve_on_for_therm(t) else "OFF"
+        demand_on = self._valve_on_for_therm(t)
+        valv = "ON" if demand_on else "OFF"
+
+        # Determine season: SUM -> cool, else heat.
+        sea = ""
+        try:
+            rt = self.rt.get(tid) or {}
+            th = rt.get("THERM") if isinstance(rt.get("THERM"), dict) else {}
+            sea = str(th.get("ACT_SEA") or "").upper()
+        except Exception:
+            sea = ""
+        is_cool = sea == "SUM"
+        valv_hot = "ON" if demand_on else "OFF"
+        valv_low = "OFF"
+        if demand_on and not is_cool:
+            valv_low = "ON"
 
         name = _topic_safe_name(t.get("name") or f"vTherm_{tid}")
         self.mqtt.publish(f"{self.out_prefix}/thermostats/{name}/valv/set", valv, retain=True)
         self.mqtt.publish(f"{self.out_prefix}/valv/{tid}/set", valv, retain=True)
-        self._apply_real_valve(t, valv == "ON")
+        self.mqtt.publish(f"{self.out_prefix}/valv_hot/{tid}/set", valv_hot, retain=True)
+        self.mqtt.publish(f"{self.out_prefix}/valv_low/{tid}/set", valv_low, retain=True)
+        self._apply_real_valve(t, valv_hot == "ON", valv_low == "ON")
         # Keep global PDC consensus in sync with every valve update.
         self._publish_pdc_consensus()
 
@@ -2721,6 +2750,39 @@ class ThermEngine:
                 "device": dev,
             }
             self.mqtt.publish(valv_topic, json.dumps(valv_cfg, ensure_ascii=False), retain=True)
+
+            # Valve hot/low switches
+            valv_hot_uid = f"e_therm_{tid}_valv_hot"
+            valv_hot_topic = f"{base}/switch/{valv_hot_uid}/config"
+            valv_hot_cfg = {
+                "name": f"{name} Valv HOT",
+                "unique_id": valv_hot_uid,
+                "availability_topic": f"{self.out_prefix}/status",
+                "payload_available": "online",
+                "payload_not_available": "offline",
+                "command_topic": f"{self.out_prefix}/valv_hot/{tid}/set",
+                "state_topic": f"{self.out_prefix}/valv_hot/{tid}/set",
+                "payload_on": "ON",
+                "payload_off": "OFF",
+                "device": dev,
+            }
+            self.mqtt.publish(valv_hot_topic, json.dumps(valv_hot_cfg, ensure_ascii=False), retain=True)
+
+            valv_low_uid = f"e_therm_{tid}_valv_low"
+            valv_low_topic = f"{base}/switch/{valv_low_uid}/config"
+            valv_low_cfg = {
+                "name": f"{name} Valv LOW",
+                "unique_id": valv_low_uid,
+                "availability_topic": f"{self.out_prefix}/status",
+                "payload_available": "online",
+                "payload_not_available": "offline",
+                "command_topic": f"{self.out_prefix}/valv_low/{tid}/set",
+                "state_topic": f"{self.out_prefix}/valv_low/{tid}/set",
+                "payload_on": "ON",
+                "payload_off": "OFF",
+                "device": dev,
+            }
+            self.mqtt.publish(valv_low_topic, json.dumps(valv_low_cfg, ensure_ascii=False), retain=True)
 
             # Outputs discovery:
             # - legacy: e-therm/thermostats/<id>/power + /fan/<sp>
