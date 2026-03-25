@@ -14947,8 +14947,20 @@ def render_vtherm_config_page(snapshot):
           <input id="f_consensus_group" placeholder="Es: PDC_NUOVA" />
         </div>
         <div>
-          <label>Entità reali (JSON, opzionale)</label>
-          <textarea id="f_real_targets" rows="6" placeholder='Es: {"power_light":"light.ins...","fan_switches":{"min":"switch.a","med":"switch.b","max":"switch.c"},"valve_switch":"switch.valv"}'></textarea>
+          <label>Entità reale PWM (light, opzionale)</label>
+          <input id="f_rt_power_light" placeholder="Es: light.insona_hdl_dimmer_ventil_fc2_suite_5" />
+        </div>
+        <div>
+          <label>Entità reale Valvola (switch, opzionale)</label>
+          <input id="f_rt_valve_switch" placeholder="Es: switch.valv_fc2" />
+        </div>
+        <div>
+          <label>Entità reali Fan (switch, opzionale)</label>
+          <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+            <input id="f_rt_fan_min_switch" placeholder="MIN: switch.xxx" />
+            <input id="f_rt_fan_med_switch" placeholder="MED: switch.xxx" />
+            <input id="f_rt_fan_max_switch" placeholder="MAX: switch.xxx" />
+          </div>
         </div>
         <div>
           <label>Auto control (per questo vTherm)</label>
@@ -15167,7 +15179,13 @@ function editItem(idx) {
   toggleSourceFields();
   document.getElementById('f_profile').value = String(t.profile || '');
   document.getElementById('f_consensus_group').value = String(t.consensus_group || '');
-  document.getElementById('f_real_targets').value = t.real_targets ? JSON.stringify(t.real_targets, null, 2) : '';
+  const rt = (t.real_targets && typeof t.real_targets === 'object') ? t.real_targets : {};
+  const fanSw = (rt.fan_switches && typeof rt.fan_switches === 'object') ? rt.fan_switches : {};
+  document.getElementById('f_rt_power_light').value = String(rt.power_light || '');
+  document.getElementById('f_rt_valve_switch').value = String(rt.valve_switch || '');
+  document.getElementById('f_rt_fan_min_switch').value = String(fanSw.min || '');
+  document.getElementById('f_rt_fan_med_switch').value = String(fanSw.med || '');
+  document.getElementById('f_rt_fan_max_switch').value = String(fanSw.max || '');
   document.getElementById('f_auto').checked = !!t.auto_control_enabled;
   document.getElementById('f_split').checked = !!split;
   if (!split) {
@@ -15197,7 +15215,11 @@ function addNew() {
   toggleSourceFields();
   document.getElementById('f_profile').value = '';
   document.getElementById('f_consensus_group').value = '';
-  document.getElementById('f_real_targets').value = '';
+  document.getElementById('f_rt_power_light').value = '';
+  document.getElementById('f_rt_valve_switch').value = '';
+  document.getElementById('f_rt_fan_min_switch').value = '';
+  document.getElementById('f_rt_fan_med_switch').value = '';
+  document.getElementById('f_rt_fan_max_switch').value = '';
   document.getElementById('f_auto').checked = false;
   document.getElementById('f_split').checked = false;
   document.getElementById('f_heat_power').checked = true;
@@ -15221,7 +15243,11 @@ function saveItem() {
   const srcEntityId = String(document.getElementById('f_src_entity_id').value || '').trim();
   const profile = String(document.getElementById('f_profile').value || '').trim();
   const consensusGroup = String(document.getElementById('f_consensus_group').value || '').trim();
-  const realTargetsRaw = String(document.getElementById('f_real_targets').value || '').trim();
+  const rtPowerLight = String(document.getElementById('f_rt_power_light').value || '').trim();
+  const rtValveSwitch = String(document.getElementById('f_rt_valve_switch').value || '').trim();
+  const rtFanMin = String(document.getElementById('f_rt_fan_min_switch').value || '').trim();
+  const rtFanMed = String(document.getElementById('f_rt_fan_med_switch').value || '').trim();
+  const rtFanMax = String(document.getElementById('f_rt_fan_max_switch').value || '').trim();
   const split = !!document.getElementById('f_split').checked;
   const autoCtl = !!document.getElementById('f_auto').checked;
   const hPower = !!document.getElementById('f_heat_power').checked;
@@ -15243,15 +15269,15 @@ function saveItem() {
     if (!hPower && !hFan3 && !cPower && !cFan3) { if (msg) msg.textContent = 'Seleziona almeno una uscita (Heat o Cool).'; return; }
   }
   let realTargets = null;
-  if (realTargetsRaw) {
-    try {
-      const obj = JSON.parse(realTargetsRaw);
-      if (!obj || typeof obj !== 'object' || Array.isArray(obj)) { if (msg) msg.textContent = 'Entità reali: JSON deve essere un oggetto.'; return; }
-      realTargets = obj;
-    } catch (e) {
-      if (msg) msg.textContent = 'Entità reali: JSON non valido.';
-      return;
-    }
+  if (rtPowerLight || rtValveSwitch || rtFanMin || rtFanMed || rtFanMax) {
+    realTargets = {};
+    if (rtPowerLight) realTargets.power_light = rtPowerLight;
+    if (rtValveSwitch) realTargets.valve_switch = rtValveSwitch;
+    const fanSwitches = {};
+    if (rtFanMin) fanSwitches.min = rtFanMin;
+    if (rtFanMed) fanSwitches.med = rtFanMed;
+    if (rtFanMax) fanSwitches.max = rtFanMax;
+    if (Object.keys(fanSwitches).length) realTargets.fan_switches = fanSwitches;
   }
 
   const itemBase = {
