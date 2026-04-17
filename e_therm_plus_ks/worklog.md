@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.80 - Autore: Codex
+- Spegnimento reale su `ha_multi_sensor_avg` reso immediato a `Demand OFF` (ignora `min_cycle_sec` in OFF per questo source).
+- Hardened OFF command: dopo `turn_off`/`set_hvac_mode off` viene verificato lo stato reale HA; se non e `off` non viene considerato riuscito.
+- Aggiunta reason diagnostica `MIN_CYCLE_HOLD_OFF` quando lo spegnimento e trattenuto dal ciclo minimo (sorgenti non ha_multi_sensor_avg).
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.79 - Autore: Codex
 - Fix regressione UI termostato virtuale: corretto errore JS nel render anello (`modeDisp` usato prima della definizione) che bloccava la pagina.
 - File modificati: `app/debug_server.py`, `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.

@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.79"
+APP_VERSION = "2.6.80"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -933,8 +933,19 @@ class ThermEngine:
                     th["DEMAND_ON"] = "OFF"
             except Exception:
                 pass
+            # For multi-sensor average virtual thermostats, OFF must be immediate.
+            if is_ha_avg:
+                min_cycle = 0
             # Apply min_cycle only when switching OFF, so ON demand is never delayed.
             if old and old != "OFF" and min_cycle > 0 and last_ts and (now - last_ts) < float(min_cycle):
+                try:
+                    tid = str(t.get("id"))
+                    with self.lock:
+                        rt = self.rt.setdefault(tid, {})
+                        th = rt.setdefault("THERM", {})
+                        th["DEMAND_REASON"] = "MIN_CYCLE_HOLD_OFF"
+                except Exception:
+                    pass
                 return
             if old == "OFF":
                 st = self._real_therm_adapt.get(ent)
@@ -943,8 +954,18 @@ class ThermEngine:
                     st["delta_cool"] = float(cfg.get("demand_delta_base_cool", 1.0) or 1.0)
                 return
             ok = self._ha_service_call("climate", "turn_off", {"entity_id": ent})
+            # Verify real state; some integrations may ACK without actually switching off.
+            st_now = self._ha_api_request("GET", f"/states/{ent}")
+            hv_now = str((st_now or {}).get("state") or "").strip().lower() if isinstance(st_now, dict) else ""
+            if ok and hv_now != "off":
+                ok = False
             if not ok:
                 ok = self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": "off"})
+            if ok:
+                st_now2 = self._ha_api_request("GET", f"/states/{ent}")
+                hv_now2 = str((st_now2 or {}).get("state") or "").strip().lower() if isinstance(st_now2, dict) else ""
+                if hv_now2 != "off":
+                    ok = False
             if ok:
                 self._real_target_last[key_state] = "OFF"
                 self._real_target_last[key_ts] = now
