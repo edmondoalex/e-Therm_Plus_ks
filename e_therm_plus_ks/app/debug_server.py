@@ -14388,6 +14388,11 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         // New ring UI (same visual style as Security UI)
         const seaKey = (String(season || "WIN").toUpperCase() === "SUM") ? "SUM" : "WIN";
         const outOn = String(out || "").toUpperCase() === "ON";
+        const demandState = String(demandOn || "").toUpperCase();
+        let reqOn = outOn;
+        if (demandState === "ON") reqOn = true;
+        else if (demandState === "OFF") reqOn = false;
+        if (String(modeDisp || "").toUpperCase() === "OFF") reqOn = false;
         const tempDisp = temp ? fmtDec(temp).replace(".", ",") : "--,-";
         const rhDisp = rh ? (String(rh) + "%") : "--%";
         const targetNum = target ? Number(fmtDec(target)) : NaN;
@@ -14525,7 +14530,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
           }
         }
 
-        ringSetColor(outOn, seaKey);
+        ringSetColor(reqOn, seaKey);
         ringSetValue(Number.isFinite(effTarget) ? String(effTarget.toFixed(1)) : (target ? fmtDec(target) : "20"));
         dialSetKnob(Number.isFinite(effTarget) ? effTarget : (target ? Number(fmtDec(target)) : 20));
         if (temp) tickSet(Number(fmtDec(temp)));
