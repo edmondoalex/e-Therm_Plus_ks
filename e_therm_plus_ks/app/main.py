@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.73"
+APP_VERSION = "2.6.74"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1763,6 +1763,19 @@ class ThermEngine:
 
     def _control_one(self, t: Dict[str, Any], now: float) -> None:
         tid = str(t.get("id"))
+        def _set_real_debug(demand: str, reason: str, adapt_target: Any = None) -> None:
+            try:
+                with self.lock:
+                    rt_dbg = self.rt.setdefault(tid, {})
+                    th_dbg = rt_dbg.setdefault("THERM", {})
+                    th_dbg["DEMAND_ON"] = str(demand or "").upper()
+                    th_dbg["DEMAND_REASON"] = str(reason or "").upper()
+                    if adapt_target is None:
+                        th_dbg.pop("ADAPT_TARGET", None)
+                    else:
+                        th_dbg["ADAPT_TARGET"] = float(adapt_target)
+            except Exception:
+                pass
         split = self._is_split_outputs(t)
         # use active season outputs when split, otherwise legacy
         with self.lock:
@@ -1773,12 +1786,14 @@ class ThermEngine:
         outputs = self._outputs_for_season(t, active_sk) if split else (t.get("outputs") or {})
         has_real_therm = bool(self._real_thermostat_entity(t))
         if not (outputs.get("power") or outputs.get("fan3") or has_real_therm):
+            _set_real_debug("OFF", "NO_OUTPUTS_OR_REAL")
             return
 
         # manual override window
         ov_key = f"{tid}:{active_sk}" if split else tid
         until = float(self._manual_override_until.get(ov_key, 0.0) or 0.0)
         if until and now < until:
+            _set_real_debug("OFF", "MANUAL_OVERRIDE")
             return
 
         with self.lock:
@@ -1787,6 +1802,7 @@ class ThermEngine:
 
         cur = rt.get("TEMP")
         if cur is None:
+            _set_real_debug("OFF", "NO_CURRENT_TEMP")
             return
         cur_f = float(cur)
 
@@ -1822,6 +1838,7 @@ class ThermEngine:
                             setp = _as_float(sea_st.get(key))
 
         if setp is None:
+            _set_real_debug("OFF", "NO_SETPOINT")
             return
 
         # OFF => outputs off
@@ -1844,16 +1861,26 @@ class ThermEngine:
 
         # For real thermostat bridge, treat thermal error as primary demand signal.
         demand_on = False
+        demand_reason = "NO_DEMAND"
         try:
             if str(model).upper() != "OFF":
                 if sea == "SUM":
                     demand_on = (cur_f - float(setp)) > float(self.pwm_deadband)
+                    demand_reason = "COOL_ERROR" if demand_on else "COOL_NO_ERROR"
                 else:
                     demand_on = (float(setp) - cur_f) > float(self.pwm_deadband)
+                    demand_reason = "HEAT_ERROR" if demand_on else "HEAT_NO_ERROR"
                 if not demand_on:
                     demand_on = bool(int(pwm) > 0)
+                    if demand_on:
+                        demand_reason = "PWM_FALLBACK"
+            else:
+                demand_reason = "MODEL_OFF"
         except Exception:
             demand_on = bool(int(pwm) > 0 and str(model).upper() != "OFF")
+            demand_reason = "EXCEPTION_FALLBACK" if demand_on else "EXCEPTION_NO_DEMAND"
+
+        _set_real_debug("ON" if demand_on else "OFF", demand_reason)
 
         if has_real_therm:
             try:

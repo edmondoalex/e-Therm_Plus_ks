@@ -14156,6 +14156,10 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
             <span class="badge" style="min-width:160px; text-align:left;">Target reale letto (HA)</span>
             <span class="badge" id="extraDbgRealTarget" style="min-width:120px; text-align:center;">-</span>
           </div>
+          <div class="row" style="gap:10px; margin: 6px 0 0;">
+            <span class="badge" style="min-width:160px; text-align:left;">Reason</span>
+            <span class="badge" id="extraDbgReason" style="min-width:120px; text-align:center;">-</span>
+          </div>
         </div>
         <div id="extraProfilesWrap">
           <div class="muted" style="margin: 14px 6px 8px;">Profili</div>
@@ -14392,6 +14396,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const season = therm ? String(therm.ACT_SEA || "") : "";
         const out = therm ? String(therm.OUT_STATUS || "") : "";
         const demandOn = therm ? String(therm.DEMAND_ON || "") : "";
+        const demandReason = therm ? String(therm.DEMAND_REASON || "") : "";
         const temp = (rt.TEMP !== undefined && rt.TEMP !== null) ? String(rt.TEMP) : "";
         const rh = (rt.RH !== undefined && rt.RH !== null) ? String(rt.RH) : "";
         const adaptTargetRaw = therm ? therm.ADAPT_TARGET : null;
@@ -14472,12 +14477,14 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const elDbgDemand = document.getElementById("extraDbgDemand");
         const elDbgAdaptTarget = document.getElementById("extraDbgAdaptTarget");
         const elDbgRealTarget = document.getElementById("extraDbgRealTarget");
+        const elDbgReason = document.getElementById("extraDbgReason");
         if (elDbgDemand) {
           const up = String(demandOn || "").toUpperCase();
           elDbgDemand.textContent = up === "ON" ? "ON" : (up === "OFF" ? "OFF" : "-");
         }
         if (elDbgAdaptTarget) elDbgAdaptTarget.textContent = fmtDbgTemp(adaptTargetRaw);
         if (elDbgRealTarget) elDbgRealTarget.textContent = fmtDbgTemp(realTargetReadRaw);
+        if (elDbgReason) elDbgReason.textContent = demandReason || "-";
         const prof = (stcfg && stcfg[seaKey] && typeof stcfg[seaKey] === "object") ? stcfg[seaKey] : null;
         const getPendingProfile = (key) => {
           const k = String(seaKey) + ":" + String(key);
