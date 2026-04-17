@@ -14392,7 +14392,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         let reqOn = outOn;
         if (demandState === "ON") reqOn = true;
         else if (demandState === "OFF") reqOn = false;
-        if (String(modeDisp || "").toUpperCase() === "OFF") reqOn = false;
+        if (String(mode || "").toUpperCase() === "OFF") reqOn = false;
         const tempDisp = temp ? fmtDec(temp).replace(".", ",") : "--,-";
         const rhDisp = rh ? (String(rh) + "%") : "--%";
         const targetNum = target ? Number(fmtDec(target)) : NaN;

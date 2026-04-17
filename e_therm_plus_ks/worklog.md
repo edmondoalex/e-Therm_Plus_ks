@@ -3,6 +3,12 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.79 - Autore: Codex
+- Fix regressione UI termostato virtuale: corretto errore JS nel render anello (`modeDisp` usato prima della definizione) che bloccava la pagina.
+- File modificati: `app/debug_server.py`, `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.78 - Autore: Codex
 - UI termostato virtuale: colore anello ora guidato dalla richiesta (`DEMAND_ON`) invece che dal solo stato stagione/uscita.
 - Regola colore: giallo in richiesta heat, blu in richiesta cool, grigio senza richiesta o in `OFF`.
