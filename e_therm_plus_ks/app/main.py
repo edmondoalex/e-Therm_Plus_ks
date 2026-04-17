@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.61"
+APP_VERSION = "2.6.62"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -805,16 +805,23 @@ class ThermEngine:
             stale_sec = float(stale_sec) if stale_sec is not None else 0.0
 
             vals: List[float] = []
+            sensor_rows: List[Dict[str, Any]] = []
             for ent in sensors:
                 st = self._ha_api_request("GET", f"/states/{ent}")
                 if not isinstance(st, dict):
+                    sensor_rows.append({"entity_id": ent, "name": ent, "temp": None, "status": "unavailable"})
                     continue
+                attrs = st.get("attributes") if isinstance(st.get("attributes"), dict) else {}
+                name = str(attrs.get("friendly_name") or ent).strip() or ent
                 if not self._ha_state_is_fresh(st, stale_sec):
+                    sensor_rows.append({"entity_id": ent, "name": name, "temp": None, "status": "stale"})
                     continue
                 v = self._ha_state_temperature(st)
                 if v is None:
+                    sensor_rows.append({"entity_id": ent, "name": name, "temp": None, "status": "invalid"})
                     continue
                 vals.append(float(v))
+                sensor_rows.append({"entity_id": ent, "name": name, "temp": float(v), "status": "ok"})
 
             if len(vals) < int(min_valid):
                 continue
@@ -852,6 +859,10 @@ class ThermEngine:
             with self.lock:
                 rt = self.rt.setdefault(tid, {})
                 rt["TEMP"] = float(avg)
+                rt["AVG_TEMP"] = float(avg)
+                rt["AVG_VALID"] = int(len(vals))
+                rt["AVG_COUNT"] = int(len(sensors))
+                rt["AVG_SENSORS"] = sensor_rows
                 th = rt.setdefault("THERM", {})
                 if not th.get("ACT_SEA"):
                     th["ACT_SEA"] = "WIN"

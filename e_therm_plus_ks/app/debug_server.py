@@ -14139,29 +14139,34 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
           <input id="extraNameInp" placeholder="Nome termostato..." style="flex:1; min-width: 220px"/>
           <button class="btn" id="extraNameSave" type="button">Salva</button>
         </div>
-        <div class="muted" style="margin: 14px 6px 8px;">Profili</div>
-        <div class="row" style="gap:12px; align-items:center; margin: 0 6px 10px;">
-          <span class="badge" id="extraSeasonBadge">-</span>
+        <div id="extraAvgBlock" class="muted" style="margin: 10px 6px 6px; display:none;">
+          Sonde media: <span id="extraAvgSensors">-</span>
         </div>
-        <div class="row" style="gap:12px; align-items:center; margin: 0 6px 10px;">
-          <span class="badge" style="min-width:42px; text-align:center;">T1</span>
-          <input id="extraT1" type="range" min="5" max="35" step="0.5" value="20" style="flex:1"/>
-          <span class="badge" id="extraT1Val" style="min-width:62px; text-align:center;">--</span>
-        </div>
-        <div class="row" style="gap:12px; align-items:center; margin: 0 6px 10px;">
-          <span class="badge" style="min-width:42px; text-align:center;">T2</span>
-          <input id="extraT2" type="range" min="5" max="35" step="0.5" value="20" style="flex:1"/>
-          <span class="badge" id="extraT2Val" style="min-width:62px; text-align:center;">--</span>
-        </div>
-        <div class="row" style="gap:12px; align-items:center; margin: 0 6px 10px;">
-          <span class="badge" style="min-width:42px; text-align:center;">T3</span>
-          <input id="extraT3" type="range" min="5" max="35" step="0.5" value="20" style="flex:1"/>
-          <span class="badge" id="extraT3Val" style="min-width:62px; text-align:center;">--</span>
-        </div>
-        <div class="row" style="gap:12px; align-items:center; margin: 0 6px 0;">
-          <span class="badge" style="min-width:42px; text-align:center;">TM</span>
-          <input id="extraTM" type="range" min="5" max="35" step="0.5" value="20" style="flex:1"/>
-          <span class="badge" id="extraTMVal" style="min-width:62px; text-align:center;">--</span>
+        <div id="extraProfilesWrap">
+          <div class="muted" style="margin: 14px 6px 8px;">Profili</div>
+          <div class="row" style="gap:12px; align-items:center; margin: 0 6px 10px;">
+            <span class="badge" id="extraSeasonBadge">-</span>
+          </div>
+          <div class="row" style="gap:12px; align-items:center; margin: 0 6px 10px;">
+            <span class="badge" style="min-width:42px; text-align:center;">T1</span>
+            <input id="extraT1" type="range" min="5" max="35" step="0.5" value="20" style="flex:1"/>
+            <span class="badge" id="extraT1Val" style="min-width:62px; text-align:center;">--</span>
+          </div>
+          <div class="row" style="gap:12px; align-items:center; margin: 0 6px 10px;">
+            <span class="badge" style="min-width:42px; text-align:center;">T2</span>
+            <input id="extraT2" type="range" min="5" max="35" step="0.5" value="20" style="flex:1"/>
+            <span class="badge" id="extraT2Val" style="min-width:62px; text-align:center;">--</span>
+          </div>
+          <div class="row" style="gap:12px; align-items:center; margin: 0 6px 10px;">
+            <span class="badge" style="min-width:42px; text-align:center;">T3</span>
+            <input id="extraT3" type="range" min="5" max="35" step="0.5" value="20" style="flex:1"/>
+            <span class="badge" id="extraT3Val" style="min-width:62px; text-align:center;">--</span>
+          </div>
+          <div class="row" style="gap:12px; align-items:center; margin: 0 6px 0;">
+            <span class="badge" style="min-width:42px; text-align:center;">TM</span>
+            <input id="extraTM" type="range" min="5" max="35" step="0.5" value="20" style="flex:1"/>
+            <span class="badge" id="extraTMVal" style="min-width:62px; text-align:center;">--</span>
+          </div>
         </div>
       </div>
     </dialog>
@@ -14202,6 +14207,20 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
           if (String(e.type || "").toLowerCase() === "thermostats" && String(e.id) === TH_ID) return e;
         }
         return null;
+      }
+
+      function getThermSourceType() {
+        try {
+          const meta = (snap && snap.meta && typeof snap.meta === "object") ? snap.meta : null;
+          const cfg = (meta && meta.vtherm_config && typeof meta.vtherm_config === "object") ? meta.vtherm_config : null;
+          const therms = (cfg && Array.isArray(cfg.thermostats)) ? cfg.thermostats : [];
+          for (const t of therms) {
+            if (String((t && t.id) || "") !== String(TH_ID)) continue;
+            const src = (t && t.source && typeof t.source === "object") ? t.source : {};
+            return String(src.type || "").trim().toLowerCase();
+          }
+        } catch (_e) {}
+        return "";
       }
 
       function fmtDec(s) {
@@ -14359,6 +14378,8 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const out = therm ? String(therm.OUT_STATUS || "") : "";
         const temp = (rt.TEMP !== undefined && rt.TEMP !== null) ? String(rt.TEMP) : "";
         const rh = (rt.RH !== undefined && rt.RH !== null) ? String(rt.RH) : "";
+        const avgSensors = Array.isArray(rt.AVG_SENSORS) ? rt.AVG_SENSORS : [];
+        const avgTemp = (rt.AVG_TEMP !== undefined && rt.AVG_TEMP !== null) ? Number(rt.AVG_TEMP) : NaN;
         const thr = therm && therm.TEMP_THR && typeof therm.TEMP_THR === "object" ? therm.TEMP_THR : null;
         const target = (thr && thr.VAL !== undefined && thr.VAL !== null) ? String(thr.VAL) : "";
 
@@ -14399,6 +14420,31 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const extraSeasonBadge = document.getElementById("extraSeasonBadge");
         if (extraSeasonBadge) extraSeasonBadge.textContent = (seaKey === "SUM") ? "Estate" : "Inverno";
         const stcfg = ent.static || {};
+        const srcType = getThermSourceType();
+        const isAvgSource = (srcType === "ha_multi_sensor_avg" || srcType === "ha_sensor_avg" || srcType === "ha_multi_avg");
+        const extraProfilesWrap = document.getElementById("extraProfilesWrap");
+        if (extraProfilesWrap) extraProfilesWrap.style.display = isAvgSource ? "none" : "";
+        const extraAvgBlock = document.getElementById("extraAvgBlock");
+        if (extraAvgBlock) extraAvgBlock.style.display = isAvgSource ? "" : "none";
+        const extraAvgSensors = document.getElementById("extraAvgSensors");
+        if (extraAvgSensors) {
+          if (isAvgSource) {
+            const fmtNum = (v) => {
+              const n = Number(v);
+              return Number.isFinite(n) ? n.toFixed(1).replace(".", ",") : "--";
+            };
+            const rows = (avgSensors || []).map((r) => {
+              const nm = String((r && (r.name || r.entity_id)) || "?");
+              const tp = (r && r.temp !== undefined && r.temp !== null) ? fmtNum(r.temp) : "--";
+              return nm + ": " + tp;
+            });
+            let txt = rows.join(" · ");
+            if (Number.isFinite(avgTemp)) txt += (txt ? " · " : "") + "Media: " + fmtNum(avgTemp);
+            extraAvgSensors.textContent = txt || "-";
+          } else {
+            extraAvgSensors.textContent = "-";
+          }
+        }
         const prof = (stcfg && stcfg[seaKey] && typeof stcfg[seaKey] === "object") ? stcfg[seaKey] : null;
         const getPendingProfile = (key) => {
           const k = String(seaKey) + ":" + String(key);
@@ -14432,7 +14478,33 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         setRangeIfClean("extraT3", "extraT3Val", prof ? prof.T3 : null, "T3");
         setRangeIfClean("extraTM", "extraTMVal", prof ? prof.TM : null, "TM");
         const elExtra = document.getElementById("valExtra");
-        if (elExtra) elExtra.textContent = "";
+        if (elExtra) {
+          if (isAvgSource) {
+            const fmtNum = (v) => {
+              const n = Number(v);
+              return Number.isFinite(n) ? n.toFixed(1).replace(".", ",") : "--";
+            };
+            const shortRows = (avgSensors || []).map((r) => {
+              const tp = (r && r.temp !== undefined && r.temp !== null) ? fmtNum(r.temp) : "--";
+              return tp;
+            });
+            const shortTxt = shortRows.join(" / ");
+            const fullTxt = (extraAvgSensors && extraAvgSensors.textContent) ? String(extraAvgSensors.textContent) : "";
+            elExtra.textContent = shortTxt || "-";
+            elExtra.title = fullTxt || "";
+          } else {
+            const fmtProf = (v) => {
+              const n = Number(String(v ?? "").replace(",", "."));
+              return Number.isFinite(n) ? n.toFixed(1).replace(".", ",") : "--";
+            };
+            const exTxt = "T1 " + fmtProf(prof ? prof.T1 : null)
+              + " · T2 " + fmtProf(prof ? prof.T2 : null)
+              + " · T3 " + fmtProf(prof ? prof.T3 : null)
+              + " · TM " + fmtProf(prof ? prof.TM : null);
+            elExtra.textContent = exTxt;
+            elExtra.title = exTxt;
+          }
+        }
 
         ringSetColor(outOn, seaKey);
         ringSetValue(Number.isFinite(effTarget) ? String(effTarget.toFixed(1)) : (target ? fmtDec(target) : "20"));

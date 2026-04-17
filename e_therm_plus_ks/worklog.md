@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.62 - Autore: Codex
+- Pagina dettaglio termostato: per sorgente `ha_multi_sensor_avg` la sezione Extra mostra le temperature delle sonde usate per la media e la media calcolata.
+- Nella stessa vista, i profili `T1/T2/T3/TM` vengono nascosti per i termostati a media sonde.
+- File modificati: `app/main.py`, `app/debug_server.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.61 - Autore: Codex
 - UI `/vtherm` aggiornata per configurare via form il tipo sorgente `ha_multi_sensor_avg`.
 - Aggiunti campi UI: lista sonde HA, `min_valid_sensors`, `stale_sec`, termostato reale `climate`, flag sync e `min_cycle_sec`.
