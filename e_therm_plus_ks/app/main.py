@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.62"
+APP_VERSION = "2.6.63"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -219,6 +219,7 @@ class ThermEngine:
         self._manual_valve_until: Dict[str, float] = {}
         self._manual_valve_state: Dict[str, Dict[str, bool]] = {}
         self._real_target_last: Dict[str, Any] = {}
+        self._real_therm_adapt: Dict[str, Dict[str, Any]] = {}
         self._control_thread: Optional[threading.Thread] = None
         self._watchdog_thread: Optional[threading.Thread] = None
 
@@ -833,10 +834,13 @@ class ThermEngine:
                 st = self._ha_api_request("GET", f"/states/{real_ent}")
                 if isinstance(st, dict):
                     attrs = st.get("attributes") if isinstance(st.get("attributes"), dict) else {}
+                    real_cur = _as_float(attrs.get("current_temperature"))
                     tgt = _as_float(attrs.get("temperature"))
                     hvac = str(st.get("state") or "").strip().lower()
                     preset = str(attrs.get("preset_mode") or "").strip().upper()
                     hvac_action = str(attrs.get("hvac_action") or "").strip().lower()
+                    if real_cur is not None:
+                        th_patch["REAL_TEMP"] = float(real_cur)
                     if tgt is not None:
                         th_patch["TEMP_THR"] = {"VAL": float(tgt)}
                     if hvac == "cool":
@@ -870,6 +874,8 @@ class ThermEngine:
                     th["ACT_MODEL"] = "MAN"
                 for k, v in th_patch.items():
                     th[k] = v
+                if th_patch.get("REAL_TEMP") is not None:
+                    rt["REAL_TEMP"] = float(th_patch.get("REAL_TEMP"))
             any_update = True
 
         if any_update:
@@ -912,23 +918,161 @@ class ThermEngine:
         last_ts = float(self._real_target_last.get(key_ts, 0.0) or 0.0)
         if old and old != new and min_cycle > 0 and last_ts and (now - last_ts) < float(min_cycle):
             return
-        if old == new:
-            return
+        src = t.get("source") if isinstance(t.get("source"), dict) else {}
+        stype = str(src.get("type") or "").strip().lower()
+        adaptive_cfg = cfg.get("adaptive_demand_setpoint")
+        adaptive = bool(adaptive_cfg) if adaptive_cfg is not None else stype in ("ha_multi_sensor_avg", "ha_sensor_avg", "ha_multi_avg")
 
-        ok = False
-        if demand_on:
-            ok = self._ha_service_call("climate", "turn_on", {"entity_id": ent})
-            if not ok:
-                mode = "cool" if str(sea).upper() == "SUM" else "heat"
-                ok = self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": mode})
-        else:
+        mode = "cool" if str(sea).upper() == "SUM" else "heat"
+        if not demand_on:
+            if old == "OFF":
+                st = self._real_therm_adapt.get(ent)
+                if isinstance(st, dict):
+                    st["delta_heat"] = float(cfg.get("demand_delta_base_heat", 1.0) or 1.0)
+                    st["delta_cool"] = float(cfg.get("demand_delta_base_cool", 1.0) or 1.0)
+                return
             ok = self._ha_service_call("climate", "turn_off", {"entity_id": ent})
             if not ok:
                 ok = self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": "off"})
+            if ok:
+                self._real_target_last[key_state] = "OFF"
+                self._real_target_last[key_ts] = now
+                st = self._real_therm_adapt.get(ent)
+                if isinstance(st, dict):
+                    st["delta_heat"] = float(cfg.get("demand_delta_base_heat", 1.0) or 1.0)
+                    st["delta_cool"] = float(cfg.get("demand_delta_base_cool", 1.0) or 1.0)
+                    st["last_step_heat"] = 0.0
+                    st["last_step_cool"] = 0.0
+            return
 
-        if ok:
-            self._real_target_last[key_state] = new
-            self._real_target_last[key_ts] = now
+        if not adaptive:
+            if old == "ON":
+                return
+            ok = self._ha_service_call("climate", "turn_on", {"entity_id": ent})
+            if not ok:
+                ok = self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": mode})
+            if ok:
+                self._real_target_last[key_state] = "ON"
+                self._real_target_last[key_ts] = now
+            return
+
+        # Adaptive setpoint mode: keep the real thermostat "ahead" of its local ambient sensor.
+        try:
+            base_h = float(cfg.get("demand_delta_base_heat", 1.0) or 1.0)
+        except Exception:
+            base_h = 1.0
+        try:
+            base_c = float(cfg.get("demand_delta_base_cool", 1.0) or 1.0)
+        except Exception:
+            base_c = 1.0
+        try:
+            step = float(cfg.get("demand_delta_step", 0.3) or 0.3)
+        except Exception:
+            step = 0.3
+        try:
+            step_sec = max(1, int(cfg.get("demand_delta_step_sec", 120) or 120))
+        except Exception:
+            step_sec = 120
+        try:
+            max_h = float(cfg.get("demand_delta_max_heat", cfg.get("demand_delta_max", 4.0)) or 4.0)
+        except Exception:
+            max_h = 4.0
+        try:
+            max_c = float(cfg.get("demand_delta_max_cool", cfg.get("demand_delta_max", 4.0)) or 4.0)
+        except Exception:
+            max_c = 4.0
+        try:
+            keepalive = max(10, int(cfg.get("demand_keepalive_sec", 90) or 90))
+        except Exception:
+            keepalive = 90
+
+        st = self._real_therm_adapt.setdefault(ent, {})
+        if old != "ON":
+            st["delta_heat"] = base_h
+            st["delta_cool"] = base_c
+            st["last_step_heat"] = now
+            st["last_step_cool"] = now
+        cur_delta_key = "delta_cool" if mode == "cool" else "delta_heat"
+        cur_step_key = "last_step_cool" if mode == "cool" else "last_step_heat"
+        cur_base = base_c if mode == "cool" else base_h
+        cur_max = max_c if mode == "cool" else max_h
+        cur_delta = float(st.get(cur_delta_key, cur_base) or cur_base)
+        last_step_ts = float(st.get(cur_step_key, 0.0) or 0.0)
+        if old == "ON" and (now - last_step_ts) >= float(step_sec):
+            cur_delta = min(float(cur_max), float(cur_delta + step))
+            st[cur_delta_key] = cur_delta
+            st[cur_step_key] = now
+        else:
+            st[cur_delta_key] = cur_delta
+
+        # Try cached real ambient first, fallback to direct API state read.
+        real_temp = None
+        try:
+            tid = str(t.get("id"))
+            with self.lock:
+                rt = self.rt.get(tid) or {}
+                rv = rt.get("REAL_TEMP")
+                if rv is None:
+                    th = rt.get("THERM") if isinstance(rt.get("THERM"), dict) else {}
+                    rv = th.get("REAL_TEMP")
+                real_temp = _as_float(rv)
+        except Exception:
+            real_temp = None
+        if real_temp is None:
+            st_obj = self._ha_api_request("GET", f"/states/{ent}")
+            if isinstance(st_obj, dict):
+                attrs = st_obj.get("attributes") if isinstance(st_obj.get("attributes"), dict) else {}
+                real_temp = _as_float(attrs.get("current_temperature"))
+                if real_temp is None:
+                    real_temp = _as_float(st_obj.get("state"))
+
+        # Ensure HVAC mode while demand is ON.
+        mode_ok = True
+        last_mode = str(st.get("last_mode") or "")
+        if old != "ON" or last_mode != mode:
+            mode_ok = self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": mode})
+            if not mode_ok:
+                mode_ok = self._ha_service_call("climate", "turn_on", {"entity_id": ent})
+            if mode_ok:
+                st["last_mode"] = mode
+
+        temp_ok = False
+        if real_temp is not None:
+            target = float(real_temp - cur_delta) if mode == "cool" else float(real_temp + cur_delta)
+            tmin = _as_float(cfg.get("demand_target_min", 5.0))
+            tmax = _as_float(cfg.get("demand_target_max", 35.0))
+            if mode == "cool":
+                tmin = _as_float(cfg.get("demand_target_min_cool", tmin if tmin is not None else 5.0))
+                tmax = _as_float(cfg.get("demand_target_max_cool", tmax if tmax is not None else 35.0))
+            else:
+                tmin = _as_float(cfg.get("demand_target_min_heat", tmin if tmin is not None else 5.0))
+                tmax = _as_float(cfg.get("demand_target_max_heat", tmax if tmax is not None else 35.0))
+            if tmin is None:
+                tmin = 5.0
+            if tmax is None:
+                tmax = 35.0
+            target = max(float(tmin), min(float(tmax), target))
+
+            last_target = _as_float(st.get("last_target"))
+            last_temp_ts = float(st.get("last_temp_ts", 0.0) or 0.0)
+            need_send = (
+                old != "ON"
+                or last_target is None
+                or abs(float(target) - float(last_target)) >= 0.1
+                or (now - last_temp_ts) >= float(keepalive)
+            )
+            if need_send:
+                temp_ok = self._ha_climate_service(ent, "set_temperature", {"temperature": float(target)})
+                if temp_ok:
+                    st["last_target"] = float(target)
+                    st["last_temp_ts"] = now
+            else:
+                temp_ok = True
+
+        if mode_ok or temp_ok:
+            self._real_target_last[key_state] = "ON"
+            if old != "ON":
+                self._real_target_last[key_ts] = now
 
     def _real_targets_for(self, t: Dict[str, Any], season_key: Optional[str] = None) -> Dict[str, Any]:
         rt = t.get("real_targets") if isinstance(t.get("real_targets"), dict) else {}

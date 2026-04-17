@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.63 - Autore: Codex
+- Termostato reale: aggiunta logica adattiva del setpoint in base alla sua temperatura ambiente quando il virtuale richiede caldo/freddo.
+- Supportati delta progressivi con step temporale, limiti min/max target, keepalive comando e reset delta a richiesta OFF.
+- Per sorgente `ha_multi_sensor_avg` il comportamento adattivo è attivo di default (configurabile nei campi `real_thermostat.*`).
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.62 - Autore: Codex
 - Pagina dettaglio termostato: per sorgente `ha_multi_sensor_avg` la sezione Extra mostra le temperature delle sonde usate per la media e la media calcolata.
 - Nella stessa vista, i profili `T1/T2/T3/TM` vengono nascosti per i termostati a media sonde.
