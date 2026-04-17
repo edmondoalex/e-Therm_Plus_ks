@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.82 - Autore: Codex
+- Fix comando VMC: accettate anche entita `light.*` e `switch.*` oltre a `fan.*` in `real_thermostat.vmc_entity_id`.
+- Per `light.*` usa `light.turn_on` con `brightness_pct` (fallback `turn_on` semplice); per `switch.*` usa `turn_on/turn_off`.
+- UI aggiornata nei label VMC per indicare chiaramente supporto `fan/light/switch`.
+- File modificati: `app/main.py`, `app/debug_server.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.81 - Autore: Codex
 - Aggiunto comando VMC per termostato virtuale: quando c'e richiesta ON (heat/cool) il bridge imposta `fan.<vmc>` a velocita fissa (`vmc_speed_pct`), e a richiesta OFF la spegne (configurabile).
 - Nuovi campi UI (vTherm): `Entita VMC (fan)`, `Velocita % (ON)`, `Spegni VMC quando non c'e richiesta`.

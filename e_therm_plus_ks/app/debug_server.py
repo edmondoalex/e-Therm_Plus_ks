@@ -15083,9 +15083,9 @@ def render_vtherm_config_page(snapshot):
           </div>
         </div>
         <div id="f_rt_vmc_wrap" style="grid-column: 1 / -1;">
-          <label>VMC su richiesta virtuale (opzionale)</label>
+          <label>VMC su richiesta virtuale (opzionale: fan/light/switch)</label>
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-            <div><label>Entità VMC (fan)</label><input id="f_rt_vmc_entity" placeholder="Es: fan.vmc_salone" /></div>
+            <div><label>Entità VMC (fan/light/switch)</label><input id="f_rt_vmc_entity" placeholder="Es: fan.vmc_salone o light.vmc_fan" /></div>
             <div><label>Velocità % (ON)</label><input id="f_rt_vmc_speed" placeholder="Es: 60" inputmode="numeric" /></div>
           </div>
           <div class="chkRow" style="margin-top:8px;">

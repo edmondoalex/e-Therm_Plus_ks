@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.81"
+APP_VERSION = "2.6.82"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -893,7 +893,10 @@ class ThermEngine:
     def _apply_real_vmc_demand(self, t: Dict[str, Any], demand_on: bool, sea: str) -> None:
         cfg = self._real_thermostat_cfg(t)
         vmc_raw = cfg.get("vmc_entity_id") or cfg.get("vmc_entities") or ""
-        vmc_entities = [e for e in self._split_entities(vmc_raw) if e.startswith("fan.")]
+        vmc_entities = [
+            e for e in self._split_entities(vmc_raw)
+            if e.startswith("fan.") or e.startswith("light.") or e.startswith("switch.")
+        ]
         if not vmc_entities:
             return
 
@@ -910,17 +913,26 @@ class ThermEngine:
 
         for ent in vmc_entities:
             cache_key = f"vmc:{ent}"
+            domain = str(ent.split(".", 1)[0] if "." in ent else "").strip().lower()
             if demand_on:
                 pct = int(max(1, min(100, round(float(speed if speed is not None else 100.0)))))
-                desired = f"ON:{pct}"
+                desired = f"ON:{pct}" if domain in ("fan", "light") else "ON"
                 if str(self._real_target_last.get(cache_key) or "") == desired:
                     continue
-                ok = self._ha_service_call("fan", "turn_on", {"entity_id": ent, "percentage": pct})
-                if not ok:
-                    # Fallback for integrations that separate percentage and power calls.
-                    ok = self._ha_service_call("fan", "set_percentage", {"entity_id": ent, "percentage": pct})
-                    if ok:
-                        self._ha_service_call("fan", "turn_on", {"entity_id": ent})
+                ok = False
+                if domain == "fan":
+                    ok = self._ha_service_call("fan", "turn_on", {"entity_id": ent, "percentage": pct})
+                    if not ok:
+                        # Fallback for integrations that separate percentage and power calls.
+                        ok = self._ha_service_call("fan", "set_percentage", {"entity_id": ent, "percentage": pct})
+                        if ok:
+                            self._ha_service_call("fan", "turn_on", {"entity_id": ent})
+                elif domain == "light":
+                    ok = self._ha_service_call("light", "turn_on", {"entity_id": ent, "brightness_pct": pct})
+                    if not ok:
+                        ok = self._ha_service_call("light", "turn_on", {"entity_id": ent})
+                elif domain == "switch":
+                    ok = self._ha_service_call("switch", "turn_on", {"entity_id": ent})
                 if ok:
                     self._real_target_last[cache_key] = desired
             else:
@@ -928,7 +940,13 @@ class ThermEngine:
                     continue
                 if str(self._real_target_last.get(cache_key) or "") == "OFF":
                     continue
-                ok = self._ha_service_call("fan", "turn_off", {"entity_id": ent})
+                ok = False
+                if domain == "fan":
+                    ok = self._ha_service_call("fan", "turn_off", {"entity_id": ent})
+                elif domain == "light":
+                    ok = self._ha_service_call("light", "turn_off", {"entity_id": ent})
+                elif domain == "switch":
+                    ok = self._ha_service_call("switch", "turn_off", {"entity_id": ent})
                 if ok:
                     self._real_target_last[cache_key] = "OFF"
 
