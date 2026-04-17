@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.71"
+APP_VERSION = "2.6.72"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -837,28 +837,17 @@ class ThermEngine:
                     real_cur = _as_float(attrs.get("current_temperature"))
                     tgt = _as_float(attrs.get("temperature"))
                     hvac = str(st.get("state") or "").strip().lower()
-                    preset = str(attrs.get("preset_mode") or "").strip().upper()
                     hvac_action = str(attrs.get("hvac_action") or "").strip().lower()
                     if real_cur is not None:
                         th_patch["REAL_TEMP"] = float(real_cur)
+                    # Keep real thermostat telemetry separate from virtual control state.
+                    # Do not overwrite virtual TEMP_THR / ACT_SEA / ACT_MODEL from real climate.
                     if tgt is not None:
-                        th_patch["TEMP_THR"] = {"VAL": float(tgt)}
-                    if hvac == "cool":
-                        th_patch["ACT_SEA"] = "SUM"
-                    elif hvac == "heat":
-                        th_patch["ACT_SEA"] = "WIN"
-                    elif hvac == "off":
-                        th_patch["ACT_MODEL"] = "OFF"
-                    if preset:
-                        th_patch["ACT_MODEL"] = preset
-                    elif hvac in ("heat", "cool"):
-                        th_patch["ACT_MODEL"] = "MAN"
-                    if hvac_action in ("heating", "cooling"):
-                        th_patch["OUT_STATUS"] = "ON"
-                    elif hvac_action in ("idle", "off"):
-                        th_patch["OUT_STATUS"] = "OFF"
-                    else:
-                        th_patch["OUT_STATUS"] = "OFF" if hvac == "off" else "ON"
+                        th_patch["REAL_TARGET"] = float(tgt)
+                    if hvac:
+                        th_patch["REAL_HVAC"] = str(hvac).upper()
+                    if hvac_action:
+                        th_patch["REAL_HVAC_ACTION"] = str(hvac_action).upper()
 
             with self.lock:
                 rt = self.rt.setdefault(tid, {})

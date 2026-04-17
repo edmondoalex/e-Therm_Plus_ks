@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.72 - Autore: Codex
+- Fix root-cause bridge HA multi-sensor: il polling del termostato reale non sovrascrive piu lo stato di controllo del virtuale (`TEMP_THR`, `ACT_SEA`, `ACT_MODEL`).
+- Il polling del reale salva solo telemetria separata (`REAL_TEMP`, `REAL_TARGET`, `REAL_HVAC`, `REAL_HVAC_ACTION`), evitando che il target virtuale venga annullato.
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.71 - Autore: Codex
 - Reso obbligatorio il bridge adattivo per sorgenti `ha_multi_sensor_avg`: non puo piu essere disattivato da config/UI per errore.
 - Disattivato in modo definitivo il sync setpoint diretto verso il termostato reale quando la sorgente e a media sonde (evita overwrite del target adattivo).
