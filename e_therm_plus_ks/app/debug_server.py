@@ -15082,6 +15082,16 @@ def render_vtherm_config_page(snapshot):
             <div><label>Target max Cool (°C)</label><input id="f_rt_tmax_cool" placeholder="Es: 28" inputmode="decimal" /></div>
           </div>
         </div>
+        <div id="f_rt_vmc_wrap" style="grid-column: 1 / -1;">
+          <label>VMC su richiesta virtuale (opzionale)</label>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div><label>Entità VMC (fan)</label><input id="f_rt_vmc_entity" placeholder="Es: fan.vmc_salone" /></div>
+            <div><label>Velocità % (ON)</label><input id="f_rt_vmc_speed" placeholder="Es: 60" inputmode="numeric" /></div>
+          </div>
+          <div class="chkRow" style="margin-top:8px;">
+            <div class="chk"><input id="f_rt_vmc_off_idle" type="checkbox" /> <span>Spegni VMC quando non c'è richiesta</span></div>
+          </div>
+        </div>
         <div>
           <label>Profilo (opzionale)</label>
           <select id="f_profile">
@@ -15670,6 +15680,9 @@ function editItem(idx) {
   document.getElementById('f_rt_tmax_heat').value = String((rth.demand_target_max_heat ?? 30.0));
   document.getElementById('f_rt_tmin_cool').value = String((rth.demand_target_min_cool ?? 16.0));
   document.getElementById('f_rt_tmax_cool').value = String((rth.demand_target_max_cool ?? 28.0));
+  document.getElementById('f_rt_vmc_entity').value = String(rth.vmc_entity_id || '');
+  document.getElementById('f_rt_vmc_speed').value = String((rth.vmc_speed_pct ?? ''));
+  document.getElementById('f_rt_vmc_off_idle').checked = (rth.vmc_off_on_no_demand !== false);
   toggleSourceFields();
   document.getElementById('f_profile').value = String(t.profile || '');
   renderConsensusSelect('f_consensus_group_heat', String(t.consensus_group_heat || ''));
@@ -15728,6 +15741,9 @@ function addNew() {
   document.getElementById('f_rt_tmax_heat').value = '30';
   document.getElementById('f_rt_tmin_cool').value = '16';
   document.getElementById('f_rt_tmax_cool').value = '28';
+  document.getElementById('f_rt_vmc_entity').value = '';
+  document.getElementById('f_rt_vmc_speed').value = '';
+  document.getElementById('f_rt_vmc_off_idle').checked = true;
   toggleSourceFields();
   document.getElementById('f_profile').value = '';
   renderConsensusSelect('f_consensus_group_heat', '');
@@ -15782,6 +15798,9 @@ function saveItem() {
   const rtTargetMaxHeat = Number(String(document.getElementById('f_rt_tmax_heat').value || '').trim());
   const rtTargetMinCool = Number(String(document.getElementById('f_rt_tmin_cool').value || '').trim());
   const rtTargetMaxCool = Number(String(document.getElementById('f_rt_tmax_cool').value || '').trim());
+  const rtVmcEntity = String(document.getElementById('f_rt_vmc_entity').value || '').trim();
+  const rtVmcSpeed = Number(String(document.getElementById('f_rt_vmc_speed').value || '').trim());
+  const rtVmcOffIdle = !!document.getElementById('f_rt_vmc_off_idle').checked;
   const profile = String(document.getElementById('f_profile').value || '').trim();
   const consensusGroupHeat = String(document.getElementById('f_consensus_group_heat').value || '').trim();
   const consensusGroupCool = String(document.getElementById('f_consensus_group_cool').value || '').trim();
@@ -15853,6 +15872,9 @@ function saveItem() {
       ...(Number.isFinite(rtTargetMaxHeat) ? { demand_target_max_heat: rtTargetMaxHeat } : {}),
       ...(Number.isFinite(rtTargetMinCool) ? { demand_target_min_cool: rtTargetMinCool } : {}),
       ...(Number.isFinite(rtTargetMaxCool) ? { demand_target_max_cool: rtTargetMaxCool } : {}),
+      ...(rtVmcEntity ? { vmc_entity_id: rtVmcEntity } : {}),
+      ...(Number.isFinite(rtVmcSpeed) ? { vmc_speed_pct: Math.max(1, Math.min(100, Math.trunc(rtVmcSpeed))) } : {}),
+      vmc_off_on_no_demand: rtVmcOffIdle,
     };
   }
 

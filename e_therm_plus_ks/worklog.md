@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.81 - Autore: Codex
+- Aggiunto comando VMC per termostato virtuale: quando c'e richiesta ON (heat/cool) il bridge imposta `fan.<vmc>` a velocita fissa (`vmc_speed_pct`), e a richiesta OFF la spegne (configurabile).
+- Nuovi campi UI (vTherm): `Entita VMC (fan)`, `Velocita % (ON)`, `Spegni VMC quando non c'e richiesta`.
+- Nuove chiavi config in `real_thermostat`: `vmc_entity_id`, `vmc_speed_pct`, `vmc_off_on_no_demand`.
+- File modificati: `app/main.py`, `app/debug_server.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.80 - Autore: Codex
 - Spegnimento reale su `ha_multi_sensor_avg` reso immediato a `Demand OFF` (ignora `min_cycle_sec` in OFF per questo source).
 - Hardened OFF command: dopo `turn_off`/`set_hvac_mode off` viene verificato lo stato reale HA; se non e `off` non viene considerato riuscito.

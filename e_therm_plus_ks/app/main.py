@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.80"
+APP_VERSION = "2.6.81"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -890,6 +890,48 @@ class ThermEngine:
         res = self._ha_api_request("POST", f"/services/{domain}/{service}", data or {})
         return res is not None
 
+    def _apply_real_vmc_demand(self, t: Dict[str, Any], demand_on: bool, sea: str) -> None:
+        cfg = self._real_thermostat_cfg(t)
+        vmc_raw = cfg.get("vmc_entity_id") or cfg.get("vmc_entities") or ""
+        vmc_entities = [e for e in self._split_entities(vmc_raw) if e.startswith("fan.")]
+        if not vmc_entities:
+            return
+
+        speed = _as_float(cfg.get("vmc_speed_pct"))
+        if str(sea or "").upper() == "SUM":
+            sp_c = _as_float(cfg.get("vmc_speed_pct_cool"))
+            if sp_c is not None:
+                speed = sp_c
+        else:
+            sp_h = _as_float(cfg.get("vmc_speed_pct_heat"))
+            if sp_h is not None:
+                speed = sp_h
+        off_on_idle = self._bool_cfg(cfg, "vmc_off_on_no_demand", True)
+
+        for ent in vmc_entities:
+            cache_key = f"vmc:{ent}"
+            if demand_on:
+                pct = int(max(1, min(100, round(float(speed if speed is not None else 100.0)))))
+                desired = f"ON:{pct}"
+                if str(self._real_target_last.get(cache_key) or "") == desired:
+                    continue
+                ok = self._ha_service_call("fan", "turn_on", {"entity_id": ent, "percentage": pct})
+                if not ok:
+                    # Fallback for integrations that separate percentage and power calls.
+                    ok = self._ha_service_call("fan", "set_percentage", {"entity_id": ent, "percentage": pct})
+                    if ok:
+                        self._ha_service_call("fan", "turn_on", {"entity_id": ent})
+                if ok:
+                    self._real_target_last[cache_key] = desired
+            else:
+                if not off_on_idle:
+                    continue
+                if str(self._real_target_last.get(cache_key) or "") == "OFF":
+                    continue
+                ok = self._ha_service_call("fan", "turn_off", {"entity_id": ent})
+                if ok:
+                    self._real_target_last[cache_key] = "OFF"
+
     def _ha_climate_target(self, entity_id: str) -> Optional[float]:
         st = self._ha_api_request("GET", f"/states/{entity_id}")
         if not isinstance(st, dict):
@@ -923,6 +965,10 @@ class ThermEngine:
         adaptive = True if is_ha_avg else (bool(adaptive_cfg) if adaptive_cfg is not None else False)
 
         mode = "cool" if str(sea).upper() == "SUM" else "heat"
+        try:
+            self._apply_real_vmc_demand(t, bool(demand_on), sea)
+        except Exception:
+            pass
         if not demand_on:
             last_ts = float(self._real_target_last.get(key_ts, 0.0) or 0.0)
             try:
