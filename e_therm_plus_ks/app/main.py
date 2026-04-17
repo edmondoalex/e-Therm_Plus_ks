@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.83"
+APP_VERSION = "2.6.84"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1023,18 +1023,21 @@ class ThermEngine:
                 if isinstance(st, dict):
                     st["delta_heat"] = float(cfg.get("demand_delta_base_heat", 1.0) or 1.0)
                     st["delta_cool"] = float(cfg.get("demand_delta_base_cool", 1.0) or 1.0)
+                try:
+                    tid = str(t.get("id"))
+                    with self.lock:
+                        rt = self.rt.setdefault(tid, {})
+                        th = rt.setdefault("THERM", {})
+                        th["DEMAND_REASON"] = "OFF_OK_ALREADY"
+                        th["REAL_HVAC_STATE"] = "off"
+                except Exception:
+                    pass
                 return
-            ok = self._ha_service_call("climate", "turn_off", {"entity_id": ent})
-            # Verify real state; some integrations may ACK without actually switching off.
-            hv_now = self._ha_climate_state(ent)
-            if ok and hv_now != "off":
-                ok = False
-            if not ok:
-                ok = self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": "off"})
+            ok_turn_off = self._ha_service_call("climate", "turn_off", {"entity_id": ent})
+            # Some integrations only honor explicit hvac_mode OFF.
+            ok_hvac_off = self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": "off"})
             hv_now2 = self._ha_climate_state(ent)
-            if ok and hv_now2 != "off":
-                # Accept command dispatch, but do not trust cache OFF yet if HA still reports ON.
-                ok = False
+            ok = (hv_now2 == "off")
             if ok:
                 self._real_target_last[key_state] = "OFF"
                 self._real_target_last[key_ts] = now
@@ -1044,9 +1047,28 @@ class ThermEngine:
                     st["delta_cool"] = float(cfg.get("demand_delta_base_cool", 1.0) or 1.0)
                     st["last_step_heat"] = 0.0
                     st["last_step_cool"] = 0.0
+                try:
+                    tid = str(t.get("id"))
+                    with self.lock:
+                        rt = self.rt.setdefault(tid, {})
+                        th = rt.setdefault("THERM", {})
+                        th["DEMAND_REASON"] = "OFF_OK"
+                        th["REAL_HVAC_STATE"] = "off"
+                except Exception:
+                    pass
             else:
                 # Keep demand state as ON in cache until HA reports actual OFF, so next cycle retries.
                 self._real_target_last[key_state] = "ON"
+                try:
+                    tid = str(t.get("id"))
+                    with self.lock:
+                        rt = self.rt.setdefault(tid, {})
+                        th = rt.setdefault("THERM", {})
+                        th["DEMAND_REASON"] = "OFF_RETRY"
+                        th["REAL_HVAC_STATE"] = str(hv_now2 or "")
+                        th["OFF_CMD_RESULT"] = f"turn_off={1 if ok_turn_off else 0},hvac_off={1 if ok_hvac_off else 0}"
+                except Exception:
+                    pass
             return
 
         if not adaptive:
@@ -1991,8 +2013,17 @@ class ThermEngine:
         if has_real_therm:
             try:
                 self._apply_real_thermostat_demand(t, bool(demand_on), sea)
-            except Exception:
-                pass
+            except Exception as ex:
+                try:
+                    tid = str(t.get("id"))
+                    with self.lock:
+                        rt_dbg = self.rt.setdefault(tid, {})
+                        th_dbg = rt_dbg.setdefault("THERM", {})
+                        th_dbg["DEMAND_ON"] = "ON" if bool(demand_on) else "OFF"
+                        th_dbg["DEMAND_REASON"] = "BRIDGE_EXCEPTION"
+                        th_dbg["BRIDGE_ERROR"] = str(ex)[:180]
+                except Exception:
+                    pass
 
         desired = self._get_desired_season(tid, active_sk) if split else self._get_desired(tid)
         prev_power = desired.get("power")

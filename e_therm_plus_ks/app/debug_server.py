@@ -14139,6 +14139,18 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
             <span class="badge" style="min-width:160px; text-align:left;">Reason</span>
             <span class="badge" id="extraDbgReason" style="min-width:120px; text-align:center;">-</span>
           </div>
+          <div class="row" style="gap:10px; margin: 6px 0 0;">
+            <span class="badge" style="min-width:160px; text-align:left;">Stato reale HVAC (HA)</span>
+            <span class="badge" id="extraDbgRealHvac" style="min-width:120px; text-align:center;">-</span>
+          </div>
+          <div class="row" style="gap:10px; margin: 6px 0 0;">
+            <span class="badge" style="min-width:160px; text-align:left;">Esito cmd OFF</span>
+            <span class="badge" id="extraDbgOffCmd" style="min-width:120px; text-align:center;">-</span>
+          </div>
+          <div class="row" style="gap:10px; margin: 6px 0 0;">
+            <span class="badge" style="min-width:160px; text-align:left;">Bridge error</span>
+            <span class="badge" id="extraDbgBridgeErr" style="min-width:120px; text-align:center;">-</span>
+          </div>
         </div>
         <div id="extraProfilesWrap">
           <div class="muted" style="margin: 14px 6px 8px;">Profili</div>
@@ -14376,6 +14388,9 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const out = therm ? String(therm.OUT_STATUS || "") : "";
         const demandOn = therm ? String(therm.DEMAND_ON || "") : "";
         const demandReason = therm ? String(therm.DEMAND_REASON || "") : "";
+        const realHvacState = therm ? String(therm.REAL_HVAC_STATE || "") : "";
+        const offCmdResult = therm ? String(therm.OFF_CMD_RESULT || "") : "";
+        const bridgeError = therm ? String(therm.BRIDGE_ERROR || "") : "";
         const temp = (rt.TEMP !== undefined && rt.TEMP !== null) ? String(rt.TEMP) : "";
         const rh = (rt.RH !== undefined && rt.RH !== null) ? String(rt.RH) : "";
         const adaptTargetRaw = therm ? therm.ADAPT_TARGET : null;
@@ -14462,6 +14477,9 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const elDbgAdaptTarget = document.getElementById("extraDbgAdaptTarget");
         const elDbgRealTarget = document.getElementById("extraDbgRealTarget");
         const elDbgReason = document.getElementById("extraDbgReason");
+        const elDbgRealHvac = document.getElementById("extraDbgRealHvac");
+        const elDbgOffCmd = document.getElementById("extraDbgOffCmd");
+        const elDbgBridgeErr = document.getElementById("extraDbgBridgeErr");
         if (elDbgDemand) {
           const up = String(demandOn || "").toUpperCase();
           elDbgDemand.textContent = up === "ON" ? "ON" : (up === "OFF" ? "OFF" : "-");
@@ -14469,6 +14487,9 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         if (elDbgAdaptTarget) elDbgAdaptTarget.textContent = fmtDbgTemp(adaptTargetRaw);
         if (elDbgRealTarget) elDbgRealTarget.textContent = fmtDbgTemp(realTargetReadRaw);
         if (elDbgReason) elDbgReason.textContent = demandReason || "-";
+        if (elDbgRealHvac) elDbgRealHvac.textContent = realHvacState || "-";
+        if (elDbgOffCmd) elDbgOffCmd.textContent = offCmdResult || "-";
+        if (elDbgBridgeErr) elDbgBridgeErr.textContent = bridgeError || "-";
         const prof = (stcfg && stcfg[seaKey] && typeof stcfg[seaKey] === "object") ? stcfg[seaKey] : null;
         const getPendingProfile = (key) => {
           const k = String(seaKey) + ":" + String(key);

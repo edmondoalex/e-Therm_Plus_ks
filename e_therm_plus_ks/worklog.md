@@ -3,6 +3,15 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.84 - Autore: Codex
+- OFF bridge reale rinforzato: su domanda OFF invia `climate.turn_off` + `climate.set_hvac_mode(off)` e considera riuscito solo con stato HA realmente `off`.
+- Retry OFF automatico nei cicli successivi se HA resta acceso.
+- Debug UI esteso: `Stato reale HVAC (HA)`, `Esito cmd OFF`, `Bridge error`.
+- Diagnostica eccezioni bridge: reason `BRIDGE_EXCEPTION` con dettaglio `BRIDGE_ERROR`.
+- File modificati: `app/main.py`, `app/debug_server.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.83 - Autore: Codex
 - Fix spegnimento reale: su `Demand OFF` il bridge verifica lo stato HVAC reale e, se non e `off`, ritenta il comando nei cicli successivi (niente falso `OFF` in cache).
 - Aggiunta helper `_ha_climate_state()` per check consistente stato climate.
