@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.77 - Autore: Codex
+- Fix OFF virtuale: l'azione UI `set_mode=OFF` ora viene mappata a `mode=off` (non piu a `preset_mode`), cosi il termostato reale riceve lo spegnimento HVAC.
+- Allineato stato runtime su comando mode: `heat/cool` imposta `ACT_MODEL=MAN`, `off` imposta `ACT_MODEL=OFF` e `ACT_SEA=OFF`.
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.76 - Autore: Codex
 - UI termostato virtuale: rimossi pulsanti laterali `Preset` e `Scheduler`.
 - La voce `Modalita` ora include `Inverno`, `Estate` e `Off`; selezione `Off` invia `set_mode=OFF` e spegne virtuale+reale.

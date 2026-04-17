@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.76"
+APP_VERSION = "2.6.77"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -2736,14 +2736,23 @@ class ThermEngine:
                 th = rt.setdefault("THERM", {})
                 if m == "heat":
                     th["ACT_SEA"] = "WIN"
+                    th["ACT_MODEL"] = "MAN"
                 elif m == "cool":
                     th["ACT_SEA"] = "SUM"
+                    th["ACT_MODEL"] = "MAN"
+                else:
+                    th["ACT_SEA"] = "OFF"
+                    th["ACT_MODEL"] = "OFF"
             self._sync_ui()
             return
 
         if kind == "preset_mode":
             p = str(payload_raw or "").strip().upper()
             if not p:
+                return
+            # OFF must always map to a real HVAC OFF command.
+            if p == "OFF":
+                self._handle_ha_clone_command(tid, "mode", "off", origin=origin)
                 return
             with self.lock:
                 rt0 = self.rt.setdefault(str(tid), {})
@@ -3716,7 +3725,11 @@ class ThermEngine:
             self._handle_ha_clone_command(tid, "target_temperature", str(value), origin="ui")
             return {"ok": True}
         if action == "set_mode":
-            self._handle_ha_clone_command(tid, "preset_mode", str(value), origin="ui")
+            v = str(value or "").strip().upper()
+            if v == "OFF":
+                self._handle_ha_clone_command(tid, "mode", "off", origin="ui")
+            else:
+                self._handle_ha_clone_command(tid, "preset_mode", v, origin="ui")
             return {"ok": True}
         if action == "set_season":
             v = str(value or "").strip().upper()
