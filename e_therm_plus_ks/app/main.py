@@ -3,6 +3,7 @@ import os
 import time
 import threading
 import warnings
+import datetime
 import urllib.request
 import urllib.error
 from typing import Any, Dict, Optional, List
@@ -15,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.59"
+APP_VERSION = "2.6.60"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -105,6 +106,21 @@ def _as_int(x: Any) -> Optional[int]:
         return None
 
 
+def _parse_iso_datetime(value: Any) -> Optional[datetime.datetime]:
+    try:
+        s = str(value or "").strip()
+        if not s:
+            return None
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        dt = datetime.datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=datetime.timezone.utc)
+        return dt.astimezone(datetime.timezone.utc)
+    except Exception:
+        return None
+
+
 def _dict_get_path(d: Any, path: List[str]) -> Any:
     cur = d
     for k in path:
@@ -182,6 +198,7 @@ class ThermEngine:
         self._reconnect_backoff_sec = 5.0
         self._last_reconnect_reason = ""
         self._last_ha_poll_ts = 0.0
+        self._last_ha_sensor_poll_ts = 0.0
         self._last_ha_warn_ts = 0.0
 
         # realtime cache per vtherm id
@@ -605,6 +622,18 @@ class ThermEngine:
                     out.append(t)
         return out
 
+    def _ha_multi_sensor_terms(self) -> List[Dict[str, Any]]:
+        out: List[Dict[str, Any]] = []
+        for t in self.therm_list():
+            src = t.get("source") or {}
+            st = str(src.get("type", "")).lower()
+            if st not in ("ha_multi_sensor_avg", "ha_sensor_avg", "ha_multi_avg"):
+                continue
+            sensors = src.get("sensors")
+            if isinstance(sensors, list) and sensors:
+                out.append(t)
+        return out
+
     def _ha_api_request(self, method: str, path: str, payload: Optional[Dict[str, Any]] = None) -> Optional[Any]:
         token = os.environ.get("SUPERVISOR_TOKEN", "").strip()
         if not token:
@@ -708,6 +737,139 @@ class ThermEngine:
         self._sync_ui()
         self._persist_rt_cache()
 
+    def _real_thermostat_cfg(self, t: Dict[str, Any]) -> Dict[str, Any]:
+        cfg = t.get("real_thermostat")
+        return cfg if isinstance(cfg, dict) else {}
+
+    def _real_thermostat_entity(self, t: Dict[str, Any]) -> str:
+        cfg = self._real_thermostat_cfg(t)
+        ent = str(cfg.get("entity_id") or "").strip()
+        if ent:
+            return ent
+        src = t.get("source") or {}
+        return str(src.get("real_entity_id") or "").strip()
+
+    def _bool_cfg(self, d: Dict[str, Any], key: str, default: bool) -> bool:
+        try:
+            v = d.get(key)
+            if v is None:
+                return bool(default)
+            return bool(v)
+        except Exception:
+            return bool(default)
+
+    def _ha_state_temperature(self, st: Dict[str, Any]) -> Optional[float]:
+        if not isinstance(st, dict):
+            return None
+        attrs = st.get("attributes") if isinstance(st.get("attributes"), dict) else {}
+        v = _as_float(st.get("state"))
+        if v is None:
+            v = _as_float(attrs.get("temperature"))
+        if v is None:
+            v = _as_float(attrs.get("current_temperature"))
+        return v
+
+    def _ha_state_is_fresh(self, st: Dict[str, Any], stale_sec: float) -> bool:
+        if stale_sec <= 0:
+            return True
+        dt = _parse_iso_datetime(st.get("last_updated") if isinstance(st, dict) else None)
+        if dt is None:
+            dt = _parse_iso_datetime(st.get("last_changed") if isinstance(st, dict) else None)
+        if dt is None:
+            return True
+        age = time.time() - dt.timestamp()
+        return age <= float(stale_sec)
+
+    def _poll_ha_multi_sensor_states(self, force: bool = False) -> None:
+        terms = self._ha_multi_sensor_terms()
+        if not terms:
+            return
+        now = time.time()
+        if not force and (now - float(self._last_ha_sensor_poll_ts or 0.0)) < 5.0:
+            return
+        self._last_ha_sensor_poll_ts = now
+
+        any_update = False
+        for t in terms:
+            tid = str(t.get("id"))
+            src = t.get("source") if isinstance(t.get("source"), dict) else {}
+            sensors = src.get("sensors") if isinstance(src.get("sensors"), list) else []
+            sensors = [str(x).strip() for x in sensors if str(x).strip()]
+            if not sensors:
+                continue
+            min_valid = _as_int(src.get("min_valid_sensors"))
+            if min_valid is None:
+                min_valid = len(sensors)
+            min_valid = max(1, min(int(min_valid), len(sensors)))
+            stale_sec = _as_float(src.get("stale_sec"))
+            stale_sec = float(stale_sec) if stale_sec is not None else 0.0
+
+            vals: List[float] = []
+            for ent in sensors:
+                st = self._ha_api_request("GET", f"/states/{ent}")
+                if not isinstance(st, dict):
+                    continue
+                if not self._ha_state_is_fresh(st, stale_sec):
+                    continue
+                v = self._ha_state_temperature(st)
+                if v is None:
+                    continue
+                vals.append(float(v))
+
+            if len(vals) < int(min_valid):
+                continue
+            avg = float(sum(vals) / len(vals))
+
+            th_patch: Dict[str, Any] = {}
+            real_ent = self._real_thermostat_entity(t)
+            if real_ent:
+                st = self._ha_api_request("GET", f"/states/{real_ent}")
+                if isinstance(st, dict):
+                    attrs = st.get("attributes") if isinstance(st.get("attributes"), dict) else {}
+                    tgt = _as_float(attrs.get("temperature"))
+                    hvac = str(st.get("state") or "").strip().lower()
+                    preset = str(attrs.get("preset_mode") or "").strip().upper()
+                    hvac_action = str(attrs.get("hvac_action") or "").strip().lower()
+                    if tgt is not None:
+                        th_patch["TEMP_THR"] = {"VAL": float(tgt)}
+                    if hvac == "cool":
+                        th_patch["ACT_SEA"] = "SUM"
+                    elif hvac == "heat":
+                        th_patch["ACT_SEA"] = "WIN"
+                    elif hvac == "off":
+                        th_patch["ACT_MODEL"] = "OFF"
+                    if preset:
+                        th_patch["ACT_MODEL"] = preset
+                    elif hvac in ("heat", "cool"):
+                        th_patch["ACT_MODEL"] = "MAN"
+                    if hvac_action in ("heating", "cooling"):
+                        th_patch["OUT_STATUS"] = "ON"
+                    elif hvac_action in ("idle", "off"):
+                        th_patch["OUT_STATUS"] = "OFF"
+                    else:
+                        th_patch["OUT_STATUS"] = "OFF" if hvac == "off" else "ON"
+
+            with self.lock:
+                rt = self.rt.setdefault(tid, {})
+                rt["TEMP"] = float(avg)
+                th = rt.setdefault("THERM", {})
+                if not th.get("ACT_SEA"):
+                    th["ACT_SEA"] = "WIN"
+                if not th.get("ACT_MODEL"):
+                    th["ACT_MODEL"] = "MAN"
+                for k, v in th_patch.items():
+                    th[k] = v
+            any_update = True
+
+        if any_update:
+            try:
+                self._last_source_ts = time.time()
+                self._ever_got_source = True
+            except Exception:
+                pass
+            self._sync_ui()
+            self._persist_rt_cache()
+
     def _ha_climate_service(self, entity_id: str, service: str, data: Dict[str, Any]) -> bool:
         payload = {"entity_id": entity_id}
         payload.update(data or {})
@@ -717,6 +879,45 @@ class ThermEngine:
     def _ha_service_call(self, domain: str, service: str, data: Dict[str, Any]) -> bool:
         res = self._ha_api_request("POST", f"/services/{domain}/{service}", data or {})
         return res is not None
+
+    def _apply_real_thermostat_demand(self, t: Dict[str, Any], demand_on: bool, sea: str) -> None:
+        cfg = self._real_thermostat_cfg(t)
+        ent = self._real_thermostat_entity(t)
+        if not ent:
+            return
+        min_cycle = _as_int(cfg.get("min_cycle_sec"))
+        if min_cycle is None:
+            ctrl = t.get("control") if isinstance(t.get("control"), dict) else {}
+            min_cycle = _as_int(ctrl.get("min_cycle_sec"))
+        if min_cycle is None:
+            min_cycle = 0
+        min_cycle = max(0, int(min_cycle))
+
+        key_state = f"cl:{ent}:demand"
+        key_ts = f"cl:{ent}:demand_ts"
+        old = str(self._real_target_last.get(key_state) or "")
+        new = "ON" if bool(demand_on) else "OFF"
+        now = time.time()
+        last_ts = float(self._real_target_last.get(key_ts, 0.0) or 0.0)
+        if old and old != new and min_cycle > 0 and last_ts and (now - last_ts) < float(min_cycle):
+            return
+        if old == new:
+            return
+
+        ok = False
+        if demand_on:
+            ok = self._ha_service_call("climate", "turn_on", {"entity_id": ent})
+            if not ok:
+                mode = "cool" if str(sea).upper() == "SUM" else "heat"
+                ok = self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": mode})
+        else:
+            ok = self._ha_service_call("climate", "turn_off", {"entity_id": ent})
+            if not ok:
+                ok = self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": "off"})
+
+        if ok:
+            self._real_target_last[key_state] = new
+            self._real_target_last[key_ts] = now
 
     def _real_targets_for(self, t: Dict[str, Any], season_key: Optional[str] = None) -> Dict[str, Any]:
         rt = t.get("real_targets") if isinstance(t.get("real_targets"), dict) else {}
@@ -1228,6 +1429,10 @@ class ThermEngine:
             self._poll_ha_climate_states()
         except Exception:
             pass
+        try:
+            self._poll_ha_multi_sensor_states()
+        except Exception:
+            pass
 
         # If MQTT reports disconnected, attempt reconnect with backoff.
         if not bool(self._mqtt_connected):
@@ -1284,6 +1489,10 @@ class ThermEngine:
             self._poll_ha_climate_states()
         except Exception:
             pass
+        try:
+            self._poll_ha_multi_sensor_states()
+        except Exception:
+            pass
 
         for t in self.therm_list():
             try:
@@ -1313,7 +1522,8 @@ class ThermEngine:
             sea0 = th0.get("ACT_SEA") if isinstance(th0, dict) else None
         active_sk = self._season_key_from_act_sea(sea0)
         outputs = self._outputs_for_season(t, active_sk) if split else (t.get("outputs") or {})
-        if not (outputs.get("power") or outputs.get("fan3")):
+        has_real_therm = bool(self._real_thermostat_entity(t))
+        if not (outputs.get("power") or outputs.get("fan3") or has_real_therm):
             return
 
         # manual override window
@@ -1382,6 +1592,12 @@ class ThermEngine:
                     pwm = c.compute_pwm(cur_f, float(setp), now=now)
                 else:
                     pwm = c.compute_pwm(float(setp), cur_f, now=now)
+
+        if has_real_therm:
+            try:
+                self._apply_real_thermostat_demand(t, bool(int(pwm) > 0 and str(model).upper() != "OFF"), sea)
+            except Exception:
+                pass
 
         desired = self._get_desired_season(tid, active_sk) if split else self._get_desired(tid)
         prev_power = desired.get("power")
@@ -1603,6 +1819,10 @@ class ThermEngine:
         self._sync_ui()
         try:
             self._poll_ha_climate_states(force=True)
+        except Exception:
+            pass
+        try:
+            self._poll_ha_multi_sensor_states(force=True)
         except Exception:
             pass
         self._publish_discovery()
@@ -2105,7 +2325,8 @@ class ThermEngine:
         stype = str(src.get("type", "")).lower()
         is_esafe = stype in ("esafe", "esafe_json")
         is_ha = stype in ("ha_climate", "homeassistant_climate", "ha")
-        if not (is_esafe or is_ha):
+        is_ha_avg = stype in ("ha_multi_sensor_avg", "ha_sensor_avg", "ha_multi_avg")
+        if not (is_esafe or is_ha or is_ha_avg):
             return
         num = None
         if is_esafe:
@@ -2113,9 +2334,13 @@ class ThermEngine:
                 num = int(src.get("num"))
             except Exception:
                 return
-        ent = str(src.get("entity_id") or "").strip() if is_ha else ""
-        if is_ha and not ent:
+        ent = str(src.get("entity_id") or "").strip() if is_ha else self._real_thermostat_entity(t)
+        if (is_ha or is_ha_avg) and not ent:
             return
+        rtcfg = self._real_thermostat_cfg(t)
+        sync_setp = self._bool_cfg(rtcfg, "sync_setpoint", True)
+        sync_mode = self._bool_cfg(rtcfg, "sync_hvac_mode", True)
+        sync_preset = self._bool_cfg(rtcfg, "sync_preset_mode", True)
         name = str(t.get("name") or f"vTherm {tid}")
 
         # ensure rt/therm exist
@@ -2137,7 +2362,8 @@ class ThermEngine:
             if is_esafe:
                 self.mqtt.publish(f"{self.source_prefix}/cmd/thermostat/{num}/temperature", str(v), retain=False)
             else:
-                self._ha_climate_service(ent, "set_temperature", {"temperature": float(v)})
+                if sync_setp:
+                    self._ha_climate_service(ent, "set_temperature", {"temperature": float(v)})
             try:
                 self._register_ack(tid=str(tid), field="setpoint", origin=origin, expected=float(v))
             except Exception:
@@ -2175,7 +2401,8 @@ class ThermEngine:
             if is_esafe:
                 self.mqtt.publish(f"{self.source_prefix}/cmd/thermostat/{num}/mode", m, retain=False)
             else:
-                self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": m})
+                if sync_mode:
+                    self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": m})
             new_sea = "WIN" if m == "heat" else ("SUM" if m == "cool" else "OFF")
             try:
                 self._register_ack(tid=str(tid), field="season", origin=origin, expected=new_sea)
@@ -2217,7 +2444,8 @@ class ThermEngine:
             if is_esafe:
                 self.mqtt.publish(f"{self.source_prefix}/cmd/thermostat/{num}/preset_mode", p, retain=False)
             else:
-                self._ha_climate_service(ent, "set_preset_mode", {"preset_mode": p.lower()})
+                if sync_preset:
+                    self._ha_climate_service(ent, "set_preset_mode", {"preset_mode": p.lower()})
             try:
                 self._register_ack(tid=str(tid), field="mode", origin=origin, expected=p)
             except Exception:

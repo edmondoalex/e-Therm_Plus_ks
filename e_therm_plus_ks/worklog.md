@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.60 - Autore: Codex
+- Nuova sorgente virtuale `ha_multi_sensor_avg`: media di 3 sonde HA per la temperatura misurata del vTherm.
+- Aggiunto bridge verso termostato reale (`climate`): sync setpoint/modalita e comando ON/OFF in base alla richiesta del virtuale.
+- Aggiunti parametri configurabili: `source.sensors`, `source.min_valid_sensors`, `source.stale_sec`, `real_thermostat.entity_id`, flag di sync e `min_cycle_sec`.
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-03-25 ? v2.6.50 ? Autore: Codex
 - Consenso gruppi: in HEAT attiva sia gruppo heat che gruppo cool; in COOL attiva solo cool.
 - Allineata versione add-on.
