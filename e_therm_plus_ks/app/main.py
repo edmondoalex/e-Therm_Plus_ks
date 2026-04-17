@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.68"
+APP_VERSION = "2.6.69"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1039,7 +1039,19 @@ class ThermEngine:
 
         temp_ok = False
         if real_temp is not None:
-            target = float(real_temp - cur_delta) if mode == "cool" else float(real_temp + cur_delta)
+            # Guarantee a minimum +/-1.0C gap from real ambient while demand is ON.
+            # This prevents "stuck equal setpoint" behavior on integrations that
+            # quickly satisfy when target == current ambient.
+            try:
+                min_gap_h = float(cfg.get("demand_min_gap_heat", 1.0) or 1.0)
+            except Exception:
+                min_gap_h = 1.0
+            try:
+                min_gap_c = float(cfg.get("demand_min_gap_cool", 1.0) or 1.0)
+            except Exception:
+                min_gap_c = 1.0
+            eff_delta = max(float(cur_delta), float(min_gap_c if mode == "cool" else min_gap_h))
+            target = float(real_temp - eff_delta) if mode == "cool" else float(real_temp + eff_delta)
             tmin = _as_float(cfg.get("demand_target_min", 5.0))
             tmax = _as_float(cfg.get("demand_target_max", 35.0))
             if mode == "cool":

@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.69 - Autore: Codex
+- Rafforzata la logica adattiva del termostato reale: con domanda ON viene garantito un gap minimo rispetto alla temperatura reale (`+1.0C` in heat, `-1.0C` in cool) per evitare target uguale alla temperatura ambiente.
+- Aggiunti parametri opzionali `real_thermostat.demand_min_gap_heat` e `real_thermostat.demand_min_gap_cool` (default 1.0).
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.68 - Autore: Codex
 - Corretto trigger domanda per termostato reale: in bridge `ha_multi_sensor_avg` la richiesta ON/OFF usa prima l'errore termico (`setpoint` vs `temperatura media`) e non solo il PWM.
 - Rafforzato invio `set_temperature` al clima reale con fallback multipli (refresh hvac_mode, path climate generico, tentativo a step intero) per integrazioni più rigide.
