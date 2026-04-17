@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.67 - Autore: Codex
+- Corretto il clone comandi del termostato virtuale su source `ha_multi_sensor_avg`: quando `adaptive_demand_setpoint` e attivo non viene piu inviato al termostato reale il setpoint del virtuale.
+- Evitato il conflitto tra `sync_setpoint` e logica adattiva (target reale derivato da temperatura reale +/- delta), cosi il reale segue davvero la richiesta del virtuale.
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.66 - Autore: Codex
 - Corretto controllo termostato reale: `min_cycle_sec` non blocca più la transizione a richiesta ON (quindi il setpoint adattivo `+1` in HEAT parte subito).
 - `min_cycle_sec` resta applicato solo alla transizione OFF, per evitare cicli troppo rapidi senza ritardare la chiamata calore.
