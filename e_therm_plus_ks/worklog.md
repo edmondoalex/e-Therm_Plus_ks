@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.83 - Autore: Codex
+- Fix spegnimento reale: su `Demand OFF` il bridge verifica lo stato HVAC reale e, se non e `off`, ritenta il comando nei cicli successivi (niente falso `OFF` in cache).
+- Aggiunta helper `_ha_climate_state()` per check consistente stato climate.
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.82 - Autore: Codex
 - Fix comando VMC: accettate anche entita `light.*` e `switch.*` oltre a `fan.*` in `real_thermostat.vmc_entity_id`.
 - Per `light.*` usa `light.turn_on` con `brightness_pct` (fallback `turn_on` semplice); per `switch.*` usa `turn_on/turn_off`.

@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.82"
+APP_VERSION = "2.6.83"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -957,6 +957,12 @@ class ThermEngine:
         attrs = st.get("attributes") if isinstance(st.get("attributes"), dict) else {}
         return _as_float(attrs.get("temperature"))
 
+    def _ha_climate_state(self, entity_id: str) -> str:
+        st = self._ha_api_request("GET", f"/states/{entity_id}")
+        if not isinstance(st, dict):
+            return ""
+        return str(st.get("state") or "").strip().lower()
+
     def _apply_real_thermostat_demand(self, t: Dict[str, Any], demand_on: bool, sea: str) -> None:
         cfg = self._real_thermostat_cfg(t)
         ent = self._real_thermostat_entity(t)
@@ -1011,7 +1017,8 @@ class ThermEngine:
                 except Exception:
                     pass
                 return
-            if old == "OFF":
+            hv_before = self._ha_climate_state(ent)
+            if old == "OFF" and hv_before == "off":
                 st = self._real_therm_adapt.get(ent)
                 if isinstance(st, dict):
                     st["delta_heat"] = float(cfg.get("demand_delta_base_heat", 1.0) or 1.0)
@@ -1019,17 +1026,15 @@ class ThermEngine:
                 return
             ok = self._ha_service_call("climate", "turn_off", {"entity_id": ent})
             # Verify real state; some integrations may ACK without actually switching off.
-            st_now = self._ha_api_request("GET", f"/states/{ent}")
-            hv_now = str((st_now or {}).get("state") or "").strip().lower() if isinstance(st_now, dict) else ""
+            hv_now = self._ha_climate_state(ent)
             if ok and hv_now != "off":
                 ok = False
             if not ok:
                 ok = self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": "off"})
-            if ok:
-                st_now2 = self._ha_api_request("GET", f"/states/{ent}")
-                hv_now2 = str((st_now2 or {}).get("state") or "").strip().lower() if isinstance(st_now2, dict) else ""
-                if hv_now2 != "off":
-                    ok = False
+            hv_now2 = self._ha_climate_state(ent)
+            if ok and hv_now2 != "off":
+                # Accept command dispatch, but do not trust cache OFF yet if HA still reports ON.
+                ok = False
             if ok:
                 self._real_target_last[key_state] = "OFF"
                 self._real_target_last[key_ts] = now
@@ -1039,6 +1044,9 @@ class ThermEngine:
                     st["delta_cool"] = float(cfg.get("demand_delta_base_cool", 1.0) or 1.0)
                     st["last_step_heat"] = 0.0
                     st["last_step_cool"] = 0.0
+            else:
+                # Keep demand state as ON in cache until HA reports actual OFF, so next cycle retries.
+                self._real_target_last[key_state] = "ON"
             return
 
         if not adaptive:
