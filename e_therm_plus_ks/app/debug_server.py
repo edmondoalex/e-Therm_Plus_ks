@@ -15289,6 +15289,15 @@ function canonicalSourceType(v) {
   return 'esafe';
 }
 
+function setOutputsEnabled(enabled) {
+  const ids = ['f_split', 'f_heat_power', 'f_heat_fan3', 'f_cool_power', 'f_cool_fan3'];
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.disabled = !enabled;
+  }
+}
+
 function toggleSourceFields() {
   const srcType = canonicalSourceType(document.getElementById('f_src_type').value || 'esafe');
   const numWrap = document.getElementById('f_src_num_wrap');
@@ -15312,6 +15321,26 @@ function toggleSourceFields() {
   if (rtMinCycleWrap) rtMinCycleWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
   if (rtAdaptiveWrap) rtAdaptiveWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
   if (rtLimitsWrap) rtLimitsWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
+
+  if (srcType === 'ha_multi_sensor_avg') {
+    const minCycle = document.getElementById('f_rt_min_cycle');
+    const minValid = document.getElementById('f_src_min_valid');
+    if (minCycle && !String(minCycle.value || '').trim()) minCycle.value = '0';
+    if (minValid && !String(minValid.value || '').trim()) minValid.value = '2';
+    const split = document.getElementById('f_split');
+    const hP = document.getElementById('f_heat_power');
+    const hF = document.getElementById('f_heat_fan3');
+    const cP = document.getElementById('f_cool_power');
+    const cF = document.getElementById('f_cool_fan3');
+    if (split) split.checked = false;
+    if (hP) hP.checked = false;
+    if (hF) hF.checked = false;
+    if (cP) cP.checked = false;
+    if (cF) cF.checked = false;
+    setOutputsEnabled(false);
+  } else {
+    setOutputsEnabled(true);
+  }
 }
 
 function sanitizeTherm(t) {
@@ -15678,7 +15707,7 @@ function addNew() {
   document.getElementById('f_rt_sync_setpoint').checked = true;
   document.getElementById('f_rt_sync_mode').checked = true;
   document.getElementById('f_rt_sync_preset').checked = true;
-  document.getElementById('f_rt_min_cycle').value = '180';
+  document.getElementById('f_rt_min_cycle').value = '0';
   document.getElementById('f_rt_adaptive').checked = true;
   document.getElementById('f_rt_delta_base_heat').value = '1.0';
   document.getElementById('f_rt_delta_base_cool').value = '1.0';
@@ -15754,12 +15783,12 @@ function saveItem() {
   const rtFanMin = String(document.getElementById('f_rt_fan_min_switch').value || '').trim();
   const rtFanMed = String(document.getElementById('f_rt_fan_med_switch').value || '').trim();
   const rtFanMax = String(document.getElementById('f_rt_fan_max_switch').value || '').trim();
-  const split = !!document.getElementById('f_split').checked;
+  const split = (srcType === 'ha_multi_sensor_avg') ? false : !!document.getElementById('f_split').checked;
   const autoCtl = !!document.getElementById('f_auto').checked;
-  const hPower = !!document.getElementById('f_heat_power').checked;
-  const hFan3 = !!document.getElementById('f_heat_fan3').checked;
-  const cPower = !!document.getElementById('f_cool_power').checked;
-  const cFan3 = !!document.getElementById('f_cool_fan3').checked;
+  const hPower = (srcType === 'ha_multi_sensor_avg') ? false : !!document.getElementById('f_heat_power').checked;
+  const hFan3 = (srcType === 'ha_multi_sensor_avg') ? false : !!document.getElementById('f_heat_fan3').checked;
+  const cPower = (srcType === 'ha_multi_sensor_avg') ? false : !!document.getElementById('f_cool_power').checked;
+  const cFan3 = (srcType === 'ha_multi_sensor_avg') ? false : !!document.getElementById('f_cool_fan3').checked;
   const msg = document.getElementById('dlgMsg');
 
   if (!id) { if (msg) msg.textContent = 'ID obbligatorio.'; return; }

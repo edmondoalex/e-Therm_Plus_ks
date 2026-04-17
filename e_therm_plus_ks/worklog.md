@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.65 - Autore: Codex
+- UI `/vtherm`: per source `ha_multi_sensor_avg` il form applica preset coerenti (min_cycle default `0`, uscite `power/fan3` disattivate, split OFF).
+- I checkbox uscite vengono disabilitati automaticamente per `ha_multi_sensor_avg` e riabilitati sugli altri source.
+- Salvataggio robusto: per `ha_multi_sensor_avg` le uscite vengono forzate OFF lato payload, evitando configurazioni incoerenti.
+- File modificati: `app/debug_server.py`, `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.64 - Autore: Codex
 - UI `/vtherm`: aggiunti nel popup i campi per tuning della logica adattiva del termostato reale (`adaptive_demand_setpoint`, delta base/step/max, keepalive, limiti target heat/cool).
 - Caricamento/modifica/default/salvataggio dei nuovi parametri direttamente dal form (non solo JSON avanzato).
