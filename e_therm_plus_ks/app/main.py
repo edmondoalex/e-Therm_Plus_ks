@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.69"
+APP_VERSION = "2.6.70"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -897,6 +897,13 @@ class ThermEngine:
         res = self._ha_api_request("POST", f"/services/{domain}/{service}", data or {})
         return res is not None
 
+    def _ha_climate_target(self, entity_id: str) -> Optional[float]:
+        st = self._ha_api_request("GET", f"/states/{entity_id}")
+        if not isinstance(st, dict):
+            return None
+        attrs = st.get("attributes") if isinstance(st.get("attributes"), dict) else {}
+        return _as_float(attrs.get("temperature"))
+
     def _apply_real_thermostat_demand(self, t: Dict[str, Any], demand_on: bool, sea: str) -> None:
         cfg = self._real_thermostat_cfg(t)
         ent = self._real_thermostat_entity(t)
@@ -1077,6 +1084,10 @@ class ThermEngine:
             if need_send:
                 target_send = round(float(target), 1)
                 temp_ok = self._ha_climate_service(ent, "set_temperature", {"temperature": float(target_send)})
+                if temp_ok:
+                    rb = self._ha_climate_target(ent)
+                    if rb is not None and abs(float(rb) - float(target_send)) > 0.3:
+                        temp_ok = False
                 if not temp_ok:
                     # Some integrations accept target changes only after explicit mode refresh.
                     try:
@@ -1084,12 +1095,24 @@ class ThermEngine:
                     except Exception:
                         pass
                     temp_ok = self._ha_climate_service(ent, "set_temperature", {"temperature": float(target_send)})
+                    if temp_ok:
+                        rb = self._ha_climate_target(ent)
+                        if rb is not None and abs(float(rb) - float(target_send)) > 0.3:
+                            temp_ok = False
                 if not temp_ok:
                     # Fallback through generic climate service path.
                     temp_ok = self._ha_service_call("climate", "set_temperature", {"entity_id": ent, "temperature": float(target_send)})
+                    if temp_ok:
+                        rb = self._ha_climate_target(ent)
+                        if rb is not None and abs(float(rb) - float(target_send)) > 0.3:
+                            temp_ok = False
                 if not temp_ok:
                     # Last fallback: integer step only.
                     temp_ok = self._ha_climate_service(ent, "set_temperature", {"temperature": float(round(target_send))})
+                    if temp_ok:
+                        rb2 = self._ha_climate_target(ent)
+                        if rb2 is not None and abs(float(rb2) - float(round(target_send))) > 0.3:
+                            temp_ok = False
                 if temp_ok:
                     st["last_target"] = float(target_send)
                     st["last_temp_ts"] = now

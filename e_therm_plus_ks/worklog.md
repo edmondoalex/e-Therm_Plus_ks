@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.70 - Autore: Codex
+- Hardened adaptive setpoint write verso termostato reale: dopo ogni `set_temperature` viene verificato il target letto da HA.
+- Se il target non risulta applicato, il motore esegue fallback multipli (refresh hvac_mode, service generico climate, tentativo a step intero).
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.69 - Autore: Codex
 - Rafforzata la logica adattiva del termostato reale: con domanda ON viene garantito un gap minimo rispetto alla temperatura reale (`+1.0C` in heat, `-1.0C` in cool) per evitare target uguale alla temperatura ambiente.
 - Aggiunti parametri opzionali `real_thermostat.demand_min_gap_heat` e `real_thermostat.demand_min_gap_cool` (default 1.0).
