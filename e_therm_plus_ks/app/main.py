@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.72"
+APP_VERSION = "2.6.73"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -921,6 +921,14 @@ class ThermEngine:
         mode = "cool" if str(sea).upper() == "SUM" else "heat"
         if not demand_on:
             last_ts = float(self._real_target_last.get(key_ts, 0.0) or 0.0)
+            try:
+                tid = str(t.get("id"))
+                with self.lock:
+                    rt = self.rt.setdefault(tid, {})
+                    th = rt.setdefault("THERM", {})
+                    th["DEMAND_ON"] = "OFF"
+            except Exception:
+                pass
             # Apply min_cycle only when switching OFF, so ON demand is never delayed.
             if old and old != "OFF" and min_cycle > 0 and last_ts and (now - last_ts) < float(min_cycle):
                 return
@@ -1074,9 +1082,27 @@ class ThermEngine:
             )
             if need_send:
                 target_send = round(float(target), 1)
+                try:
+                    tid = str(t.get("id"))
+                    with self.lock:
+                        rt = self.rt.setdefault(tid, {})
+                        th = rt.setdefault("THERM", {})
+                        th["DEMAND_ON"] = "ON"
+                        th["ADAPT_TARGET"] = float(target_send)
+                except Exception:
+                    pass
                 temp_ok = self._ha_climate_service(ent, "set_temperature", {"temperature": float(target_send)})
                 if temp_ok:
                     rb = self._ha_climate_target(ent)
+                    try:
+                        tid = str(t.get("id"))
+                        with self.lock:
+                            rt = self.rt.setdefault(tid, {})
+                            th = rt.setdefault("THERM", {})
+                            if rb is not None:
+                                th["REAL_TARGET_READ"] = float(rb)
+                    except Exception:
+                        pass
                     if rb is not None and abs(float(rb) - float(target_send)) > 0.3:
                         temp_ok = False
                 if not temp_ok:
@@ -1088,6 +1114,15 @@ class ThermEngine:
                     temp_ok = self._ha_climate_service(ent, "set_temperature", {"temperature": float(target_send)})
                     if temp_ok:
                         rb = self._ha_climate_target(ent)
+                        try:
+                            tid = str(t.get("id"))
+                            with self.lock:
+                                rt = self.rt.setdefault(tid, {})
+                                th = rt.setdefault("THERM", {})
+                                if rb is not None:
+                                    th["REAL_TARGET_READ"] = float(rb)
+                        except Exception:
+                            pass
                         if rb is not None and abs(float(rb) - float(target_send)) > 0.3:
                             temp_ok = False
                 if not temp_ok:
@@ -1095,6 +1130,15 @@ class ThermEngine:
                     temp_ok = self._ha_service_call("climate", "set_temperature", {"entity_id": ent, "temperature": float(target_send)})
                     if temp_ok:
                         rb = self._ha_climate_target(ent)
+                        try:
+                            tid = str(t.get("id"))
+                            with self.lock:
+                                rt = self.rt.setdefault(tid, {})
+                                th = rt.setdefault("THERM", {})
+                                if rb is not None:
+                                    th["REAL_TARGET_READ"] = float(rb)
+                        except Exception:
+                            pass
                         if rb is not None and abs(float(rb) - float(target_send)) > 0.3:
                             temp_ok = False
                 if not temp_ok:
@@ -1102,6 +1146,15 @@ class ThermEngine:
                     temp_ok = self._ha_climate_service(ent, "set_temperature", {"temperature": float(round(target_send))})
                     if temp_ok:
                         rb2 = self._ha_climate_target(ent)
+                        try:
+                            tid = str(t.get("id"))
+                            with self.lock:
+                                rt = self.rt.setdefault(tid, {})
+                                th = rt.setdefault("THERM", {})
+                                if rb2 is not None:
+                                    th["REAL_TARGET_READ"] = float(rb2)
+                        except Exception:
+                            pass
                         if rb2 is not None and abs(float(rb2) - float(round(target_send))) > 0.3:
                             temp_ok = False
                 if temp_ok:

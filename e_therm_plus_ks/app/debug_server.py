@@ -14142,6 +14142,21 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         <div id="extraAvgBlock" class="muted" style="margin: 10px 6px 6px; display:none;">
           Sonde media: <span id="extraAvgSensors">-</span>
         </div>
+        <div id="extraDebugBlock" style="margin: 8px 6px 8px; display:none;">
+          <div class="muted" style="margin: 0 0 6px;">Debug controllo reale</div>
+          <div class="row" style="gap:10px; margin: 0 0 6px;">
+            <span class="badge" style="min-width:160px; text-align:left;">Demand (virtuale)</span>
+            <span class="badge" id="extraDbgDemand" style="min-width:120px; text-align:center;">-</span>
+          </div>
+          <div class="row" style="gap:10px; margin: 0 0 6px;">
+            <span class="badge" style="min-width:160px; text-align:left;">Target adattivo calcolato</span>
+            <span class="badge" id="extraDbgAdaptTarget" style="min-width:120px; text-align:center;">-</span>
+          </div>
+          <div class="row" style="gap:10px; margin: 0;">
+            <span class="badge" style="min-width:160px; text-align:left;">Target reale letto (HA)</span>
+            <span class="badge" id="extraDbgRealTarget" style="min-width:120px; text-align:center;">-</span>
+          </div>
+        </div>
         <div id="extraProfilesWrap">
           <div class="muted" style="margin: 14px 6px 8px;">Profili</div>
           <div class="row" style="gap:12px; align-items:center; margin: 0 6px 10px;">
@@ -14376,8 +14391,11 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const mode = therm ? String(therm.ACT_MODEL || therm.ACT_MODE || "") : "";
         const season = therm ? String(therm.ACT_SEA || "") : "";
         const out = therm ? String(therm.OUT_STATUS || "") : "";
+        const demandOn = therm ? String(therm.DEMAND_ON || "") : "";
         const temp = (rt.TEMP !== undefined && rt.TEMP !== null) ? String(rt.TEMP) : "";
         const rh = (rt.RH !== undefined && rt.RH !== null) ? String(rt.RH) : "";
+        const adaptTargetRaw = therm ? therm.ADAPT_TARGET : null;
+        const realTargetReadRaw = therm ? (therm.REAL_TARGET_READ ?? therm.REAL_TARGET ?? null) : null;
         const avgSensors = Array.isArray(rt.AVG_SENSORS) ? rt.AVG_SENSORS : [];
         const avgTemp = (rt.AVG_TEMP !== undefined && rt.AVG_TEMP !== null) ? Number(rt.AVG_TEMP) : NaN;
         const thr = therm && therm.TEMP_THR && typeof therm.TEMP_THR === "object" ? therm.TEMP_THR : null;
@@ -14426,6 +14444,8 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         if (extraProfilesWrap) extraProfilesWrap.style.display = isAvgSource ? "none" : "";
         const extraAvgBlock = document.getElementById("extraAvgBlock");
         if (extraAvgBlock) extraAvgBlock.style.display = isAvgSource ? "" : "none";
+        const extraDebugBlock = document.getElementById("extraDebugBlock");
+        if (extraDebugBlock) extraDebugBlock.style.display = isAvgSource ? "" : "none";
         const extraAvgSensors = document.getElementById("extraAvgSensors");
         if (extraAvgSensors) {
           if (isAvgSource) {
@@ -14445,6 +14465,19 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
             extraAvgSensors.textContent = "-";
           }
         }
+        const fmtDbgTemp = (v) => {
+          const n = Number(v);
+          return Number.isFinite(n) ? (n.toFixed(1).replace(".", ",") + "\u00B0C") : "-";
+        };
+        const elDbgDemand = document.getElementById("extraDbgDemand");
+        const elDbgAdaptTarget = document.getElementById("extraDbgAdaptTarget");
+        const elDbgRealTarget = document.getElementById("extraDbgRealTarget");
+        if (elDbgDemand) {
+          const up = String(demandOn || "").toUpperCase();
+          elDbgDemand.textContent = up === "ON" ? "ON" : (up === "OFF" ? "OFF" : "-");
+        }
+        if (elDbgAdaptTarget) elDbgAdaptTarget.textContent = fmtDbgTemp(adaptTargetRaw);
+        if (elDbgRealTarget) elDbgRealTarget.textContent = fmtDbgTemp(realTargetReadRaw);
         const prof = (stcfg && stcfg[seaKey] && typeof stcfg[seaKey] === "object") ? stcfg[seaKey] : null;
         const getPendingProfile = (key) => {
           const k = String(seaKey) + ":" + String(key);

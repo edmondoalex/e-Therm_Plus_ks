@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.73 - Autore: Codex
+- Aggiunta diagnostica UI in Extra (solo sorgenti media sonde): `Demand (virtuale)`, `Target adattivo calcolato`, `Target reale letto (HA)`.
+- Esposti lato runtime i campi `THERM.DEMAND_ON`, `THERM.ADAPT_TARGET`, `THERM.REAL_TARGET_READ` per rendere tracciabile il comando al termostato reale.
+- File modificati: `app/main.py`, `app/debug_server.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.72 - Autore: Codex
 - Fix root-cause bridge HA multi-sensor: il polling del termostato reale non sovrascrive piu lo stato di controllo del virtuale (`TEMP_THR`, `ACT_SEA`, `ACT_MODEL`).
 - Il polling del reale salva solo telemetria separata (`REAL_TEMP`, `REAL_TARGET`, `REAL_HVAC`, `REAL_HVAC_ACTION`), evitando che il target virtuale venga annullato.
