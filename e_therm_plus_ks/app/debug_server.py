@@ -15050,6 +15050,30 @@ def render_vtherm_config_page(snapshot):
           <label>Min cycle sec (anti on/off rapido)</label>
           <input id="f_rt_min_cycle" placeholder="Es: 180" inputmode="numeric" />
         </div>
+        <div id="f_rt_adaptive_wrap" style="grid-column: 1 / -1;">
+          <label>Demand setpoint adattivo (termostato reale)</label>
+          <div class="chkRow">
+            <div class="chk"><input id="f_rt_adaptive" type="checkbox" /> <span>Abilita setpoint adattivo progressivo</span></div>
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top:8px;">
+            <input id="f_rt_delta_base_heat" placeholder="Delta base heat (es: 1.0)" inputmode="decimal" />
+            <input id="f_rt_delta_base_cool" placeholder="Delta base cool (es: 1.0)" inputmode="decimal" />
+            <input id="f_rt_delta_step" placeholder="Delta step (es: 0.3)" inputmode="decimal" />
+            <input id="f_rt_delta_step_sec" placeholder="Delta step sec (es: 120)" inputmode="numeric" />
+            <input id="f_rt_delta_max_heat" placeholder="Delta max heat (es: 4.0)" inputmode="decimal" />
+            <input id="f_rt_delta_max_cool" placeholder="Delta max cool (es: 4.0)" inputmode="decimal" />
+            <input id="f_rt_keepalive_sec" placeholder="Keepalive sec (es: 90)" inputmode="numeric" />
+          </div>
+        </div>
+        <div id="f_rt_limits_wrap" style="grid-column: 1 / -1;">
+          <label>Limiti target real thermostat (clamp)</label>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <input id="f_rt_tmin_heat" placeholder="Target min heat (es: 18)" inputmode="decimal" />
+            <input id="f_rt_tmax_heat" placeholder="Target max heat (es: 30)" inputmode="decimal" />
+            <input id="f_rt_tmin_cool" placeholder="Target min cool (es: 16)" inputmode="decimal" />
+            <input id="f_rt_tmax_cool" placeholder="Target max cool (es: 28)" inputmode="decimal" />
+          </div>
+        </div>
         <div>
           <label>Profilo (opzionale)</label>
           <select id="f_profile">
@@ -15275,6 +15299,8 @@ function toggleSourceFields() {
   const rtClimateWrap = document.getElementById('f_rt_climate_wrap');
   const rtSyncWrap = document.getElementById('f_rt_sync_wrap');
   const rtMinCycleWrap = document.getElementById('f_rt_min_cycle_wrap');
+  const rtAdaptiveWrap = document.getElementById('f_rt_adaptive_wrap');
+  const rtLimitsWrap = document.getElementById('f_rt_limits_wrap');
 
   if (numWrap) numWrap.style.display = (srcType === 'esafe') ? '' : 'none';
   if (entWrap) entWrap.style.display = (srcType === 'ha_climate') ? '' : 'none';
@@ -15284,6 +15310,8 @@ function toggleSourceFields() {
   if (rtClimateWrap) rtClimateWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
   if (rtSyncWrap) rtSyncWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
   if (rtMinCycleWrap) rtMinCycleWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
+  if (rtAdaptiveWrap) rtAdaptiveWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
+  if (rtLimitsWrap) rtLimitsWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
 }
 
 function sanitizeTherm(t) {
@@ -15593,6 +15621,18 @@ function editItem(idx) {
   document.getElementById('f_rt_sync_mode').checked = (rth.sync_hvac_mode !== false);
   document.getElementById('f_rt_sync_preset').checked = (rth.sync_preset_mode !== false);
   document.getElementById('f_rt_min_cycle').value = String(rth.min_cycle_sec || '');
+  document.getElementById('f_rt_adaptive').checked = (rth.adaptive_demand_setpoint !== false);
+  document.getElementById('f_rt_delta_base_heat').value = String((rth.demand_delta_base_heat ?? 1.0));
+  document.getElementById('f_rt_delta_base_cool').value = String((rth.demand_delta_base_cool ?? 1.0));
+  document.getElementById('f_rt_delta_step').value = String((rth.demand_delta_step ?? 0.3));
+  document.getElementById('f_rt_delta_step_sec').value = String((rth.demand_delta_step_sec ?? 120));
+  document.getElementById('f_rt_delta_max_heat').value = String((rth.demand_delta_max_heat ?? 4.0));
+  document.getElementById('f_rt_delta_max_cool').value = String((rth.demand_delta_max_cool ?? 4.0));
+  document.getElementById('f_rt_keepalive_sec').value = String((rth.demand_keepalive_sec ?? 90));
+  document.getElementById('f_rt_tmin_heat').value = String((rth.demand_target_min_heat ?? 18.0));
+  document.getElementById('f_rt_tmax_heat').value = String((rth.demand_target_max_heat ?? 30.0));
+  document.getElementById('f_rt_tmin_cool').value = String((rth.demand_target_min_cool ?? 16.0));
+  document.getElementById('f_rt_tmax_cool').value = String((rth.demand_target_max_cool ?? 28.0));
   toggleSourceFields();
   document.getElementById('f_profile').value = String(t.profile || '');
   renderConsensusSelect('f_consensus_group_heat', String(t.consensus_group_heat || ''));
@@ -15639,6 +15679,18 @@ function addNew() {
   document.getElementById('f_rt_sync_mode').checked = true;
   document.getElementById('f_rt_sync_preset').checked = true;
   document.getElementById('f_rt_min_cycle').value = '180';
+  document.getElementById('f_rt_adaptive').checked = true;
+  document.getElementById('f_rt_delta_base_heat').value = '1.0';
+  document.getElementById('f_rt_delta_base_cool').value = '1.0';
+  document.getElementById('f_rt_delta_step').value = '0.3';
+  document.getElementById('f_rt_delta_step_sec').value = '120';
+  document.getElementById('f_rt_delta_max_heat').value = '4.0';
+  document.getElementById('f_rt_delta_max_cool').value = '4.0';
+  document.getElementById('f_rt_keepalive_sec').value = '90';
+  document.getElementById('f_rt_tmin_heat').value = '18';
+  document.getElementById('f_rt_tmax_heat').value = '30';
+  document.getElementById('f_rt_tmin_cool').value = '16';
+  document.getElementById('f_rt_tmax_cool').value = '28';
   toggleSourceFields();
   document.getElementById('f_profile').value = '';
   renderConsensusSelect('f_consensus_group_heat', '');
@@ -15681,6 +15733,18 @@ function saveItem() {
   const rtSyncMode = !!document.getElementById('f_rt_sync_mode').checked;
   const rtSyncPreset = !!document.getElementById('f_rt_sync_preset').checked;
   const rtMinCycle = Number(String(document.getElementById('f_rt_min_cycle').value || '').trim());
+  const rtAdaptive = !!document.getElementById('f_rt_adaptive').checked;
+  const rtDeltaBaseHeat = Number(String(document.getElementById('f_rt_delta_base_heat').value || '').trim());
+  const rtDeltaBaseCool = Number(String(document.getElementById('f_rt_delta_base_cool').value || '').trim());
+  const rtDeltaStep = Number(String(document.getElementById('f_rt_delta_step').value || '').trim());
+  const rtDeltaStepSec = Number(String(document.getElementById('f_rt_delta_step_sec').value || '').trim());
+  const rtDeltaMaxHeat = Number(String(document.getElementById('f_rt_delta_max_heat').value || '').trim());
+  const rtDeltaMaxCool = Number(String(document.getElementById('f_rt_delta_max_cool').value || '').trim());
+  const rtKeepaliveSec = Number(String(document.getElementById('f_rt_keepalive_sec').value || '').trim());
+  const rtTargetMinHeat = Number(String(document.getElementById('f_rt_tmin_heat').value || '').trim());
+  const rtTargetMaxHeat = Number(String(document.getElementById('f_rt_tmax_heat').value || '').trim());
+  const rtTargetMinCool = Number(String(document.getElementById('f_rt_tmin_cool').value || '').trim());
+  const rtTargetMaxCool = Number(String(document.getElementById('f_rt_tmax_cool').value || '').trim());
   const profile = String(document.getElementById('f_profile').value || '').trim();
   const consensusGroupHeat = String(document.getElementById('f_consensus_group_heat').value || '').trim();
   const consensusGroupCool = String(document.getElementById('f_consensus_group_cool').value || '').trim();
@@ -15739,7 +15803,19 @@ function saveItem() {
       sync_setpoint: rtSyncSetpoint,
       sync_hvac_mode: rtSyncMode,
       sync_preset_mode: rtSyncPreset,
+      adaptive_demand_setpoint: rtAdaptive,
       ...(Number.isFinite(rtMinCycle) && rtMinCycle >= 0 ? { min_cycle_sec: Math.trunc(rtMinCycle) } : {}),
+      ...(Number.isFinite(rtDeltaBaseHeat) ? { demand_delta_base_heat: rtDeltaBaseHeat } : {}),
+      ...(Number.isFinite(rtDeltaBaseCool) ? { demand_delta_base_cool: rtDeltaBaseCool } : {}),
+      ...(Number.isFinite(rtDeltaStep) ? { demand_delta_step: rtDeltaStep } : {}),
+      ...(Number.isFinite(rtDeltaStepSec) && rtDeltaStepSec >= 0 ? { demand_delta_step_sec: Math.trunc(rtDeltaStepSec) } : {}),
+      ...(Number.isFinite(rtDeltaMaxHeat) ? { demand_delta_max_heat: rtDeltaMaxHeat } : {}),
+      ...(Number.isFinite(rtDeltaMaxCool) ? { demand_delta_max_cool: rtDeltaMaxCool } : {}),
+      ...(Number.isFinite(rtKeepaliveSec) && rtKeepaliveSec >= 0 ? { demand_keepalive_sec: Math.trunc(rtKeepaliveSec) } : {}),
+      ...(Number.isFinite(rtTargetMinHeat) ? { demand_target_min_heat: rtTargetMinHeat } : {}),
+      ...(Number.isFinite(rtTargetMaxHeat) ? { demand_target_max_heat: rtTargetMaxHeat } : {}),
+      ...(Number.isFinite(rtTargetMinCool) ? { demand_target_min_cool: rtTargetMinCool } : {}),
+      ...(Number.isFinite(rtTargetMaxCool) ? { demand_target_max_cool: rtTargetMaxCool } : {}),
     };
   }
 

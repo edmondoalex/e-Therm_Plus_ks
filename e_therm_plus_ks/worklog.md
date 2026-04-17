@@ -3,6 +3,12 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.64 - Autore: Codex
+- UI `/vtherm`: aggiunti nel popup i campi per tuning della logica adattiva del termostato reale (`adaptive_demand_setpoint`, delta base/step/max, keepalive, limiti target heat/cool).
+- Caricamento/modifica/default/salvataggio dei nuovi parametri direttamente dal form (non solo JSON avanzato).
+- File modificati: `app/debug_server.py`, `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
 2026-04-17 - v2.6.63 - Autore: Codex
 - Termostato reale: aggiunta logica adattiva del setpoint in base alla sua temperatura ambiente quando il virtuale richiede caldo/freddo.
 - Supportati delta progressivi con step temporale, limiti min/max target, keepalive comando e reset delta a richiesta OFF.
