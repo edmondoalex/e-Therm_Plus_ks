@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.67"
+APP_VERSION = "2.6.68"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1063,9 +1063,23 @@ class ThermEngine:
                 or (now - last_temp_ts) >= float(keepalive)
             )
             if need_send:
-                temp_ok = self._ha_climate_service(ent, "set_temperature", {"temperature": float(target)})
+                target_send = round(float(target), 1)
+                temp_ok = self._ha_climate_service(ent, "set_temperature", {"temperature": float(target_send)})
+                if not temp_ok:
+                    # Some integrations accept target changes only after explicit mode refresh.
+                    try:
+                        self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": mode})
+                    except Exception:
+                        pass
+                    temp_ok = self._ha_climate_service(ent, "set_temperature", {"temperature": float(target_send)})
+                if not temp_ok:
+                    # Fallback through generic climate service path.
+                    temp_ok = self._ha_service_call("climate", "set_temperature", {"entity_id": ent, "temperature": float(target_send)})
+                if not temp_ok:
+                    # Last fallback: integer step only.
+                    temp_ok = self._ha_climate_service(ent, "set_temperature", {"temperature": float(round(target_send))})
                 if temp_ok:
-                    st["last_target"] = float(target)
+                    st["last_target"] = float(target_send)
                     st["last_temp_ts"] = now
             else:
                 temp_ok = True
@@ -1749,9 +1763,22 @@ class ThermEngine:
                 else:
                     pwm = c.compute_pwm(float(setp), cur_f, now=now)
 
+        # For real thermostat bridge, treat thermal error as primary demand signal.
+        demand_on = False
+        try:
+            if str(model).upper() != "OFF":
+                if sea == "SUM":
+                    demand_on = (cur_f - float(setp)) > float(self.pwm_deadband)
+                else:
+                    demand_on = (float(setp) - cur_f) > float(self.pwm_deadband)
+                if not demand_on:
+                    demand_on = bool(int(pwm) > 0)
+        except Exception:
+            demand_on = bool(int(pwm) > 0 and str(model).upper() != "OFF")
+
         if has_real_therm:
             try:
-                self._apply_real_thermostat_demand(t, bool(int(pwm) > 0 and str(model).upper() != "OFF"), sea)
+                self._apply_real_thermostat_demand(t, bool(demand_on), sea)
             except Exception:
                 pass
 

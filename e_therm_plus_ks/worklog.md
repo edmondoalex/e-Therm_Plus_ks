@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.68 - Autore: Codex
+- Corretto trigger domanda per termostato reale: in bridge `ha_multi_sensor_avg` la richiesta ON/OFF usa prima l'errore termico (`setpoint` vs `temperatura media`) e non solo il PWM.
+- Rafforzato invio `set_temperature` al clima reale con fallback multipli (refresh hvac_mode, path climate generico, tentativo a step intero) per integrazioni più rigide.
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.67 - Autore: Codex
 - Corretto il clone comandi del termostato virtuale su source `ha_multi_sensor_avg`: quando `adaptive_demand_setpoint` e attivo non viene piu inviato al termostato reale il setpoint del virtuale.
 - Evitato il conflitto tra `sync_setpoint` e logica adattiva (target reale derivato da temperatura reale +/- delta), cosi il reale segue davvero la richiesta del virtuale.
