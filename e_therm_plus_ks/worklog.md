@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.71 - Autore: Codex
+- Reso obbligatorio il bridge adattivo per sorgenti `ha_multi_sensor_avg`: non puo piu essere disattivato da config/UI per errore.
+- Disattivato in modo definitivo il sync setpoint diretto verso il termostato reale quando la sorgente e a media sonde (evita overwrite del target adattivo).
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.70 - Autore: Codex
 - Hardened adaptive setpoint write verso termostato reale: dopo ogni `set_temperature` viene verificato il target letto da HA.
 - Se il target non risulta applicato, il motore esegue fallback multipli (refresh hvac_mode, service generico climate, tentativo a step intero).

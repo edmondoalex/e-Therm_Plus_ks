@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.70"
+APP_VERSION = "2.6.71"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -925,7 +925,9 @@ class ThermEngine:
         src = t.get("source") if isinstance(t.get("source"), dict) else {}
         stype = str(src.get("type") or "").strip().lower()
         adaptive_cfg = cfg.get("adaptive_demand_setpoint")
-        adaptive = bool(adaptive_cfg) if adaptive_cfg is not None else stype in ("ha_multi_sensor_avg", "ha_sensor_avg", "ha_multi_avg")
+        is_ha_avg = stype in ("ha_multi_sensor_avg", "ha_sensor_avg", "ha_multi_avg")
+        # For multi-sensor virtual thermostats, adaptive bridge is mandatory.
+        adaptive = True if is_ha_avg else (bool(adaptive_cfg) if adaptive_cfg is not None else False)
 
         mode = "cool" if str(sea).upper() == "SUM" else "heat"
         if not demand_on:
@@ -2557,7 +2559,7 @@ class ThermEngine:
             return
         rtcfg = self._real_thermostat_cfg(t)
         adaptive_cfg = rtcfg.get("adaptive_demand_setpoint")
-        adaptive_enabled = bool(adaptive_cfg) if adaptive_cfg is not None else is_ha_avg
+        adaptive_enabled = True if is_ha_avg else (bool(adaptive_cfg) if adaptive_cfg is not None else False)
         sync_setp = self._bool_cfg(rtcfg, "sync_setpoint", True)
         sync_mode = self._bool_cfg(rtcfg, "sync_hvac_mode", True)
         sync_preset = self._bool_cfg(rtcfg, "sync_preset_mode", True)
