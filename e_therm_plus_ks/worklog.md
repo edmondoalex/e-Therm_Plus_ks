@@ -3,6 +3,20 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.76 - Autore: Codex
+- UI termostato virtuale: rimossi pulsanti laterali `Preset` e `Scheduler`.
+- La voce `Modalita` ora include `Inverno`, `Estate` e `Off`; selezione `Off` invia `set_mode=OFF` e spegne virtuale+reale.
+- File modificati: `app/debug_server.py`, `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
+2026-04-17 - v2.6.75 - Autore: Codex
+- Fix diagnostica bridge reale: inizializzazione default di `DEMAND_ON/DEMAND_REASON` nel polling media sonde e reason esplicito `AUTO_DISABLED` quando il loop salta il controllo automatico.
+- In questo modo i campi debug non restano piu vuoti (`-`) e indicano sempre il motivo operativo.
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.74 - Autore: Codex
 - Aggiunto reason tracing del demand nel controllo virtuale (`THERM.DEMAND_REASON`) e default espliciti per `DEMAND_ON` quando il loop non puo calcolare (manual override, no setpoint, no temp, ecc.).
 - Estesa UI Extra con campo `Reason` per capire in tempo reale perche il reale non viene pilotato.

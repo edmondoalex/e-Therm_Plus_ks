@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.74"
+APP_VERSION = "2.6.76"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -857,6 +857,10 @@ class ThermEngine:
                 rt["AVG_COUNT"] = int(len(sensors))
                 rt["AVG_SENSORS"] = sensor_rows
                 th = rt.setdefault("THERM", {})
+                if "DEMAND_ON" not in th:
+                    th["DEMAND_ON"] = "OFF"
+                if "DEMAND_REASON" not in th:
+                    th["DEMAND_REASON"] = "WAIT_CONTROL_LOOP"
                 if not th.get("ACT_SEA"):
                     th["ACT_SEA"] = "WIN"
                 if not th.get("ACT_MODEL"):
@@ -1746,6 +1750,15 @@ class ThermEngine:
         for t in self.therm_list():
             try:
                 if not self._auto_enabled_for(t):
+                    try:
+                        tid = str(t.get("id"))
+                        with self.lock:
+                            rt = self.rt.setdefault(tid, {})
+                            th = rt.setdefault("THERM", {})
+                            th["DEMAND_ON"] = "OFF"
+                            th["DEMAND_REASON"] = "AUTO_DISABLED"
+                    except Exception:
+                        pass
                     continue
                 self._control_one(t, now)
             except Exception:

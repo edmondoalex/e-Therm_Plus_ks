@@ -14046,28 +14046,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
           </div>
         </div>
 
-        <div class="sideCol">
-          <div class="sideAction" id="btnMode" role="button" tabindex="0">
-            <div class="ico" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
-              </svg>
-            </div>
-            <div class="lab">Preset</div>
-            <div class="val" id="valMode"></div>
-          </div>
-
-          <div class="sideAction" id="btnSchedule" role="button" tabindex="0">
-            <div class="ico" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <rect x="3" y="4" width="18" height="18" rx="3" stroke="currentColor" stroke-width="2"></rect>
-                <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
-              </svg>
-            </div>
-            <div class="lab">Scheduler</div>
-            <div class="val"></div>
-          </div>
-        </div>
+        <div class="sideCol" aria-hidden="true"></div>
       </div>
       <div class="top">
         <div>
@@ -14728,45 +14707,29 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         knob.addEventListener("pointerdown", dialPointerDown);
       }
 
-      wireBtn("btnSchedule", () => {
-        const p = document.getElementById("panelSchedule");
-        const show = !(p && p.classList.contains("show"));
-        toggleSchedule(show);
-        if (show) {
-          renderSchedule(getTherm());
-          try { p.scrollIntoView({behavior:"smooth", block:"start"}); } catch (_e) {}
-        }
-      });
       wireBtn("btnSeason", () => {
         const ent = getTherm();
         const rt = ent ? (ent.realtime || {}) : {};
         const therm = (rt.THERM && typeof rt.THERM === "object") ? rt.THERM : null;
-        const cur = therm ? String(therm.ACT_SEA || "WIN").toUpperCase() : "WIN";
+        const curMode = therm ? String(therm.ACT_MODEL || therm.ACT_MODE || "").toUpperCase() : "";
+        const curSea = therm ? String(therm.ACT_SEA || "WIN").toUpperCase() : "WIN";
+        const cur = (curMode === "OFF") ? "OFF" : (curSea === "SUM" ? "SUM" : "WIN");
         openPicker([
           { value: "WIN", label: "Inverno", hint: "Caldo" },
           { value: "SUM", label: "Estate", hint: "Freddo" },
-        ], cur, (v) => sendCmd("set_season", v).catch(e => toast("Errore: " + (e && e.message ? e.message : e))));
-      });
-      wireBtn("btnMode", () => {
-        const ent = getTherm();
-        const rt = ent ? (ent.realtime || {}) : {};
-        const therm = (rt.THERM && typeof rt.THERM === "object") ? rt.THERM : null;
-        const cur = therm ? String(therm.ACT_MODEL || therm.ACT_MODE || "OFF").toUpperCase() : "OFF";
-        openPicker([
           { value: "OFF", label: "Off" },
-          { value: "MAN", label: "Manuale" },
-          { value: "MAN_TMR", label: "Manuale (timer)" },
-          { value: "WEEKLY", label: "Auto (settimanale)" },
-          { value: "SD1", label: "SD1" },
-          { value: "SD2", label: "SD2" },
-        ], cur, (v) => sendCmd("set_mode", v).catch(e => toast("Errore: " + (e && e.message ? e.message : e))));
+        ], cur, (v) => {
+          if (String(v).toUpperCase() === "OFF") {
+            return sendCmd("set_mode", "OFF").catch(e => toast("Errore: " + (e && e.message ? e.message : e)));
+          }
+          return sendCmd("set_season", String(v).toUpperCase()).catch(e => toast("Errore: " + (e && e.message ? e.message : e)));
+        });
       });
 
       wireBtn("btnExtra", () => {
         const dlg = document.getElementById("extraDlg");
         if (dlg) dlg.showModal();
       });
-      wireBtn("btnScheduleClose", () => toggleSchedule(false));
       const reloadBtn = document.getElementById("reloadBtn");
       if (reloadBtn) reloadBtn.addEventListener("click", fetchSnap);
       const schedSeason = document.getElementById("schedSeason");
