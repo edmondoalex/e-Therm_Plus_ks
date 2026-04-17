@@ -14939,6 +14939,7 @@ def render_vtherm_config_page(snapshot):
           <select id="f_src_type">
             <option value="esafe">esafe</option>
             <option value="ha_climate">ha_climate</option>
+            <option value="ha_multi_sensor_avg">ha_multi_sensor_avg</option>
           </select>
         </div>
         <div id="f_src_num_wrap">
@@ -14948,6 +14949,34 @@ def render_vtherm_config_page(snapshot):
         <div id="f_src_entity_wrap">
           <label>Source entity_id (climate HA)</label>
           <input id="f_src_entity_id" placeholder="Es: climate.sala" />
+        </div>
+        <div id="f_src_sensors_wrap" style="grid-column: 1 / -1;">
+          <label>Sonde HA (media, separate da virgola)</label>
+          <input id="f_src_sensors" placeholder="Es: sensor.sonda_salone_temp, sensor.sonda_cucina_temp, sensor.sonda_ingresso_temp" />
+        </div>
+        <div id="f_src_min_valid_wrap">
+          <label>Min sonde valide</label>
+          <input id="f_src_min_valid" placeholder="Es: 2" inputmode="numeric" />
+        </div>
+        <div id="f_src_stale_wrap">
+          <label>Sonda stale sec (opzionale)</label>
+          <input id="f_src_stale" placeholder="Es: 600" inputmode="numeric" />
+        </div>
+        <div id="f_rt_climate_wrap">
+          <label>Termostato reale (climate, obbligatorio per media sonde)</label>
+          <input id="f_rt_climate_entity" placeholder="Es: climate.daikin_sala" />
+        </div>
+        <div id="f_rt_sync_wrap" style="grid-column: 1 / -1;">
+          <label>Sync termostato reale</label>
+          <div class="chkRow">
+            <div class="chk"><input id="f_rt_sync_setpoint" type="checkbox" /> <span>Setpoint</span></div>
+            <div class="chk"><input id="f_rt_sync_mode" type="checkbox" /> <span>Estate/Inverno (hvac)</span></div>
+            <div class="chk"><input id="f_rt_sync_preset" type="checkbox" /> <span>Preset mode</span></div>
+          </div>
+        </div>
+        <div id="f_rt_min_cycle_wrap">
+          <label>Min cycle sec (anti on/off rapido)</label>
+          <input id="f_rt_min_cycle" placeholder="Es: 180" inputmode="numeric" />
         </div>
         <div>
           <label>Profilo (opzionale)</label>
@@ -15153,16 +15182,36 @@ function isHaSourceType(v) {
   return s === 'ha_climate' || s === 'homeassistant_climate' || s === 'ha';
 }
 
+function isHaMultiAvgType(v) {
+  const s = String(v || '').trim().toLowerCase();
+  return s === 'ha_multi_sensor_avg' || s === 'ha_sensor_avg' || s === 'ha_multi_avg';
+}
+
 function canonicalSourceType(v) {
-  return isHaSourceType(v) ? 'ha_climate' : 'esafe';
+  if (isHaMultiAvgType(v)) return 'ha_multi_sensor_avg';
+  if (isHaSourceType(v)) return 'ha_climate';
+  return 'esafe';
 }
 
 function toggleSourceFields() {
   const srcType = canonicalSourceType(document.getElementById('f_src_type').value || 'esafe');
   const numWrap = document.getElementById('f_src_num_wrap');
   const entWrap = document.getElementById('f_src_entity_wrap');
+  const sensorsWrap = document.getElementById('f_src_sensors_wrap');
+  const minValidWrap = document.getElementById('f_src_min_valid_wrap');
+  const staleWrap = document.getElementById('f_src_stale_wrap');
+  const rtClimateWrap = document.getElementById('f_rt_climate_wrap');
+  const rtSyncWrap = document.getElementById('f_rt_sync_wrap');
+  const rtMinCycleWrap = document.getElementById('f_rt_min_cycle_wrap');
+
   if (numWrap) numWrap.style.display = (srcType === 'esafe') ? '' : 'none';
   if (entWrap) entWrap.style.display = (srcType === 'ha_climate') ? '' : 'none';
+  if (sensorsWrap) sensorsWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
+  if (minValidWrap) minValidWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
+  if (staleWrap) staleWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
+  if (rtClimateWrap) rtClimateWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
+  if (rtSyncWrap) rtSyncWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
+  if (rtMinCycleWrap) rtMinCycleWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
 }
 
 function sanitizeTherm(t) {
@@ -15172,6 +15221,11 @@ function sanitizeTherm(t) {
   const srcType = canonicalSourceType(String(src.type || 'esafe').trim().toLowerCase());
   const srcNum = Number(src.num);
   const srcEntityId = String(src.entity_id || '').trim();
+  const srcSensors = Array.isArray(src.sensors)
+    ? src.sensors.map(x => String(x || '').trim()).filter(Boolean)
+    : [];
+  const srcMinValid = Number(src.min_valid_sensors);
+  const srcStale = Number(src.stale_sec);
   const outputs = (t && t.outputs && typeof t.outputs === 'object') ? t.outputs : {};
   const outHeat = (t && t.outputs_heat && typeof t.outputs_heat === 'object') ? t.outputs_heat : null;
   const outCool = (t && t.outputs_cool && typeof t.outputs_cool === 'object') ? t.outputs_cool : null;
@@ -15179,19 +15233,30 @@ function sanitizeTherm(t) {
   const consensusGroupHeat = String((t && (t.consensus_group_heat || t.consensus_group)) ?? '').trim();
   const consensusGroupCool = String((t && (t.consensus_group_cool || t.consensus_group)) ?? '').trim();
   const realTargets = (t && t.real_targets && typeof t.real_targets === 'object') ? t.real_targets : null;
+  const realTherm = (t && t.real_thermostat && typeof t.real_thermostat === 'object') ? t.real_thermostat : null;
   const autoCtl = !!(t && t.auto_control_enabled);
+  let sourceObj = { type: 'esafe', num: Number.isFinite(srcNum) ? srcNum : 1 };
+  if (srcType === 'ha_climate') {
+    sourceObj = { type: 'ha_climate', entity_id: srcEntityId };
+  } else if (srcType === 'ha_multi_sensor_avg') {
+    sourceObj = {
+      type: 'ha_multi_sensor_avg',
+      sensors: srcSensors,
+      ...(Number.isFinite(srcMinValid) && srcMinValid > 0 ? { min_valid_sensors: Math.trunc(srcMinValid) } : {}),
+      ...(Number.isFinite(srcStale) && srcStale >= 0 ? { stale_sec: Math.trunc(srcStale) } : {}),
+    };
+  }
   const base = {
     id: id,
     name: name || ('e-Therm ' + (id || '?')),
-    source: isHaSourceType(srcType)
-      ? { type: 'ha_climate', entity_id: srcEntityId }
-      : { type: 'esafe', num: Number.isFinite(srcNum) ? srcNum : 1 },
+    source: sourceObj,
     outputs: { power: !!outputs.power, fan3: !!outputs.fan3 },
     auto_control_enabled: autoCtl,
     ...(profile ? { profile } : {}),
     ...(consensusGroupHeat ? { consensus_group_heat: consensusGroupHeat } : {}),
     ...(consensusGroupCool ? { consensus_group_cool: consensusGroupCool } : {}),
     ...(realTargets ? { real_targets: realTargets } : {}),
+    ...(realTherm ? { real_thermostat: realTherm } : {}),
   };
   if (outHeat || outCool) {
     // Split outputs by season
@@ -15235,9 +15300,13 @@ function renderList() {
     left.className = 'left';
     const src = t.source || {};
     const srcType = canonicalSourceType(src.type || 'esafe');
-    const srcInfo = isHaSourceType(srcType)
-      ? (String(srcType) + ':' + String(src.entity_id || '?'))
-      : (String(srcType) + ':' + String(src.num || 1));
+    let srcInfo = String(srcType) + ':' + String(src.num || 1);
+    if (srcType === 'ha_climate') {
+      srcInfo = String(srcType) + ':' + String(src.entity_id || '?');
+    } else if (srcType === 'ha_multi_sensor_avg') {
+      const cnt = Array.isArray(src.sensors) ? src.sensors.filter(Boolean).length : 0;
+      srcInfo = String(srcType) + ':sensors=' + String(cnt || 0);
+    }
     left.innerHTML =
       '<div class="name">' + escapeHtml(t.name) + '</div>' +
       '<div class="sub">ID ' + escapeHtml(String(t.id)) + ' • source ' + escapeHtml(srcInfo) + '</div>';
@@ -15266,6 +15335,9 @@ function renderList() {
     }
     if (t.real_targets) {
       chips.innerHTML += '<span class="chip">reali: ON</span>';
+    }
+    if (t.real_thermostat && t.real_thermostat.entity_id) {
+      chips.innerHTML += '<span class="chip">real climate: ' + escapeHtml(String(t.real_thermostat.entity_id)) + '</span>';
     }
     left.appendChild(chips);
 
@@ -15440,6 +15512,15 @@ function editItem(idx) {
   document.getElementById('f_src_type').value = canonicalSourceType(String((t.source || {}).type || 'esafe'));
   document.getElementById('f_src_num').value = String(t.source.num || 1);
   document.getElementById('f_src_entity_id').value = String((t.source || {}).entity_id || '');
+  document.getElementById('f_src_sensors').value = Array.isArray((t.source || {}).sensors) ? (t.source.sensors || []).join(', ') : '';
+  document.getElementById('f_src_min_valid').value = String((t.source || {}).min_valid_sensors || '');
+  document.getElementById('f_src_stale').value = String((t.source || {}).stale_sec || '');
+  const rth = (t.real_thermostat && typeof t.real_thermostat === 'object') ? t.real_thermostat : {};
+  document.getElementById('f_rt_climate_entity').value = String(rth.entity_id || '');
+  document.getElementById('f_rt_sync_setpoint').checked = (rth.sync_setpoint !== false);
+  document.getElementById('f_rt_sync_mode').checked = (rth.sync_hvac_mode !== false);
+  document.getElementById('f_rt_sync_preset').checked = (rth.sync_preset_mode !== false);
+  document.getElementById('f_rt_min_cycle').value = String(rth.min_cycle_sec || '');
   toggleSourceFields();
   document.getElementById('f_profile').value = String(t.profile || '');
   renderConsensusSelect('f_consensus_group_heat', String(t.consensus_group_heat || ''));
@@ -15478,6 +15559,14 @@ function addNew() {
   document.getElementById('f_src_type').value = 'esafe';
   document.getElementById('f_src_num').value = '1';
   document.getElementById('f_src_entity_id').value = '';
+  document.getElementById('f_src_sensors').value = '';
+  document.getElementById('f_src_min_valid').value = '2';
+  document.getElementById('f_src_stale').value = '600';
+  document.getElementById('f_rt_climate_entity').value = '';
+  document.getElementById('f_rt_sync_setpoint').checked = true;
+  document.getElementById('f_rt_sync_mode').checked = true;
+  document.getElementById('f_rt_sync_preset').checked = true;
+  document.getElementById('f_rt_min_cycle').value = '180';
   toggleSourceFields();
   document.getElementById('f_profile').value = '';
   renderConsensusSelect('f_consensus_group_heat', '');
@@ -15509,6 +15598,17 @@ function saveItem() {
   const srcType = canonicalSourceType(String(document.getElementById('f_src_type').value || 'esafe').trim().toLowerCase());
   const srcNum = Number(String(document.getElementById('f_src_num').value || '').trim());
   const srcEntityId = String(document.getElementById('f_src_entity_id').value || '').trim();
+  const srcSensorsRaw = String(document.getElementById('f_src_sensors').value || '').trim();
+  const srcSensors = srcSensorsRaw
+    ? srcSensorsRaw.split(',').map(s => String(s || '').trim()).filter(Boolean)
+    : [];
+  const srcMinValid = Number(String(document.getElementById('f_src_min_valid').value || '').trim());
+  const srcStale = Number(String(document.getElementById('f_src_stale').value || '').trim());
+  const rtClimateEntity = String(document.getElementById('f_rt_climate_entity').value || '').trim();
+  const rtSyncSetpoint = !!document.getElementById('f_rt_sync_setpoint').checked;
+  const rtSyncMode = !!document.getElementById('f_rt_sync_mode').checked;
+  const rtSyncPreset = !!document.getElementById('f_rt_sync_preset').checked;
+  const rtMinCycle = Number(String(document.getElementById('f_rt_min_cycle').value || '').trim());
   const profile = String(document.getElementById('f_profile').value || '').trim();
   const consensusGroupHeat = String(document.getElementById('f_consensus_group_heat').value || '').trim();
   const consensusGroupCool = String(document.getElementById('f_consensus_group_cool').value || '').trim();
@@ -15528,15 +15628,24 @@ function saveItem() {
 
   if (!id) { if (msg) msg.textContent = 'ID obbligatorio.'; return; }
   if (!ensureUniqueId(id, editIndex)) { if (msg) msg.textContent = 'ID già usato: scegli un ID unico.'; return; }
-  if (isHaSourceType(srcType)) {
+  if (srcType === 'ha_climate') {
     if (!srcEntityId) { if (msg) msg.textContent = 'Source entity_id obbligatorio (es: climate.sala).'; return; }
+  } else if (srcType === 'ha_multi_sensor_avg') {
+    if (srcSensors.length < 1) { if (msg) msg.textContent = 'Inserisci almeno una sonda HA.'; return; }
+    if (!rtClimateEntity) { if (msg) msg.textContent = 'Termostato reale obbligatorio (climate.xxx).'; return; }
+    if (Number.isFinite(srcMinValid) && (srcMinValid < 1 || srcMinValid > srcSensors.length)) {
+      if (msg) msg.textContent = 'Min sonde valide deve essere tra 1 e numero sonde.'; return;
+    }
+    if (Number.isFinite(srcStale) && srcStale < 0) { if (msg) msg.textContent = 'stale_sec deve essere >= 0.'; return; }
   } else {
     if (!Number.isFinite(srcNum) || srcNum <= 0) { if (msg) msg.textContent = 'Source num non valido (deve essere un numero > 0).'; return; }
   }
-  if (!split) {
-    if (!hPower && !hFan3) { if (msg) msg.textContent = 'Seleziona almeno una uscita (power o fan3).'; return; }
-  } else {
-    if (!hPower && !hFan3 && !cPower && !cFan3) { if (msg) msg.textContent = 'Seleziona almeno una uscita (Heat o Cool).'; return; }
+  if (srcType !== 'ha_multi_sensor_avg') {
+    if (!split) {
+      if (!hPower && !hFan3) { if (msg) msg.textContent = 'Seleziona almeno una uscita (power o fan3).'; return; }
+    } else {
+      if (!hPower && !hFan3 && !cPower && !cFan3) { if (msg) msg.textContent = 'Seleziona almeno una uscita (Heat o Cool).'; return; }
+    }
   }
   let realTargets = null;
   if (rtPowerLight || rtValveLow || rtValveHot || rtFanMin || rtFanMed || rtFanMax) {
@@ -15551,16 +15660,38 @@ function saveItem() {
     if (Object.keys(fanSwitches).length) realTargets.fan_switches = fanSwitches;
   }
 
+  let realThermostat = null;
+  if (srcType === 'ha_multi_sensor_avg') {
+    realThermostat = {
+      entity_id: rtClimateEntity,
+      sync_setpoint: rtSyncSetpoint,
+      sync_hvac_mode: rtSyncMode,
+      sync_preset_mode: rtSyncPreset,
+      ...(Number.isFinite(rtMinCycle) && rtMinCycle >= 0 ? { min_cycle_sec: Math.trunc(rtMinCycle) } : {}),
+    };
+  }
+
+  let sourceObj = { type: 'esafe', num: srcNum };
+  if (srcType === 'ha_climate') {
+    sourceObj = { type: 'ha_climate', entity_id: srcEntityId };
+  } else if (srcType === 'ha_multi_sensor_avg') {
+    sourceObj = {
+      type: 'ha_multi_sensor_avg',
+      sensors: srcSensors,
+      ...(Number.isFinite(srcMinValid) ? { min_valid_sensors: Math.trunc(srcMinValid) } : {}),
+      ...(Number.isFinite(srcStale) ? { stale_sec: Math.trunc(srcStale) } : {}),
+    };
+  }
+
   const itemBase = {
     id: id,
     name: name,
-    source: isHaSourceType(srcType)
-      ? { type: 'ha_climate', entity_id: srcEntityId }
-      : { type: 'esafe', num: srcNum },
+    source: sourceObj,
     profile: profile,
     consensus_group_heat: consensusGroupHeat,
     consensus_group_cool: consensusGroupCool,
     real_targets: realTargets,
+    real_thermostat: realThermostat,
     auto_control_enabled: autoCtl,
   };
   let item = null;

@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.61 - Autore: Codex
+- UI `/vtherm` aggiornata per configurare via form il tipo sorgente `ha_multi_sensor_avg`.
+- Aggiunti campi UI: lista sonde HA, `min_valid_sensors`, `stale_sec`, termostato reale `climate`, flag sync e `min_cycle_sec`.
+- Estesa serializzazione/sanitizzazione JSON della UI con `real_thermostat` e validazioni dedicate.
+- File modificati: `app/debug_server.py`, `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.60 - Autore: Codex
 - Nuova sorgente virtuale `ha_multi_sensor_avg`: media di 3 sonde HA per la temperatura misurata del vTherm.
 - Aggiunto bridge verso termostato reale (`climate`): sync setpoint/modalita e comando ON/OFF in base alla richiesta del virtuale.
