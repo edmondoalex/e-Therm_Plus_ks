@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.84"
+APP_VERSION = "2.6.86"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1420,6 +1420,7 @@ class ThermEngine:
         base = "homeassistant"
         topics = [
             f"{base}/climate/e_therm_{tid}_climate/config",
+            f"{base}/climate/e_therm_{tid}_climate_v2/config",
             f"{base}/sensor/e_therm_{tid}_humidity/config",
             f"{base}/switch/e_therm_{tid}_valv/config",
             f"{base}/switch/e_therm_{tid}_valv_hot/config",
@@ -1463,6 +1464,7 @@ class ThermEngine:
         base = "homeassistant"
         topics = [
             f"{base}/climate/e_therm_{tid}_climate/config",
+            f"{base}/climate/e_therm_{tid}_climate_v2/config",
             f"{base}/sensor/e_therm_{tid}_humidity/config",
             f"{base}/switch/e_therm_{tid}_valv/config",
             f"{base}/switch/e_therm_{tid}_valv_hot/config",
@@ -1505,6 +1507,38 @@ class ThermEngine:
                 self.mqtt.publish(tp, payload="", retain=True)
             except Exception:
                 continue
+
+    def _discovery_topics_full_cleanup(self, max_tid: int = 128) -> List[str]:
+        topics: List[str] = []
+        # Conservative superset for legacy/current thermostat discovery topics.
+        for n in range(1, max(1, int(max_tid)) + 1):
+            tid = str(n)
+            topics.extend(self._discovery_topics_for_therm(tid, {"power": True, "fan3": True}))
+            topics.extend(self._discovery_topics_for_therm_split(
+                tid,
+                {"power": True, "fan3": True},
+                {"power": True, "fan3": True},
+            ))
+        # PDC + known group topics.
+        topics.extend(self._discovery_topics_for_group("ha"))
+        topics.extend([
+            "homeassistant/switch/e_therm_pdc/config",
+            "homeassistant/switch/e_therm_pdc_heat/config",
+            "homeassistant/switch/e_therm_pdc_cool/config",
+            "homeassistant/switch/e_therm_pdc_ha/config",
+            "homeassistant/switch/e_therm_pdc_ha_heat/config",
+            "homeassistant/switch/e_therm_pdc_ha_cool/config",
+        ])
+        cfg_groups = self.cfg.get("consensus_groups") if isinstance(self.cfg, dict) else []
+        if isinstance(cfg_groups, list):
+            for g in cfg_groups:
+                if not isinstance(g, dict):
+                    continue
+                gk = str(g.get("key") or "").strip()
+                if not gk:
+                    continue
+                topics.extend(self._discovery_topics_for_group(gk))
+        return [t for t in sorted(set(topics)) if isinstance(t, str) and t.strip()]
 
     def apply_config(self, cfg: Dict[str, Any]):
         old = self.cfg or {}
@@ -3598,11 +3632,13 @@ class ThermEngine:
             dev = self._device_block(tid, name)
 
             # MQTT climate clone of e-safe thermostat
-            climate_uid = f"e_therm_{tid}_climate"
+            # v2 unique_id/object_id to break stale HA entity_id aliases (e.g. old room names).
+            climate_uid = f"e_therm_{tid}_climate_v2"
             climate_topic = f"{base}/climate/{climate_uid}/config"
             climate_cfg = {
                 "name": name,
                 "unique_id": climate_uid,
+                "object_id": f"e_therm_{tid}_climate",
                 "availability_topic": f"{self.out_prefix}/status",
                 "payload_available": "online",
                 "payload_not_available": "offline",
@@ -3621,6 +3657,13 @@ class ThermEngine:
                 "temp_step": 0.1,
             }
             self.mqtt.publish(climate_topic, json.dumps(climate_cfg, ensure_ascii=False), retain=True)
+            # Cleanup legacy discovery topic (v1 unique_id) so HA does not keep reviving old aliases.
+            try:
+                legacy_uid = f"e_therm_{tid}_climate"
+                legacy_topic = f"{base}/climate/{legacy_uid}/config"
+                self.mqtt.publish(legacy_topic, "", retain=True)
+            except Exception:
+                pass
 
             # Humidity sensor for convenience
             hum_uid = f"e_therm_{tid}_humidity"
@@ -3818,6 +3861,18 @@ class ThermEngine:
         if cmd.get("type") == "vtherm_config" and cmd.get("action") == "save":
             self.apply_config(cmd.get("value") or {})
             return {"ok": True}
+
+        # MQTT discovery maintenance from UI
+        if cmd.get("type") == "mqtt":
+            action = str(cmd.get("action") or "").strip().lower()
+            if action == "cleanup_discovery":
+                topics = self._discovery_topics_full_cleanup(128)
+                self._cleanup_discovery_topics(topics)
+                return {"ok": True, "cleaned": len(topics)}
+            if action == "republish_discovery":
+                self._publish_discovery()
+                return {"ok": True}
+            return {"ok": False, "error": "unsupported_mqtt_action"}
 
         # test helper for /logs
         if cmd.get("type") == "e_therm" and cmd.get("action") == "log_test":

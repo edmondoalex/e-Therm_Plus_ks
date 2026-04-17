@@ -3,6 +3,23 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.86 - Autore: Codex
+- Cleanup discovery completo da UI (`type:mqtt/action:cleanup_discovery`) ora supportato lato backend.
+- Aggiunto republish discovery da UI (`type:mqtt/action:republish_discovery`).
+- Esteso elenco topic di cleanup per includere climate `v1` e `v2` (`e_therm_<id>_climate` e `e_therm_<id>_climate_v2`).
+- Fix residui storici in HA: purge discovery legacy su range termostati (1..128) per rimuovere device vecchi cancellati.
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
+2026-04-17 - v2.6.85 - Autore: Codex
+- Fix entity_id HA che tornavano a vecchi alias stanza (`lavanderia`, `cabina_armadi`) sui climate virtuali.
+- Discovery climate migrata a `unique_id` v2 + `object_id` stabile per sganciarsi dall'entity registry legacy.
+- Cleanup automatico del topic discovery legacy `e_therm_<id>_climate`.
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.84 - Autore: Codex
 - OFF bridge reale rinforzato: su domanda OFF invia `climate.turn_off` + `climate.set_hvac_mode(off)` e considera riuscito solo con stato HA realmente `off`.
 - Retry OFF automatico nei cicli successivi se HA resta acceso.
