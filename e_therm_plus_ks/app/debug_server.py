@@ -15056,22 +15056,22 @@ def render_vtherm_config_page(snapshot):
             <div class="chk"><input id="f_rt_adaptive" type="checkbox" /> <span>Abilita setpoint adattivo progressivo</span></div>
           </div>
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top:8px;">
-            <input id="f_rt_delta_base_heat" placeholder="Delta base heat (es: 1.0)" inputmode="decimal" />
-            <input id="f_rt_delta_base_cool" placeholder="Delta base cool (es: 1.0)" inputmode="decimal" />
-            <input id="f_rt_delta_step" placeholder="Delta step (es: 0.3)" inputmode="decimal" />
-            <input id="f_rt_delta_step_sec" placeholder="Delta step sec (es: 120)" inputmode="numeric" />
-            <input id="f_rt_delta_max_heat" placeholder="Delta max heat (es: 4.0)" inputmode="decimal" />
-            <input id="f_rt_delta_max_cool" placeholder="Delta max cool (es: 4.0)" inputmode="decimal" />
-            <input id="f_rt_keepalive_sec" placeholder="Keepalive sec (es: 90)" inputmode="numeric" />
+            <div><label>Delta base Heat (+°C)</label><input id="f_rt_delta_base_heat" placeholder="Es: 1.0" inputmode="decimal" /></div>
+            <div><label>Delta base Cool (-°C)</label><input id="f_rt_delta_base_cool" placeholder="Es: 1.0" inputmode="decimal" /></div>
+            <div><label>Step incremento delta (°C)</label><input id="f_rt_delta_step" placeholder="Es: 0.3" inputmode="decimal" /></div>
+            <div><label>Intervallo step (sec)</label><input id="f_rt_delta_step_sec" placeholder="Es: 120" inputmode="numeric" /></div>
+            <div><label>Delta max Heat (+°C)</label><input id="f_rt_delta_max_heat" placeholder="Es: 4.0" inputmode="decimal" /></div>
+            <div><label>Delta max Cool (-°C)</label><input id="f_rt_delta_max_cool" placeholder="Es: 4.0" inputmode="decimal" /></div>
+            <div><label>Keepalive comandi (sec)</label><input id="f_rt_keepalive_sec" placeholder="Es: 90" inputmode="numeric" /></div>
           </div>
         </div>
         <div id="f_rt_limits_wrap" style="grid-column: 1 / -1;">
           <label>Limiti target real thermostat (clamp)</label>
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-            <input id="f_rt_tmin_heat" placeholder="Target min heat (es: 18)" inputmode="decimal" />
-            <input id="f_rt_tmax_heat" placeholder="Target max heat (es: 30)" inputmode="decimal" />
-            <input id="f_rt_tmin_cool" placeholder="Target min cool (es: 16)" inputmode="decimal" />
-            <input id="f_rt_tmax_cool" placeholder="Target max cool (es: 28)" inputmode="decimal" />
+            <div><label>Target min Heat (°C)</label><input id="f_rt_tmin_heat" placeholder="Es: 18" inputmode="decimal" /></div>
+            <div><label>Target max Heat (°C)</label><input id="f_rt_tmax_heat" placeholder="Es: 30" inputmode="decimal" /></div>
+            <div><label>Target min Cool (°C)</label><input id="f_rt_tmin_cool" placeholder="Es: 16" inputmode="decimal" /></div>
+            <div><label>Target max Cool (°C)</label><input id="f_rt_tmax_cool" placeholder="Es: 28" inputmode="decimal" /></div>
           </div>
         </div>
         <div>

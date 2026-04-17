@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-17 - v2.6.66 - Autore: Codex
+- Corretto controllo termostato reale: `min_cycle_sec` non blocca più la transizione a richiesta ON (quindi il setpoint adattivo `+1` in HEAT parte subito).
+- `min_cycle_sec` resta applicato solo alla transizione OFF, per evitare cicli troppo rapidi senza ritardare la chiamata calore.
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.65 - Autore: Codex
 - UI `/vtherm`: per source `ha_multi_sensor_avg` il form applica preset coerenti (min_cycle default `0`, uscite `power/fan3` disattivate, split OFF).
 - I checkbox uscite vengono disabilitati automaticamente per `ha_multi_sensor_avg` e riabilitati sugli altri source.

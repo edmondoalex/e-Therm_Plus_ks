@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.65"
+APP_VERSION = "2.6.66"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -915,9 +915,6 @@ class ThermEngine:
         old = str(self._real_target_last.get(key_state) or "")
         new = "ON" if bool(demand_on) else "OFF"
         now = time.time()
-        last_ts = float(self._real_target_last.get(key_ts, 0.0) or 0.0)
-        if old and old != new and min_cycle > 0 and last_ts and (now - last_ts) < float(min_cycle):
-            return
         src = t.get("source") if isinstance(t.get("source"), dict) else {}
         stype = str(src.get("type") or "").strip().lower()
         adaptive_cfg = cfg.get("adaptive_demand_setpoint")
@@ -925,6 +922,10 @@ class ThermEngine:
 
         mode = "cool" if str(sea).upper() == "SUM" else "heat"
         if not demand_on:
+            last_ts = float(self._real_target_last.get(key_ts, 0.0) or 0.0)
+            # Apply min_cycle only when switching OFF, so ON demand is never delayed.
+            if old and old != "OFF" and min_cycle > 0 and last_ts and (now - last_ts) < float(min_cycle):
+                return
             if old == "OFF":
                 st = self._real_therm_adapt.get(ent)
                 if isinstance(st, dict):
