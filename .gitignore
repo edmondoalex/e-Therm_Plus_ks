@@ -2,3 +2,7 @@
 __pycache__/
 *.bak
 *.bak.*
+
+# Local VS Code/workspace files (keep repo clean across multiple PCs)
+.vscode/
+*.code-workspace
