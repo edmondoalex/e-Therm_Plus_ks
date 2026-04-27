@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.86"
+APP_VERSION = "2.6.87"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -2133,7 +2133,20 @@ class ThermEngine:
             if inactive_outputs.get("power") or inactive_outputs.get("fan3"):
                 off = self._desired_defaults()
                 self._set_desired_season(tid, inactive_sk, off)
-                self._publish_outputs_state(t, inactive_sk)
+                # Avoid ON->OFF ping-pong when active/inactive seasons share the same
+                # physical entities in real_targets.
+                apply_real_inactive = True
+                try:
+                    active_outputs = self._outputs_for_season(t, active_sk)
+                    active_targets = self._real_targets_for(t, active_sk)
+                    inactive_targets = self._real_targets_for(t, inactive_sk)
+                    active_ents = self._real_entities_for_outputs(active_outputs, active_targets)
+                    inactive_ents = self._real_entities_for_outputs(inactive_outputs, inactive_targets)
+                    if active_ents and inactive_ents and (active_ents & inactive_ents):
+                        apply_real_inactive = False
+                except Exception:
+                    apply_real_inactive = True
+                self._publish_outputs_state(t, inactive_sk, apply_real=apply_real_inactive)
                 try:
                     self._log_event(
                         origin="auto",
@@ -2430,7 +2443,28 @@ class ThermEngine:
             except Exception:
                 pass
 
-    def _publish_outputs_state(self, t: Dict[str, Any], season_key: Optional[str] = None) -> None:
+    def _real_entities_for_outputs(self, outputs: Dict[str, Any], targets: Dict[str, Any]) -> set:
+        ents = set()
+        if not isinstance(outputs, dict) or not isinstance(targets, dict):
+            return ents
+        if outputs.get("power"):
+            pwm_light = (
+                targets.get("power_light")
+                or targets.get("pwm_light")
+                or targets.get("dimmer_light")
+                or ""
+            )
+            for ent in self._split_entities(pwm_light):
+                ents.add(str(ent).strip().lower())
+        if outputs.get("fan3"):
+            fan_sw = targets.get("fan_switches") if isinstance(targets.get("fan_switches"), dict) else {}
+            for sp in ("min", "med", "max"):
+                ent = fan_sw.get(sp) or targets.get(f"fan_{sp}_switch") or ""
+                for e in self._split_entities(ent):
+                    ents.add(str(e).strip().lower())
+        return ents
+
+    def _publish_outputs_state(self, t: Dict[str, Any], season_key: Optional[str] = None, apply_real: bool = True) -> None:
         tid = str(t.get("id"))
         split = self._is_split_outputs(t)
         if not split:
@@ -2460,7 +2494,8 @@ class ThermEngine:
                 name = _topic_safe_name(t.get("name") or f"vTherm_{tid}")
                 self.mqtt.publish(f"{self.out_prefix}/thermostats/{name}/valv/set", valv, retain=True)
                 self.mqtt.publish(f"{self.out_prefix}/valv/{tid}/set", valv, retain=True)
-            self._apply_real_outputs(t, desired, outputs, None)
+            if apply_real:
+                self._apply_real_outputs(t, desired, outputs, None)
             return
 
         sk = season_key or "heat"
@@ -2475,7 +2510,8 @@ class ThermEngine:
                 val = str(fan.get(sp, "OFF")).upper()
                 val = "ON" if val in ("ON", "1", "TRUE") else "OFF"
                 self.mqtt.publish(f"{base}/fan/{sp}", val, retain=True)
-        self._apply_real_outputs(t, desired, outputs, sk)
+        if apply_real:
+            self._apply_real_outputs(t, desired, outputs, sk)
         self._publish_valve_state(t)
 
     def _valve_on_for_therm(self, t: Dict[str, Any]) -> bool:

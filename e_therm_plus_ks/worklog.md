@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-27 - v2.6.87 - Autore: Codex
+- Fix real switch `CELLAR 1`: evitato effetto ON/OFF immediato quando stagione attiva e inattiva condividono le stesse entita in `real_targets`.
+- Aggiunta rilevazione overlap entita reali tra `outputs_heat` e `outputs_cool`; in caso di overlap non viene applicato OFF reale della stagione inattiva.
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-17 - v2.6.86 - Autore: Codex
 - Cleanup discovery completo da UI (`type:mqtt/action:cleanup_discovery`) ora supportato lato backend.
 - Aggiunto republish discovery da UI (`type:mqtt/action:republish_discovery`).
