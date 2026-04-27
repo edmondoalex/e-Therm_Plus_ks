@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-27 - v2.6.88 - Autore: Codex
+- Stabilizzazione relè reali velocità fan: aggiunto parametro `real_fan_min_hold_sec` (default 20s) per evitare commutazioni rapide ON/OFF tra stadi.
+- Applicazione su `real_targets.fan_switches` con memoria stadio effettivo per termostato/stagione.
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-27 - v2.6.87 - Autore: Codex
 - Fix real switch `CELLAR 1`: evitato effetto ON/OFF immediato quando stagione attiva e inattiva condividono le stesse entita in `real_targets`.
 - Aggiunta rilevazione overlap entita reali tra `outputs_heat` e `outputs_cool`; in caso di overlap non viene applicato OFF reale della stagione inattiva.

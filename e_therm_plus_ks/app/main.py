@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.87"
+APP_VERSION = "2.6.88"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -214,6 +214,7 @@ class ThermEngine:
         self.pwm_deadband = float(opts.get("pwm_deadband", 0.2) or 0.2)
         self.pwm_min_to_med = int(opts.get("pwm_min_to_med", 34) or 34)
         self.pwm_med_to_max = int(opts.get("pwm_med_to_max", 67) or 67)
+        self.real_fan_min_hold_sec = int(opts.get("real_fan_min_hold_sec", 20) or 20)
         self._pwm: Dict[str, PWMController] = {}
         self._manual_override_until: Dict[str, float] = {}
         self._manual_valve_until: Dict[str, float] = {}
@@ -1372,6 +1373,33 @@ class ThermEngine:
         if outputs.get("fan3"):
             fan = desired.get("fan") if isinstance(desired.get("fan"), dict) else {}
             fan_sw = targets.get("fan_switches") if isinstance(targets.get("fan_switches"), dict) else {}
+            tid = str(t.get("id") or "")
+            sk = str(season_key or "base")
+            stage_key = f"fan_stage:{tid}:{sk}"
+            stage_ts_key = f"{stage_key}:ts"
+            desired_stage = "off"
+            if str((fan or {}).get("max", "OFF")).upper() == "ON":
+                desired_stage = "max"
+            elif str((fan or {}).get("med", "OFF")).upper() == "ON":
+                desired_stage = "med"
+            elif str((fan or {}).get("min", "OFF")).upper() == "ON":
+                desired_stage = "min"
+
+            effective_stage = desired_stage
+            try:
+                hold = int(max(0, int(self.real_fan_min_hold_sec)))
+            except Exception:
+                hold = 0
+            if hold > 0:
+                last_stage = str(self._real_target_last.get(stage_key) or "")
+                try:
+                    last_ts = float(self._real_target_last.get(stage_ts_key, 0.0) or 0.0)
+                except Exception:
+                    last_ts = 0.0
+                now = time.time()
+                if last_stage and desired_stage != last_stage and (now - last_ts) < float(hold):
+                    effective_stage = last_stage
+
             for sp in ("min", "med", "max"):
                 ent = (
                     fan_sw.get(sp)
@@ -1380,8 +1408,15 @@ class ThermEngine:
                 )
                 if not ent:
                     continue
-                on = str((fan or {}).get(sp, "OFF")).upper() == "ON"
+                on = (sp == effective_stage)
                 self._apply_real_switches(ent, on)
+            try:
+                prev_stage = str(self._real_target_last.get(stage_key) or "")
+                if prev_stage != effective_stage:
+                    self._real_target_last[stage_key] = effective_stage
+                    self._real_target_last[stage_ts_key] = time.time()
+            except Exception:
+                pass
 
     def _apply_real_valve(self, t: Dict[str, Any], valv_on: bool) -> None:
         targets = self._real_targets_for(t, None)
