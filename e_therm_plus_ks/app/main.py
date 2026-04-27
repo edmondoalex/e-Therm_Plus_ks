@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.90"
+APP_VERSION = "2.6.91"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -222,6 +222,7 @@ class ThermEngine:
         self._manual_valve_until: Dict[str, float] = {}
         self._manual_valve_state: Dict[str, Dict[str, bool]] = {}
         self._real_target_last: Dict[str, Any] = {}
+        self._real_switch_skip_warned: set[str] = set()
         self._real_therm_adapt: Dict[str, Dict[str, Any]] = {}
         self._control_thread: Optional[threading.Thread] = None
         self._watchdog_thread: Optional[threading.Thread] = None
@@ -1465,6 +1466,48 @@ class ThermEngine:
         ent = targets.get("valve_switch") or targets.get("valv_switch") or ""
         if ent:
             self._apply_real_switches(ent, bool(low_on or hot_on))
+
+    def _reserved_real_switch_entities(self) -> set:
+        """Return switch entities owned by thermostat real_targets (fan/valves).
+
+        These entities should not be overridden by shared/global writers
+        (e.g. consensus groups), otherwise relays can oscillate.
+        """
+        out: set[str] = set()
+        try:
+            therms = self.therm_list()
+        except Exception:
+            therms = []
+        for t in therms:
+            if not isinstance(t, dict):
+                continue
+            # Collect base + seasonal target blocks if present.
+            blocks = [self._real_targets_for(t, None), self._real_targets_for(t, "heat"), self._real_targets_for(t, "cool")]
+            for targets in blocks:
+                if not isinstance(targets, dict):
+                    continue
+                fan_sw = targets.get("fan_switches") if isinstance(targets.get("fan_switches"), dict) else {}
+                for sp in ("min", "med", "max"):
+                    ent = fan_sw.get(sp) or targets.get(f"fan_{sp}_switch") or ""
+                    for e in self._split_entities(ent):
+                        ek = str(e).strip().lower()
+                        if ek.startswith("switch."):
+                            out.add(ek)
+                for k in (
+                    "valve_switch",
+                    "valv_switch",
+                    "valve_switch_low",
+                    "valv_switch_low",
+                    "valve_switch_bassa",
+                    "valve_switch_hot",
+                    "valv_switch_hot",
+                    "valve_switch_alta",
+                ):
+                    for e in self._split_entities(targets.get(k) or ""):
+                        ek = str(e).strip().lower()
+                        if ek.startswith("switch."):
+                            out.add(ek)
+        return out
 
     def _discovery_topics_for_therm(self, tid: str, outputs: Dict[str, Any]) -> List[str]:
         base = "homeassistant"
@@ -2811,6 +2854,7 @@ class ThermEngine:
 
         # Drive real HA switches for consensus groups (if configured).
         try:
+            reserved_switches = self._reserved_real_switch_entities()
             cfg_groups = self.cfg.get("consensus_groups") if isinstance(self.cfg, dict) else []
             if not isinstance(cfg_groups, list):
                 cfg_groups = []
@@ -2826,11 +2870,32 @@ class ThermEngine:
                 sw_h = str(g.get("switch_heat") or g.get("heat_switch") or "").strip()
                 sw_c = str(g.get("switch_cool") or g.get("cool_switch") or "").strip()
                 if sw:
-                    self._apply_real_switch(sw, bool(st.get("on")))
+                    for e in self._split_entities(sw):
+                        ek = str(e).strip().lower()
+                        if ek in reserved_switches:
+                            if ek not in self._real_switch_skip_warned:
+                                self._real_switch_skip_warned.add(ek)
+                                print(f"[WARN] consensus skip reserved thermostat switch: {ek}")
+                            continue
+                        self._apply_real_switch(e, bool(st.get("on")))
                 if sw_h:
-                    self._apply_real_switch(sw_h, bool(st.get("on_heat")))
+                    for e in self._split_entities(sw_h):
+                        ek = str(e).strip().lower()
+                        if ek in reserved_switches:
+                            if ek not in self._real_switch_skip_warned:
+                                self._real_switch_skip_warned.add(ek)
+                                print(f"[WARN] consensus skip reserved thermostat switch: {ek}")
+                            continue
+                        self._apply_real_switch(e, bool(st.get("on_heat")))
                 if sw_c:
-                    self._apply_real_switch(sw_c, bool(st.get("on_cool")))
+                    for e in self._split_entities(sw_c):
+                        ek = str(e).strip().lower()
+                        if ek in reserved_switches:
+                            if ek not in self._real_switch_skip_warned:
+                                self._real_switch_skip_warned.add(ek)
+                                print(f"[WARN] consensus skip reserved thermostat switch: {ek}")
+                            continue
+                        self._apply_real_switch(e, bool(st.get("on_cool")))
         except Exception:
             pass
 

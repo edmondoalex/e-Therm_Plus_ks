@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-27 - v2.6.91 - Autore: Codex
+- Prevenzione conflitti ciclici sui relè reali: i `consensus_groups` non comandano switch già riservati ai `real_targets` dei termostati (fan/valvole).
+- Aggiunto warning diagnostico una tantum: `consensus skip reserved thermostat switch: ...`.
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-27 - v2.6.90 - Autore: Codex
 - Modalita fan reale `strict mirror` (1:1 virtuale->reale): aggiunto `real_fan_strict_mirror` (default `true`) e `real_fan_min_hold_sec` portato a default `0`.
 - Diagnostica MQTT: gestione `on_connect rc!=0` con `last_mqtt_error` in health per debug reconnect watchdog.
