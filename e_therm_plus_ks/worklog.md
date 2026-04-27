@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-27 - v2.6.89 - Autore: Codex
+- Fix lampeggio relè fan reali: deduplica comandi per entità fisica in `_apply_real_outputs` (un solo comando finale ON/OFF per ciclo).
+- Evitato conflitto ON->OFF nello stesso giro quando uno switch è mappato su più bucket velocità (`min/med/max`).
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-27 - v2.6.88 - Autore: Codex
 - Stabilizzazione relè reali velocità fan: aggiunto parametro `real_fan_min_hold_sec` (default 20s) per evitare commutazioni rapide ON/OFF tra stadi.
 - Applicazione su `real_targets.fan_switches` con memoria stadio effettivo per termostato/stagione.

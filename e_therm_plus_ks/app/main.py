@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.88"
+APP_VERSION = "2.6.89"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1400,6 +1400,10 @@ class ThermEngine:
                 if last_stage and desired_stage != last_stage and (now - last_ts) < float(hold):
                     effective_stage = last_stage
 
+            # Build a single desired state per physical entity to avoid
+            # ON/OFF ping-pong in the same cycle when an entity is mapped
+            # to multiple speed buckets (misconfig or legacy merged values).
+            entity_on: Dict[str, bool] = {}
             for sp in ("min", "med", "max"):
                 ent = (
                     fan_sw.get(sp)
@@ -1408,8 +1412,15 @@ class ThermEngine:
                 )
                 if not ent:
                     continue
-                on = (sp == effective_stage)
-                self._apply_real_switches(ent, on)
+                sp_on = (sp == effective_stage)
+                for e in self._split_entities(ent):
+                    ek = str(e).strip()
+                    if not ek:
+                        continue
+                    prev = bool(entity_on.get(ek, False))
+                    entity_on[ek] = bool(prev or sp_on)
+            for ek, on in entity_on.items():
+                self._apply_real_switch(ek, bool(on))
             try:
                 prev_stage = str(self._real_target_last.get(stage_key) or "")
                 if prev_stage != effective_stage:
