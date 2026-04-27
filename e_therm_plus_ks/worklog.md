@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-27 - v2.6.90 - Autore: Codex
+- Modalita fan reale `strict mirror` (1:1 virtuale->reale): aggiunto `real_fan_strict_mirror` (default `true`) e `real_fan_min_hold_sec` portato a default `0`.
+- Diagnostica MQTT: gestione `on_connect rc!=0` con `last_mqtt_error` in health per debug reconnect watchdog.
+- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+
+---
+
 2026-04-27 - v2.6.89 - Autore: Codex
 - Fix lampeggio relè fan reali: deduplica comandi per entità fisica in `_apply_real_outputs` (un solo comando finale ON/OFF per ciclo).
 - Evitato conflitto ON->OFF nello stesso giro quando uno switch è mappato su più bucket velocità (`min/med/max`).

@@ -1,6 +1,6 @@
 name: e-Therm Plus KS
 slug: e_therm_plus_ks
-version: "2.6.89"
+version: "2.6.90"
 description: Termostati virtuali manuali (fonte e-safe) con UI dedicata + MQTT Discovery; PWM/3-rel? in sviluppo
 startup: services
 boot: auto
@@ -47,7 +47,8 @@ options:
   pwm_deadband: 0.2
   pwm_min_to_med: 34
   pwm_med_to_max: 67
-  real_fan_min_hold_sec: 20
+  real_fan_min_hold_sec: 0
+  real_fan_strict_mirror: true
 
   watchdog_enabled: true
   watchdog_stale_sec: 120
@@ -88,6 +89,7 @@ schema:
   pwm_min_to_med: int
   pwm_med_to_max: int
   real_fan_min_hold_sec: int
+  real_fan_strict_mirror: bool
 
   watchdog_enabled: bool
   watchdog_stale_sec: int

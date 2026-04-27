@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.89"
+APP_VERSION = "2.6.90"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -197,6 +197,7 @@ class ThermEngine:
         self._last_reconnect_attempt_ts = 0.0
         self._reconnect_backoff_sec = 5.0
         self._last_reconnect_reason = ""
+        self._last_mqtt_error = ""
         self._last_ha_poll_ts = 0.0
         self._last_ha_sensor_poll_ts = 0.0
         self._last_ha_warn_ts = 0.0
@@ -214,7 +215,8 @@ class ThermEngine:
         self.pwm_deadband = float(opts.get("pwm_deadband", 0.2) or 0.2)
         self.pwm_min_to_med = int(opts.get("pwm_min_to_med", 34) or 34)
         self.pwm_med_to_max = int(opts.get("pwm_med_to_max", 67) or 67)
-        self.real_fan_min_hold_sec = int(opts.get("real_fan_min_hold_sec", 20) or 20)
+        self.real_fan_min_hold_sec = int(opts.get("real_fan_min_hold_sec", 0) or 0)
+        self.real_fan_strict_mirror = bool(opts.get("real_fan_strict_mirror", True))
         self._pwm: Dict[str, PWMController] = {}
         self._manual_override_until: Dict[str, float] = {}
         self._manual_valve_until: Dict[str, float] = {}
@@ -1374,8 +1376,9 @@ class ThermEngine:
             fan = desired.get("fan") if isinstance(desired.get("fan"), dict) else {}
             fan_sw = targets.get("fan_switches") if isinstance(targets.get("fan_switches"), dict) else {}
             tid = str(t.get("id") or "")
-            sk = str(season_key or "base")
-            stage_key = f"fan_stage:{tid}:{sk}"
+            # Keep one hold state per thermostat (not per season) so
+            # transient WIN/SUM flaps cannot bypass anti-blink protection.
+            stage_key = f"fan_stage:{tid}"
             stage_ts_key = f"{stage_key}:ts"
             desired_stage = "off"
             if str((fan or {}).get("max", "OFF")).upper() == "ON":
@@ -1386,19 +1389,20 @@ class ThermEngine:
                 desired_stage = "min"
 
             effective_stage = desired_stage
-            try:
-                hold = int(max(0, int(self.real_fan_min_hold_sec)))
-            except Exception:
-                hold = 0
-            if hold > 0:
-                last_stage = str(self._real_target_last.get(stage_key) or "")
+            if not bool(self.real_fan_strict_mirror):
                 try:
-                    last_ts = float(self._real_target_last.get(stage_ts_key, 0.0) or 0.0)
+                    hold = int(max(0, int(self.real_fan_min_hold_sec)))
                 except Exception:
-                    last_ts = 0.0
-                now = time.time()
-                if last_stage and desired_stage != last_stage and (now - last_ts) < float(hold):
-                    effective_stage = last_stage
+                    hold = 0
+                if hold > 0:
+                    last_stage = str(self._real_target_last.get(stage_key) or "")
+                    try:
+                        last_ts = float(self._real_target_last.get(stage_ts_key, 0.0) or 0.0)
+                    except Exception:
+                        last_ts = 0.0
+                    now = time.time()
+                    if last_stage and desired_stage != last_stage and (now - last_ts) < float(hold):
+                        effective_stage = last_stage
 
             # Build a single desired state per physical entity to avoid
             # ON/OFF ping-pong in the same cycle when an entity is mapped
@@ -1818,6 +1822,7 @@ class ThermEngine:
                 "control_thread_alive": bool(self._control_thread and self._control_thread.is_alive()),
                 "watchdog_backoff_sec": float(self._reconnect_backoff_sec),
                 "last_reconnect_reason": self._last_reconnect_reason,
+                "last_mqtt_error": str(self._last_mqtt_error or ""),
             }
             self.state.set_meta("health", health)
         except Exception:
@@ -2259,6 +2264,10 @@ class ThermEngine:
         rc = args[2] if len(args) > 2 else kwargs.get("rc", 0)
         self._mqtt_connected = False
         try:
+            self._last_mqtt_error = f"disconnect rc={rc}"
+        except Exception:
+            pass
+        try:
             self._log_event(
                 origin="system",
                 tid=None,
@@ -2282,10 +2291,19 @@ class ThermEngine:
         client = args[0] if len(args) > 0 else None
         flags = args[2] if len(args) > 2 else kwargs.get("flags", {})
         rc = args[3] if len(args) > 3 else kwargs.get("rc", 0)
-        self._mqtt_connected = True
+        ok = (int(rc) == 0)
+        self._mqtt_connected = bool(ok)
+        if not ok:
+            try:
+                self._last_mqtt_error = f"connect rc={rc}"
+            except Exception:
+                pass
+            print(f"[WARN] MQTT on_connect rc={rc} (connection not established)")
+            return
         try:
             self._reconnect_backoff_sec = 5.0
             self._last_mqtt_any_ts = time.time()
+            self._last_mqtt_error = ""
         except Exception:
             pass
         try:
