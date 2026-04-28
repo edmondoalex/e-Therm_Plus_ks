@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.103"
+APP_VERSION = "2.6.104"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1990,7 +1990,8 @@ class ThermEngine:
             pass
 
         # Only check "stale source" if we have received at least one source message before.
-        if cfg_has_therms and self._ever_got_source:
+        reconnect_on_stale = bool(self.opts.get("watchdog_reconnect_on_stale_source", False))
+        if reconnect_on_stale and cfg_has_therms and self._ever_got_source:
             last_src = float(self._last_source_ts or 0.0)
             if last_src and (now - last_src) > float(stale_sec):
                 self._reconnect_mqtt(f"stale_source>{stale_sec}s")

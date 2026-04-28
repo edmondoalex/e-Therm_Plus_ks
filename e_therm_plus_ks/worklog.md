@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-28 - v2.6.104 - Autore: Codex
+- Risolto reconnect periodico non desiderato: il watchdog non forza piu reconnect su `stale_source` di default.
+- Nuova opzione `watchdog_reconnect_on_stale_source` (default `false`) per riattivare il comportamento precedente solo se richiesto.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-04-28 - v2.6.103 - Autore: Codex
 - Aggiunto marker di stabilità MQTT: log `[INFO] MQTT stable: connected for >=60s` dopo 60s continuativi connessi.
 - Migliorata diagnostica runtime per distinguere chiaramente un reconnect iniziale da instabilità reale.
