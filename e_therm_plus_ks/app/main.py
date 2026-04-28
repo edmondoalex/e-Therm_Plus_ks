@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.100"
+APP_VERSION = "2.6.101"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -2333,6 +2333,9 @@ class ThermEngine:
                 pass
     def _on_disconnect(self, *args, **kwargs):
         client = args[0] if len(args) > 0 else None
+        # Ignore callbacks from stale MQTT clients that were replaced during reconnect.
+        if client is not None and client is not self.mqtt:
+            return
         rc = args[2] if len(args) > 2 else kwargs.get("rc", 0)
         self._mqtt_connected = False
         try:
@@ -2361,6 +2364,9 @@ class ThermEngine:
 
     def _on_connect(self, *args, **kwargs):
         client = args[0] if len(args) > 0 else None
+        # Ignore callbacks from stale MQTT clients that were replaced during reconnect.
+        if client is not None and client is not self.mqtt:
+            return
         flags = args[2] if len(args) > 2 else kwargs.get("flags", {})
         rc = args[3] if len(args) > 3 else kwargs.get("rc", 0)
         ok = (int(rc) == 0)
