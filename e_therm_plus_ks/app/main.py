@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.97"
+APP_VERSION = "2.6.99"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -3362,11 +3362,34 @@ class ThermEngine:
         t = self._find_by_id(tid)
         if not t:
             return True
+        # In automatic mode, ignore manual valve commands from MQTT/HA
+        # (including restore-state side effects after restart).
+        try:
+            if self._auto_enabled_for(t):
+                return True
+        except Exception:
+            pass
         on = str(payload_raw or "").strip().upper() in ("ON", "1", "TRUE", "YES")
         low_on, hot_on = self._calc_auto_valves(t)
+        sea = ""
+        try:
+            rt = self.rt.get(str(tid)) or {}
+            th = rt.get("THERM") if isinstance(rt.get("THERM"), dict) else {}
+            sea = str(th.get("ACT_SEA") or "").upper()
+        except Exception:
+            sea = ""
         if kind == "valv":
-            low_on = on
-            hot_on = on
+            # Generic valve command must honor season:
+            # SUM => only high-temp loop, WIN => both loops.
+            if sea == "SUM":
+                low_on = False
+                hot_on = bool(on)
+            elif sea == "WIN":
+                low_on = bool(on)
+                hot_on = bool(on)
+            else:
+                low_on = False
+                hot_on = bool(on)
         elif kind == "valv_hot":
             hot_on = on
         elif kind == "valv_low":

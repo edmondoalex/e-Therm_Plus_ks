@@ -3,6 +3,12 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-28 - v2.6.99 - Autore: Codex
+- Blocco comandi manuali valvole via MQTT quando `auto_control_enabled` è attivo (evita riaccensioni `valv/valv_hot/valv_low` da restore stato HA dopo reboot).
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-04-28 - v2.6.97 - Autore: Codex
 - Valvole termostato allineate alla logica consenso gruppi: `_calc_auto_valves` ora usa `_consensus_demand_for_therm` (non fallback `OUT_STATUS`).
 - In stagione non determinata (`ACT_SEA` non `WIN`/`SUM`) applicato fail-safe OFF per evitare accensione indesiderata della bassa.
