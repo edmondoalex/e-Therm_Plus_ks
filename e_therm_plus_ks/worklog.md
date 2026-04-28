@@ -3,38 +3,45 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-28 - v2.6.93 - Autore: Codex
+- Bump versione addon a 2.6.93 per nuovo rilascio.
+- Allineata versione runtime mostrata a boot (APP_VERSION) e README addon.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-04-27 - v2.6.91 - Autore: Codex
 - Prevenzione conflitti ciclici sui relÃ¨ reali: i `consensus_groups` non comandano switch giÃ  riservati ai `real_targets` dei termostati (fan/valvole).
 - Aggiunto warning diagnostico una tantum: `consensus skip reserved thermostat switch: ...`.
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-27 - v2.6.90 - Autore: Codex
 - Modalita fan reale `strict mirror` (1:1 virtuale->reale): aggiunto `real_fan_strict_mirror` (default `true`) e `real_fan_min_hold_sec` portato a default `0`.
 - Diagnostica MQTT: gestione `on_connect rc!=0` con `last_mqtt_error` in health per debug reconnect watchdog.
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-27 - v2.6.89 - Autore: Codex
 - Fix lampeggio relÃ¨ fan reali: deduplica comandi per entitÃ  fisica in `_apply_real_outputs` (un solo comando finale ON/OFF per ciclo).
 - Evitato conflitto ON->OFF nello stesso giro quando uno switch Ã¨ mappato su piÃ¹ bucket velocitÃ  (`min/med/max`).
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-27 - v2.6.88 - Autore: Codex
 - Stabilizzazione relÃ¨ reali velocitÃ  fan: aggiunto parametro `real_fan_min_hold_sec` (default 20s) per evitare commutazioni rapide ON/OFF tra stadi.
 - Applicazione su `real_targets.fan_switches` con memoria stadio effettivo per termostato/stagione.
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-27 - v2.6.87 - Autore: Codex
 - Fix real switch `CELLAR 1`: evitato effetto ON/OFF immediato quando stagione attiva e inattiva condividono le stesse entita in `real_targets`.
 - Aggiunta rilevazione overlap entita reali tra `outputs_heat` e `outputs_cool`; in caso di overlap non viene applicato OFF reale della stagione inattiva.
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
@@ -43,7 +50,7 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 - Aggiunto republish discovery da UI (`type:mqtt/action:republish_discovery`).
 - Esteso elenco topic di cleanup per includere climate `v1` e `v2` (`e_therm_<id>_climate` e `e_therm_<id>_climate_v2`).
 - Fix residui storici in HA: purge discovery legacy su range termostati (1..128) per rimuovere device vecchi cancellati.
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
@@ -51,7 +58,7 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 - Fix entity_id HA che tornavano a vecchi alias stanza (`lavanderia`, `cabina_armadi`) sui climate virtuali.
 - Discovery climate migrata a `unique_id` v2 + `object_id` stabile per sganciarsi dall'entity registry legacy.
 - Cleanup automatico del topic discovery legacy `e_therm_<id>_climate`.
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
@@ -60,14 +67,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 - Retry OFF automatico nei cicli successivi se HA resta acceso.
 - Debug UI esteso: `Stato reale HVAC (HA)`, `Esito cmd OFF`, `Bridge error`.
 - Diagnostica eccezioni bridge: reason `BRIDGE_EXCEPTION` con dettaglio `BRIDGE_ERROR`.
-- File modificati: `app/main.py`, `app/debug_server.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-17 - v2.6.83 - Autore: Codex
 - Fix spegnimento reale: su `Demand OFF` il bridge verifica lo stato HVAC reale e, se non e `off`, ritenta il comando nei cicli successivi (niente falso `OFF` in cache).
 - Aggiunta helper `_ha_climate_state()` per check consistente stato climate.
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
@@ -75,7 +82,7 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 - Fix comando VMC: accettate anche entita `light.*` e `switch.*` oltre a `fan.*` in `real_thermostat.vmc_entity_id`.
 - Per `light.*` usa `light.turn_on` con `brightness_pct` (fallback `turn_on` semplice); per `switch.*` usa `turn_on/turn_off`.
 - UI aggiornata nei label VMC per indicare chiaramente supporto `fan/light/switch`.
-- File modificati: `app/main.py`, `app/debug_server.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
@@ -83,7 +90,7 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 - Aggiunto comando VMC per termostato virtuale: quando c'e richiesta ON (heat/cool) il bridge imposta `fan.<vmc>` a velocita fissa (`vmc_speed_pct`), e a richiesta OFF la spegne (configurabile).
 - Nuovi campi UI (vTherm): `Entita VMC (fan)`, `Velocita % (ON)`, `Spegni VMC quando non c'e richiesta`.
 - Nuove chiavi config in `real_thermostat`: `vmc_entity_id`, `vmc_speed_pct`, `vmc_off_on_no_demand`.
-- File modificati: `app/main.py`, `app/debug_server.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
@@ -91,139 +98,139 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 - Spegnimento reale su `ha_multi_sensor_avg` reso immediato a `Demand OFF` (ignora `min_cycle_sec` in OFF per questo source).
 - Hardened OFF command: dopo `turn_off`/`set_hvac_mode off` viene verificato lo stato reale HA; se non e `off` non viene considerato riuscito.
 - Aggiunta reason diagnostica `MIN_CYCLE_HOLD_OFF` quando lo spegnimento e trattenuto dal ciclo minimo (sorgenti non ha_multi_sensor_avg).
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-17 - v2.6.79 - Autore: Codex
 - Fix regressione UI termostato virtuale: corretto errore JS nel render anello (`modeDisp` usato prima della definizione) che bloccava la pagina.
-- File modificati: `app/debug_server.py`, `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-17 - v2.6.78 - Autore: Codex
 - UI termostato virtuale: colore anello ora guidato dalla richiesta (`DEMAND_ON`) invece che dal solo stato stagione/uscita.
 - Regola colore: giallo in richiesta heat, blu in richiesta cool, grigio senza richiesta o in `OFF`.
-- File modificati: `app/debug_server.py`, `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-17 - v2.6.77 - Autore: Codex
 - Fix OFF virtuale: l'azione UI `set_mode=OFF` ora viene mappata a `mode=off` (non piu a `preset_mode`), cosi il termostato reale riceve lo spegnimento HVAC.
 - Allineato stato runtime su comando mode: `heat/cool` imposta `ACT_MODEL=MAN`, `off` imposta `ACT_MODEL=OFF` e `ACT_SEA=OFF`.
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-17 - v2.6.76 - Autore: Codex
 - UI termostato virtuale: rimossi pulsanti laterali `Preset` e `Scheduler`.
 - La voce `Modalita` ora include `Inverno`, `Estate` e `Off`; selezione `Off` invia `set_mode=OFF` e spegne virtuale+reale.
-- File modificati: `app/debug_server.py`, `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-17 - v2.6.75 - Autore: Codex
 - Fix diagnostica bridge reale: inizializzazione default di `DEMAND_ON/DEMAND_REASON` nel polling media sonde e reason esplicito `AUTO_DISABLED` quando il loop salta il controllo automatico.
 - In questo modo i campi debug non restano piu vuoti (`-`) e indicano sempre il motivo operativo.
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-17 - v2.6.74 - Autore: Codex
 - Aggiunto reason tracing del demand nel controllo virtuale (`THERM.DEMAND_REASON`) e default espliciti per `DEMAND_ON` quando il loop non puo calcolare (manual override, no setpoint, no temp, ecc.).
 - Estesa UI Extra con campo `Reason` per capire in tempo reale perche il reale non viene pilotato.
-- File modificati: `app/main.py`, `app/debug_server.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-17 - v2.6.73 - Autore: Codex
 - Aggiunta diagnostica UI in Extra (solo sorgenti media sonde): `Demand (virtuale)`, `Target adattivo calcolato`, `Target reale letto (HA)`.
 - Esposti lato runtime i campi `THERM.DEMAND_ON`, `THERM.ADAPT_TARGET`, `THERM.REAL_TARGET_READ` per rendere tracciabile il comando al termostato reale.
-- File modificati: `app/main.py`, `app/debug_server.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-17 - v2.6.72 - Autore: Codex
 - Fix root-cause bridge HA multi-sensor: il polling del termostato reale non sovrascrive piu lo stato di controllo del virtuale (`TEMP_THR`, `ACT_SEA`, `ACT_MODEL`).
 - Il polling del reale salva solo telemetria separata (`REAL_TEMP`, `REAL_TARGET`, `REAL_HVAC`, `REAL_HVAC_ACTION`), evitando che il target virtuale venga annullato.
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-17 - v2.6.71 - Autore: Codex
 - Reso obbligatorio il bridge adattivo per sorgenti `ha_multi_sensor_avg`: non puo piu essere disattivato da config/UI per errore.
 - Disattivato in modo definitivo il sync setpoint diretto verso il termostato reale quando la sorgente e a media sonde (evita overwrite del target adattivo).
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-17 - v2.6.70 - Autore: Codex
 - Hardened adaptive setpoint write verso termostato reale: dopo ogni `set_temperature` viene verificato il target letto da HA.
 - Se il target non risulta applicato, il motore esegue fallback multipli (refresh hvac_mode, service generico climate, tentativo a step intero).
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-17 - v2.6.69 - Autore: Codex
 - Rafforzata la logica adattiva del termostato reale: con domanda ON viene garantito un gap minimo rispetto alla temperatura reale (`+1.0C` in heat, `-1.0C` in cool) per evitare target uguale alla temperatura ambiente.
 - Aggiunti parametri opzionali `real_thermostat.demand_min_gap_heat` e `real_thermostat.demand_min_gap_cool` (default 1.0).
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-17 - v2.6.68 - Autore: Codex
 - Corretto trigger domanda per termostato reale: in bridge `ha_multi_sensor_avg` la richiesta ON/OFF usa prima l'errore termico (`setpoint` vs `temperatura media`) e non solo il PWM.
 - Rafforzato invio `set_temperature` al clima reale con fallback multipli (refresh hvac_mode, path climate generico, tentativo a step intero) per integrazioni piÃ¹ rigide.
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-17 - v2.6.67 - Autore: Codex
 - Corretto il clone comandi del termostato virtuale su source `ha_multi_sensor_avg`: quando `adaptive_demand_setpoint` e attivo non viene piu inviato al termostato reale il setpoint del virtuale.
 - Evitato il conflitto tra `sync_setpoint` e logica adattiva (target reale derivato da temperatura reale +/- delta), cosi il reale segue davvero la richiesta del virtuale.
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-17 - v2.6.66 - Autore: Codex
 - Corretto controllo termostato reale: `min_cycle_sec` non blocca piÃ¹ la transizione a richiesta ON (quindi il setpoint adattivo `+1` in HEAT parte subito).
 - `min_cycle_sec` resta applicato solo alla transizione OFF, per evitare cicli troppo rapidi senza ritardare la chiamata calore.
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-28 - v2.6.92 - Autore: Codex
 - Consenso gruppi PDC allineato alla richiesta reale del termostato: introdotta _consensus_demand_for_therm e uso nei calcoli consenso (pdc e pdc/groups).
 - Il consenso non resta piu ON per fallback OUT_STATUS stantio: priorita a DEMAND_ON, fallback solo su output desiderati (power/fan).
-- File modificati: pp/main.py, config.yaml, README_ADDON.md, worklog.md.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 2026-04-17 - v2.6.65 - Autore: Codex
 - UI `/vtherm`: per source `ha_multi_sensor_avg` il form applica preset coerenti (min_cycle default `0`, uscite `power/fan3` disattivate, split OFF).
 - I checkbox uscite vengono disabilitati automaticamente per `ha_multi_sensor_avg` e riabilitati sugli altri source.
 - Salvataggio robusto: per `ha_multi_sensor_avg` le uscite vengono forzate OFF lato payload, evitando configurazioni incoerenti.
-- File modificati: `app/debug_server.py`, `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-17 - v2.6.64 - Autore: Codex
 - UI `/vtherm`: aggiunti nel popup i campi per tuning della logica adattiva del termostato reale (`adaptive_demand_setpoint`, delta base/step/max, keepalive, limiti target heat/cool).
 - Caricamento/modifica/default/salvataggio dei nuovi parametri direttamente dal form (non solo JSON avanzato).
-- File modificati: `app/debug_server.py`, `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 2026-04-17 - v2.6.63 - Autore: Codex
 - Termostato reale: aggiunta logica adattiva del setpoint in base alla sua temperatura ambiente quando il virtuale richiede caldo/freddo.
 - Supportati delta progressivi con step temporale, limiti min/max target, keepalive comando e reset delta a richiesta OFF.
 - Per sorgente `ha_multi_sensor_avg` il comportamento adattivo Ã¨ attivo di default (configurabile nei campi `real_thermostat.*`).
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-04-17 - v2.6.62 - Autore: Codex
 - Pagina dettaglio termostato: per sorgente `ha_multi_sensor_avg` la sezione Extra mostra le temperature delle sonde usate per la media e la media calcolata.
 - Nella stessa vista, i profili `T1/T2/T3/TM` vengono nascosti per i termostati a media sonde.
-- File modificati: `app/main.py`, `app/debug_server.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
@@ -231,7 +238,7 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 - UI `/vtherm` aggiornata per configurare via form il tipo sorgente `ha_multi_sensor_avg`.
 - Aggiunti campi UI: lista sonde HA, `min_valid_sensors`, `stale_sec`, termostato reale `climate`, flag sync e `min_cycle_sec`.
 - Estesa serializzazione/sanitizzazione JSON della UI con `real_thermostat` e validazioni dedicate.
-- File modificati: `app/debug_server.py`, `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
@@ -239,14 +246,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 - Nuova sorgente virtuale `ha_multi_sensor_avg`: media di 3 sonde HA per la temperatura misurata del vTherm.
 - Aggiunto bridge verso termostato reale (`climate`): sync setpoint/modalita e comando ON/OFF in base alla richiesta del virtuale.
 - Aggiunti parametri configurabili: `source.sensors`, `source.min_valid_sensors`, `source.stale_sec`, `real_thermostat.entity_id`, flag di sync e `min_cycle_sec`.
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
 2026-03-25 ? v2.6.50 ? Autore: Codex
 - Consenso gruppi: in HEAT attiva sia gruppo heat che gruppo cool; in COOL attiva solo cool.
 - Allineata versione add-on.
-- File modificati: `app/main.py`, `config.yaml`, `README_ADDON.md`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ---
 
@@ -372,172 +379,172 @@ Step B (funzionalitÃ  "wow"):
 
 ## 2026-01-25 â€” 2.0.3 â€” Autore: Automator
 - Automated test bump
-- File modificati: config.yaml, app/debug_server.py
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ## 2026-01-25  logo updated  Autore: Automator
 - Replaced addon logo with www/eTherm addon.png
 
 ## 2026-01-25 â€” 2.0.4 â€” Autore: Automator
 - Bumped addon version to `2.0.4` after admin/UI fixes; updated `UI_REV` and worklog.
-- File modificati: `config.yaml`, `app/debug_server.py`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ## 2026-01-25 â€” 2.0.5 â€” Autore: Automator
 - Automated bump to 2.0.5
-- File modificati: config.yaml, app/debug_server.py
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ## 2026-01-25 â€” 2.0.6 â€” Autore: Automator
 - Bump to 2.0.6 before index_debug test
-- File modificati: config.yaml, app/debug_server.py
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ## 2026-01-25 â€” 2.0.7 â€” Autore: Automator
 - Bump to 2.0.7; cleaned index_debug and worklog consolidation
-- File modificati: config.yaml, app/debug_server.py, worklog.md
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ## 2026-01-25 â€” 2.0.8 â€” Autore: Codex
 - index_debug: logo in alto e versione mostrata = versione add-on (da `config.yaml` / `ADDON_VERSION`), non UI rev.
-- File modificati: `config.yaml`, `app/debug_server.py`, `worklog.md`.
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-25 â€” 2.0.9 â€” Autore: Codex
 - index_debug: logo in header; mostra versione add-on (non UI)
-- File modificati: config.yaml, app/debug_server.py, worklog.md
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-25 â€” 2.0.10 â€” Autore: Codex
 - index_debug: asset path compatibile con Ingress + fallback versione (CODE_VERSION)
-- File modificati: config.yaml, app/debug_server.py, scripts/bump_release.py, worklog.md
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 ## 2026-01-26 ? 2.1.0 ? Autore: Codex
 - Allineata documentazione/README a e-Therm Plus KS.
 - MQTT: comandi `power`/`fan3` funzionanti (subscribe su `.../set`), stato retained e interlock fan3; stato manuale persistito in `/data/vtherm_runtime.json`.
 - Web auth: `none`/`basic`/`token` (token via `?token=...` imposta cookie HttpOnly).
 - Packaging: Dockerfile copia `config.yaml` in image; `run.sh` non richiede pi? bashio.
-- File modificati: README.md, README_ADDON.md, config.yaml, Dockerfile, run.sh, app/main.py, app/debug_server.py, worklog.md
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-26 â€” 2.1.1 â€” Autore: Codex
 - Bump versione dopo fix runtime/UI/auth.
-- File modificati: config.yaml, app/debug_server.py, worklog.md
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-26 â€” 2.1.2 â€” Autore: Codex
 - Fix allineamento UI termostato: realtime.THERM + static WIN/SUM; implementati comandi set_season/set_mode/set_profile/set_schedule.
-- File modificati: app/main.py, config.yaml, app/debug_server.py, worklog.md
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-26 â€” 2.2.0 â€” Autore: Codex
 - Aggiunto clone bidirezionale MQTT climate (discovery) per termostati e-safe: comandi HAâ†’e-safe (mode/preset/setpoint) e stato e-safeâ†’HA.
-- File modificati: app/main.py, config.yaml, app/debug_server.py, worklog.md
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-26 â€” 2.3.0 â€” Autore: Codex
 - Aggiunto controllo automatico PWM (PI) + mapping fan3 (min/med/max) con override manuale; nuove opzioni in config.yaml.
-- File modificati: config.yaml, app/main.py, worklog.md
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-26 â€” 2.3.1 â€” Autore: Codex
 - Schema opzioni: esposte in UI auto_control_enabled e parametri PWM/fan3.
-- File modificati: config.yaml, worklog.md, app/debug_server.py
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-26 â€” 2.3.2 â€” Autore: Codex
 - Fix schema opzioni: pwm_* come float (risolve invalid options) + descrizione corretta.
-- File modificati: config.yaml, worklog.md, app/debug_server.py
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-26 â€” 2.3.3 â€” Autore: Codex
 - Auto cleanup MQTT Discovery: rimuovendo un vTherm da /vtherm lâ€™add-on cancella i topic homeassistant/.../config retained (es. Cantina 2).
-- File modificati: app/main.py, config.yaml, app/debug_server.py, worklog.md
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-27 â€” 2.4.0 â€” Autore: Codex
 - UI vTherm user-friendly: CRUD termostati (aggiungi/modifica/duplica/elimina) + salvataggio, con editor JSON avanzato.
-- File modificati: app/debug_server.py, config.yaml, worklog.md
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-27 â€” 2.5.0 â€” Autore: Codex
 - Uscite separate per stagione: supporto outputs_heat/outputs_cool (heat vs cool) con topic MQTT e discovery distinti; UI vTherm aggiornata.
-- File modificati: app/main.py, app/debug_server.py, config.yaml, worklog.md
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-27 â€” 2.5.1 â€” Autore: Codex
 - Auto control per-termometro: auto_control_enabled configurabile per ogni vTherm (fallback al globale); UI /vtherm aggiornata.
-- File modificati: app/main.py, app/debug_server.py, config.yaml, worklog.md
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-27 â€” 2.5.2 â€” Autore: Codex
 - UI /vtherm: aggiunta descrizione accurata (guida configurazione e significato campi).
-- File modificati: app/debug_server.py, config.yaml, worklog.md
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-27 â€” 2.5.3 â€” Autore: Codex
 - UI vTherm: aggiunto pulsante Ricarica anche nel box Salvataggio e reso piÃ¹ visibile.
-- File modificati: app/debug_server.py
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-27 â€” 2.5.4 â€” Autore: Codex
 - README: spiegazione dettagliata (a prova di bambino) dei parametri default_profile e auto control (PWM/fan).
-- File modificati: README.md
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-27 â€” 2.5.5 â€” Autore: Codex
 - Watchdog stabile: auto-reconnect MQTT con backoff + ripartenza control thread; health visibile in /vtherm.
-- File modificati: app/main.py, config.yaml, app/debug_server.py
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-27 â€” 2.5.6 â€” Autore: Codex
 - Stabilita: ignora messaggi MQTT retained sui topic di comando */set per evitare override/auto bloccato dopo resubscribe.
-- File modificati: app/main.py
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-27 â€” 2.5.7 â€” Autore: Codex
 - Registro eventi e-Therm: log dettagliato con origine (esafe/ui/ha_mqtt/auto/system), persistito su /data/e_therm_events.jsonl; /logs include filtri origine/termostato e live update.
-- File modificati: app/main.py, app/debug_server.py
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-27 â€” 2.5.8 â€” Autore: Codex
 - Fix /logs vuoto: gli eventi e-Therm ora vengono pubblicati anche come entita type=logs (SSE live), oltre al salvataggio JSONL.
-- File modificati: app/main.py
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-27 â€” 2.5.9 â€” Autore: Codex
 - Diagnostica /logs: evento startup + pulsante Test log; handler e_therm/log_test.
-- File modificati: app/main.py, app/debug_server.py
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-27 â€” 2.6.0 â€” Autore: Codex
 - Fix /logs in Ingress: usa apiUrl() per /api/stream e /api/cmd; pulsante test log funziona anche via hassio_ingress.
-- File modificati: app/debug_server.py
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-28 â€” 2.6.1 â€” Autore: Codex
 - Fix /logs ancora vuoto: aggiunto polling /api/entities ogni 5s + refresh dopo Test log (fallback se SSE bloccato).
-- File modificati: app/debug_server.py
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-28 â€” 2.6.2 â€” Autore: Codex
 - Riduzione log: log_level (MIN/NORMAL/DEBUG), auto PWM throttling (step/time/stage), telemetria solo DEBUG, ACK/timeout per comandi UI/HA.
-- File modificati: config.yaml, app/main.py
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-28 â€” 2.6.3 â€” Autore: Codex
 - Logs UI: aggiunta esportazione TXT leggibile (rispetta filtri e ricerca).
-- File modificati: app/debug_server.py
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-28 â€” 2.6.4 â€” Autore: Codex
 - Log file cap: aggiunto log_file_max_kb e trimming automatico del file JSONL mantenendo gli eventi piu recenti.
-- File modificati: config.yaml, app/main.py
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-28 â€” 2.6.5 â€” Autore: Codex
 - Stabilita UI: /vtherm ora ha try/except e restituisce errore leggibile invece di pagina irraggiungibile.
-- File modificati: app/debug_server.py
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 
 ## 2026-01-28 â€” 2.6.6 â€” Autore: Codex
 - Fix /vtherm crash: import typing.Any in debug_server.
-- File modificati: app/debug_server.py
+- - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
 
 2026-03-24 | 2.6.7 | codex | Publish valve topic per termostato (PWM/stadi ON/OFF) | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
 2026-03-24 | 2.6.8 | codex | Aggiorna client MQTT (Callback API v2) | e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
@@ -580,4 +587,6 @@ Step B (funzionalitÃ  "wow"):
 2026-03-25 | 2.6.46 | codex | Improve group delete check with normalized matching and list of referencing thermostats | e_therm_plus_ks/app/debug_server.py, e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
 2026-03-25 | 2.6.48 | codex | Auto-save on group delete/clear to immediately remove MQTT discovery topics | e_therm_plus_ks/app/debug_server.py, e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
 2026-03-25 | 2.6.49 | codex | Replace HOT/LOW group split with HEAT/COOL per-thermostat group mapping; remove hot/low topics and valve extras | e_therm_plus_ks/app/debug_server.py, e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
+
+
 
