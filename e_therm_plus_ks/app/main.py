@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.102"
+APP_VERSION = "2.6.103"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -192,6 +192,8 @@ class ThermEngine:
         self._mqtt_connected = False
         self._mqtt_connecting = False
         self._mqtt_connecting_since = 0.0
+        self._mqtt_connected_since = 0.0
+        self._mqtt_stable_logged = False
         self._pending_discovery_cleanup: List[str] = []
         self._last_mqtt_any_ts = 0.0
         self._last_source_ts = 0.0
@@ -1964,6 +1966,28 @@ class ThermEngine:
                 pass
             self._reconnect_mqtt("mqtt_not_connected")
             return
+        # Emit a single "stable" marker after a continuous connected window.
+        try:
+            if (not self._mqtt_stable_logged) and float(self._mqtt_connected_since or 0.0):
+                if (now - float(self._mqtt_connected_since)) >= 60.0:
+                    self._mqtt_stable_logged = True
+                    print("[INFO] MQTT stable: connected for >=60s")
+                    try:
+                        self._log_event(
+                            origin="system",
+                            tid=None,
+                            name=None,
+                            source_num=None,
+                            category="mqtt",
+                            field="stable",
+                            old=False,
+                            new=True,
+                            msg="MQTT stable for >=60s",
+                        )
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
         # Only check "stale source" if we have received at least one source message before.
         if cfg_has_therms and self._ever_got_source:
@@ -2356,6 +2380,8 @@ class ThermEngine:
         rc = args[2] if len(args) > 2 else kwargs.get("rc", 0)
         self._mqtt_connecting = False
         self._mqtt_connecting_since = 0.0
+        self._mqtt_connected_since = 0.0
+        self._mqtt_stable_logged = False
         self._mqtt_connected = False
         try:
             self._last_mqtt_error = f"disconnect rc={rc}"
@@ -2403,6 +2429,8 @@ class ThermEngine:
             self._reconnect_backoff_sec = 5.0
             self._last_mqtt_any_ts = time.time()
             self._last_mqtt_error = ""
+            self._mqtt_connected_since = time.time()
+            self._mqtt_stable_logged = False
         except Exception:
             pass
         try:

@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-28 - v2.6.103 - Autore: Codex
+- Aggiunto marker di stabilità MQTT: log `[INFO] MQTT stable: connected for >=60s` dopo 60s continuativi connessi.
+- Migliorata diagnostica runtime per distinguere chiaramente un reconnect iniziale da instabilità reale.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-04-28 - v2.6.102 - Autore: Codex
 - Fix ulteriore reconnect MQTT: introdotto stato `connect in progress` con finestra di guardia (20s) per evitare reconnect multipli durante handshake/callback.
 - Evita churn di client (`connected`/`closed` a raffica) quando il broker risponde ma il watchdog interviene troppo presto.
