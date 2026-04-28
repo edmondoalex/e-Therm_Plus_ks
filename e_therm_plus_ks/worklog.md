@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-28 - v2.6.94 - Autore: Codex
+- Rilascio tuning isteresi: soglie esplicite pwm_deadband_on/off e configurazione simmetrica a 0.2/0.2.
+- Allineata versione addon/runtime/README.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
+
 2026-04-28 - v2.6.93 - Autore: Codex
 - Bump versione addon a 2.6.93 per nuovo rilascio.
 - Allineata versione runtime mostrata a boot (APP_VERSION) e README addon.
@@ -587,6 +595,7 @@ Step B (funzionalitÃ  "wow"):
 2026-03-25 | 2.6.46 | codex | Improve group delete check with normalized matching and list of referencing thermostats | e_therm_plus_ks/app/debug_server.py, e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
 2026-03-25 | 2.6.48 | codex | Auto-save on group delete/clear to immediately remove MQTT discovery topics | e_therm_plus_ks/app/debug_server.py, e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
 2026-03-25 | 2.6.49 | codex | Replace HOT/LOW group split with HEAT/COOL per-thermostat group mapping; remove hot/low topics and valve extras | e_therm_plus_ks/app/debug_server.py, e_therm_plus_ks/app/main.py, e_therm_plus_ks/config.yaml, e_therm_plus_ks/README_ADDON.md
+
 
 
 
