@@ -213,6 +213,8 @@ class ThermEngine:
         self.pwm_ki = float(opts.get("pwm_ki", 0.1) or 0.1)
         self.pwm_windup = float(opts.get("pwm_windup", 100.0) or 100.0)
         self.pwm_deadband = float(opts.get("pwm_deadband", 0.2) or 0.2)
+        self.pwm_deadband_on = float(opts.get("pwm_deadband_on", self.pwm_deadband) or self.pwm_deadband)
+        self.pwm_deadband_off = float(opts.get("pwm_deadband_off", self.pwm_deadband) or self.pwm_deadband)
         self.pwm_min_to_med = int(opts.get("pwm_min_to_med", 34) or 34)
         self.pwm_med_to_max = int(opts.get("pwm_med_to_max", 67) or 67)
         self.real_fan_min_hold_sec = int(opts.get("real_fan_min_hold_sec", 0) or 0)
@@ -223,6 +225,7 @@ class ThermEngine:
         self._manual_valve_state: Dict[str, Dict[str, bool]] = {}
         self._real_target_last: Dict[str, Any] = {}
         self._real_switch_skip_warned: set[str] = set()
+        self._demand_latch: Dict[str, bool] = {}
         self._real_therm_adapt: Dict[str, Dict[str, Any]] = {}
         self._control_thread: Optional[threading.Thread] = None
         self._watchdog_thread: Optional[threading.Thread] = None
@@ -2097,44 +2100,45 @@ class ThermEngine:
             _set_real_debug("OFF", "NO_SETPOINT")
             return
 
-        # OFF => outputs off
-        if model == "OFF":
-            pwm = 0
+        # Thermal error sign normalized as "positive means request active for current season".
+        if sea == "SUM":
+            err = cur_f - float(setp)
         else:
-            # deadband
-            if sea == "SUM":
-                err = cur_f - float(setp)
-            else:
-                err = float(setp) - cur_f
-            if abs(err) < float(self.pwm_deadband):
-                pwm = 0
-            else:
-                c = self._get_pwm_controller(tid)
-                if sea == "SUM":
-                    pwm = c.compute_pwm(cur_f, float(setp), now=now)
-                else:
-                    pwm = c.compute_pwm(float(setp), cur_f, now=now)
+            err = float(setp) - cur_f
 
-        # For real thermostat bridge, treat thermal error as primary demand signal.
+        # Deterministic hysteresis with latch:
+        # - ON threshold is stricter (deadband_on)
+        # - OFF threshold releases later (deadband_off)
+        # This guarantees that when delta is clearly sufficient, demand always starts.
         demand_on = False
         demand_reason = "NO_DEMAND"
-        try:
-            if str(model).upper() != "OFF":
-                if sea == "SUM":
-                    demand_on = (cur_f - float(setp)) > float(self.pwm_deadband)
-                    demand_reason = "COOL_ERROR" if demand_on else "COOL_NO_ERROR"
-                else:
-                    demand_on = (float(setp) - cur_f) > float(self.pwm_deadband)
-                    demand_reason = "HEAT_ERROR" if demand_on else "HEAT_NO_ERROR"
-                if not demand_on:
-                    demand_on = bool(int(pwm) > 0)
-                    if demand_on:
-                        demand_reason = "PWM_FALLBACK"
+        if str(model).upper() == "OFF":
+            demand_on = False
+            demand_reason = "MODEL_OFF"
+        else:
+            on_thr = float(max(0.0, self.pwm_deadband_on))
+            off_thr = float(max(0.0, self.pwm_deadband_off))
+            if off_thr > on_thr:
+                off_thr = on_thr
+            latch_key = f"{tid}:{active_sk if split else 'single'}"
+            prev_on = bool(self._demand_latch.get(latch_key, False))
+            if prev_on:
+                demand_on = bool(err > off_thr)
+                demand_reason = "HYST_HOLD" if demand_on else "HYST_RELEASE"
             else:
-                demand_reason = "MODEL_OFF"
-        except Exception:
-            demand_on = bool(int(pwm) > 0 and str(model).upper() != "OFF")
-            demand_reason = "EXCEPTION_FALLBACK" if demand_on else "EXCEPTION_NO_DEMAND"
+                demand_on = bool(err > on_thr)
+                demand_reason = "HYST_START" if demand_on else "HYST_WAIT"
+            self._demand_latch[latch_key] = bool(demand_on)
+
+        # PWM is now coherent with hysteresis demand state.
+        if not demand_on:
+            pwm = 0
+        else:
+            c = self._get_pwm_controller(tid)
+            if sea == "SUM":
+                pwm = c.compute_pwm(cur_f, float(setp), now=now)
+            else:
+                pwm = c.compute_pwm(float(setp), cur_f, now=now)
 
         _set_real_debug("ON" if demand_on else "OFF", demand_reason)
 
