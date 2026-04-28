@@ -2675,6 +2675,56 @@ class ThermEngine:
             pass
         return False
 
+    def _consensus_demand_for_therm(self, t: Dict[str, Any]) -> bool:
+        """Return True only when the thermostat is actively requesting demand.
+
+        For PDC consensus we prefer explicit demand/output intent and avoid
+        keeping group consensus ON because of stale OUT_STATUS fallback.
+        """
+        tid = str(t.get("id"))
+        try:
+            rt = self.rt.get(tid) or {}
+            th = rt.get("THERM") if isinstance(rt.get("THERM"), dict) else {}
+            d = str(th.get("DEMAND_ON") or "").upper()
+            if d == "ON":
+                return True
+            if d == "OFF":
+                return False
+        except Exception:
+            pass
+
+        # Fallback when DEMAND_ON is not yet available: use desired outputs only.
+        split = self._is_split_outputs(t)
+        if split:
+            for sk in ("heat", "cool"):
+                outputs = self._outputs_for_season(t, sk)
+                if not (outputs.get("power") or outputs.get("fan3")):
+                    continue
+                desired = self._get_desired_season(tid, sk)
+                power = int(desired.get("power", 0) or 0)
+                fan = desired.get("fan") or {}
+                fan_on = (
+                    str(fan.get("min", "OFF")).upper() == "ON"
+                    or str(fan.get("med", "OFF")).upper() == "ON"
+                    or str(fan.get("max", "OFF")).upper() == "ON"
+                )
+                if power > 0 or fan_on:
+                    return True
+            return False
+
+        outputs = t.get("outputs") or {}
+        if not (outputs.get("power") or outputs.get("fan3")):
+            return False
+        desired = self._get_desired(tid)
+        power = int(desired.get("power", 0) or 0)
+        fan = desired.get("fan") or {}
+        fan_on = (
+            str(fan.get("min", "OFF")).upper() == "ON"
+            or str(fan.get("med", "OFF")).upper() == "ON"
+            or str(fan.get("max", "OFF")).upper() == "ON"
+        )
+        return bool(power > 0 or fan_on)
+
     def _calc_auto_valves(self, t: Dict[str, Any]) -> tuple[bool, bool]:
         """Return (low_on, hot_on) for automatic logic."""
         tid = str(t.get("id"))
@@ -2734,7 +2784,7 @@ class ThermEngine:
         on_ha_cool = False
         try:
             for t in self.therm_list():
-                if not self._valve_on_for_therm(t):
+                if not self._consensus_demand_for_therm(t):
                     continue
                 src = t.get("source") if isinstance(t.get("source"), dict) else {}
                 src_type = str((src or {}).get("type") or "").strip().lower()
@@ -2806,7 +2856,7 @@ class ThermEngine:
                         groups[g_key] = {"label": g_label, "on": False, "on_heat": False, "on_cool": False}
 
             for t in all_therms:
-                if not self._valve_on_for_therm(t):
+                if not self._consensus_demand_for_therm(t):
                     continue
                 g_heat = str(t.get("consensus_group_heat") or t.get("consensus_group") or t.get("pdc_group") or "").strip()
                 g_cool = str(t.get("consensus_group_cool") or t.get("consensus_group") or t.get("pdc_group") or "").strip()
