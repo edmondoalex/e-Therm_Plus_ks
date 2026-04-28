@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.99"
+APP_VERSION = "2.6.100"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -3362,13 +3362,6 @@ class ThermEngine:
         t = self._find_by_id(tid)
         if not t:
             return True
-        # In automatic mode, ignore manual valve commands from MQTT/HA
-        # (including restore-state side effects after restart).
-        try:
-            if self._auto_enabled_for(t):
-                return True
-        except Exception:
-            pass
         on = str(payload_raw or "").strip().upper() in ("ON", "1", "TRUE", "YES")
         low_on, hot_on = self._calc_auto_valves(t)
         sea = ""

@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-28 - v2.6.100 - Autore: Codex
+- Ripristinati i comandi manuali valvole MQTT anche con `auto_control_enabled` attivo.
+- Manteniamo il filtro sui soli comandi retained (`.../set` con retain) per evitare restore indesiderato al riavvio.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-04-28 - v2.6.99 - Autore: Codex
 - Blocco comandi manuali valvole via MQTT quando `auto_control_enabled` è attivo (evita riaccensioni `valv/valv_hot/valv_low` da restore stato HA dopo reboot).
 - File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
