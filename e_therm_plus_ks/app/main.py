@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.94"
+APP_VERSION = "2.6.95"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -2106,10 +2106,13 @@ class ThermEngine:
         else:
             err = float(setp) - cur_f
 
-        # Deterministic hysteresis with latch:
-        # - ON threshold is stricter (deadband_on)
-        # - OFF threshold releases later (deadband_off)
-        # This guarantees that when delta is clearly sufficient, demand always starts.
+        # Deterministic hysteresis with centered band around setpoint:
+        # COOL:
+        #   - start ON at setpoint + deadband_on
+        #   - keep ON until temperature drops to setpoint - deadband_off
+        # HEAT:
+        #   - start ON at setpoint - deadband_on
+        #   - keep ON until temperature rises to setpoint + deadband_off
         demand_on = False
         demand_reason = "NO_DEMAND"
         if str(model).upper() == "OFF":
@@ -2122,12 +2125,24 @@ class ThermEngine:
                 off_thr = on_thr
             latch_key = f"{tid}:{active_sk if split else 'single'}"
             prev_on = bool(self._demand_latch.get(latch_key, False))
-            if prev_on:
-                demand_on = bool(err > off_thr)
-                demand_reason = "HYST_HOLD" if demand_on else "HYST_RELEASE"
+            if sea == "SUM":
+                start_thr = float(setp) + on_thr
+                stop_thr = float(setp) - off_thr
+                if prev_on:
+                    demand_on = bool(cur_f > stop_thr)
+                    demand_reason = "HYST_HOLD_COOL" if demand_on else "HYST_RELEASE_COOL"
+                else:
+                    demand_on = bool(cur_f >= start_thr)
+                    demand_reason = "HYST_START_COOL" if demand_on else "HYST_WAIT_COOL"
             else:
-                demand_on = bool(err > on_thr)
-                demand_reason = "HYST_START" if demand_on else "HYST_WAIT"
+                start_thr = float(setp) - on_thr
+                stop_thr = float(setp) + off_thr
+                if prev_on:
+                    demand_on = bool(cur_f < stop_thr)
+                    demand_reason = "HYST_HOLD_HEAT" if demand_on else "HYST_RELEASE_HEAT"
+                else:
+                    demand_on = bool(cur_f <= start_thr)
+                    demand_reason = "HYST_START_HEAT" if demand_on else "HYST_WAIT_HEAT"
             self._demand_latch[latch_key] = bool(demand_on)
 
         # PWM is now coherent with hysteresis demand state.
