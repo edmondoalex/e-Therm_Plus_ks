@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-28 - v2.6.102 - Autore: Codex
+- Fix ulteriore reconnect MQTT: introdotto stato `connect in progress` con finestra di guardia (20s) per evitare reconnect multipli durante handshake/callback.
+- Evita churn di client (`connected`/`closed` a raffica) quando il broker risponde ma il watchdog interviene troppo presto.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-04-28 - v2.6.101 - Autore: Codex
 - Fix reconnect storm MQTT: ignorati callback `on_connect`/`on_disconnect` provenienti da client stale sostituiti durante reconnect watchdog.
 - Evita falsi `mqtt_not_connected` causati da disconnect tardivi del client precedente.

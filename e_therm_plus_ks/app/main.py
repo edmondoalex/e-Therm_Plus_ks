@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.101"
+APP_VERSION = "2.6.102"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -190,6 +190,8 @@ class ThermEngine:
         # MQTT
         self.mqtt = self._create_mqtt_client()
         self._mqtt_connected = False
+        self._mqtt_connecting = False
+        self._mqtt_connecting_since = 0.0
         self._pending_discovery_cleanup: List[str] = []
         self._last_mqtt_any_ts = 0.0
         self._last_source_ts = 0.0
@@ -1758,9 +1760,12 @@ class ThermEngine:
     def connect(self):
         host, port = self._mqtt_target()
         try:
+            self._mqtt_connecting = True
+            self._mqtt_connecting_since = time.time()
             self.mqtt.connect(host, port, 60)
             self.mqtt.loop_start()
         except Exception as e:
+            self._mqtt_connecting = False
             print(f"[WARN] MQTT connect failed to {host}:{port} -> {e}")
             try:
                 self.mqtt.loop_start()
@@ -1825,8 +1830,11 @@ class ThermEngine:
                 pass
 
             try:
+                self._mqtt_connecting = True
+                self._mqtt_connecting_since = time.time()
                 self.mqtt.connect(host, port, 60)
             except Exception as e:
+                self._mqtt_connecting = False
                 print(f"[WATCHDOG] MQTT reconnect connect() failed: {e}")
 
             try:
@@ -1945,6 +1953,15 @@ class ThermEngine:
 
         # If MQTT reports disconnected, attempt reconnect with backoff.
         if not bool(self._mqtt_connected):
+            # If a connection attempt is already in progress, wait a bit before forcing
+            # another reconnect to avoid client churn during handshake/callback latency.
+            try:
+                if bool(self._mqtt_connecting):
+                    age = now - float(self._mqtt_connecting_since or 0.0)
+                    if age < 20.0:
+                        return
+            except Exception:
+                pass
             self._reconnect_mqtt("mqtt_not_connected")
             return
 
@@ -2337,6 +2354,8 @@ class ThermEngine:
         if client is not None and client is not self.mqtt:
             return
         rc = args[2] if len(args) > 2 else kwargs.get("rc", 0)
+        self._mqtt_connecting = False
+        self._mqtt_connecting_since = 0.0
         self._mqtt_connected = False
         try:
             self._last_mqtt_error = f"disconnect rc={rc}"
@@ -2370,6 +2389,8 @@ class ThermEngine:
         flags = args[2] if len(args) > 2 else kwargs.get("flags", {})
         rc = args[3] if len(args) > 3 else kwargs.get("rc", 0)
         ok = (int(rc) == 0)
+        self._mqtt_connecting = False
+        self._mqtt_connecting_since = 0.0
         self._mqtt_connected = bool(ok)
         if not ok:
             try:
