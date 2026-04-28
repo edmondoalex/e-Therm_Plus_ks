@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.104"
+APP_VERSION = "2.6.106"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -190,10 +190,6 @@ class ThermEngine:
         # MQTT
         self.mqtt = self._create_mqtt_client()
         self._mqtt_connected = False
-        self._mqtt_connecting = False
-        self._mqtt_connecting_since = 0.0
-        self._mqtt_connected_since = 0.0
-        self._mqtt_stable_logged = False
         self._pending_discovery_cleanup: List[str] = []
         self._last_mqtt_any_ts = 0.0
         self._last_source_ts = 0.0
@@ -205,6 +201,7 @@ class ThermEngine:
         self._last_ha_poll_ts = 0.0
         self._last_ha_sensor_poll_ts = 0.0
         self._last_ha_warn_ts = 0.0
+        self._last_discovery_publish_ts = 0.0
 
         # realtime cache per vtherm id
         self.rt: Dict[str, Dict[str, Any]] = {}
@@ -1755,19 +1752,19 @@ class ThermEngine:
         except Exception:
             pass
         self._sync_ui()
-        self._publish_discovery()
+        # Throttle full discovery republish on reconnect to avoid MQTT burst/flood.
+        now_pub = time.time()
+        if (now_pub - float(self._last_discovery_publish_ts or 0.0)) >= 300.0:
+            self._publish_discovery()
 
     # -------------------- MQTT connect --------------------
 
     def connect(self):
         host, port = self._mqtt_target()
         try:
-            self._mqtt_connecting = True
-            self._mqtt_connecting_since = time.time()
             self.mqtt.connect(host, port, 60)
             self.mqtt.loop_start()
         except Exception as e:
-            self._mqtt_connecting = False
             print(f"[WARN] MQTT connect failed to {host}:{port} -> {e}")
             try:
                 self.mqtt.loop_start()
@@ -1832,11 +1829,8 @@ class ThermEngine:
                 pass
 
             try:
-                self._mqtt_connecting = True
-                self._mqtt_connecting_since = time.time()
                 self.mqtt.connect(host, port, 60)
             except Exception as e:
-                self._mqtt_connecting = False
                 print(f"[WATCHDOG] MQTT reconnect connect() failed: {e}")
 
             try:
@@ -1955,43 +1949,11 @@ class ThermEngine:
 
         # If MQTT reports disconnected, attempt reconnect with backoff.
         if not bool(self._mqtt_connected):
-            # If a connection attempt is already in progress, wait a bit before forcing
-            # another reconnect to avoid client churn during handshake/callback latency.
-            try:
-                if bool(self._mqtt_connecting):
-                    age = now - float(self._mqtt_connecting_since or 0.0)
-                    if age < 20.0:
-                        return
-            except Exception:
-                pass
             self._reconnect_mqtt("mqtt_not_connected")
             return
-        # Emit a single "stable" marker after a continuous connected window.
-        try:
-            if (not self._mqtt_stable_logged) and float(self._mqtt_connected_since or 0.0):
-                if (now - float(self._mqtt_connected_since)) >= 60.0:
-                    self._mqtt_stable_logged = True
-                    print("[INFO] MQTT stable: connected for >=60s")
-                    try:
-                        self._log_event(
-                            origin="system",
-                            tid=None,
-                            name=None,
-                            source_num=None,
-                            category="mqtt",
-                            field="stable",
-                            old=False,
-                            new=True,
-                            msg="MQTT stable for >=60s",
-                        )
-                    except Exception:
-                        pass
-        except Exception:
-            pass
 
         # Only check "stale source" if we have received at least one source message before.
-        reconnect_on_stale = bool(self.opts.get("watchdog_reconnect_on_stale_source", False))
-        if reconnect_on_stale and cfg_has_therms and self._ever_got_source:
+        if cfg_has_therms and self._ever_got_source:
             last_src = float(self._last_source_ts or 0.0)
             if last_src and (now - last_src) > float(stale_sec):
                 self._reconnect_mqtt(f"stale_source>{stale_sec}s")
@@ -2375,14 +2337,7 @@ class ThermEngine:
                 pass
     def _on_disconnect(self, *args, **kwargs):
         client = args[0] if len(args) > 0 else None
-        # Ignore callbacks from stale MQTT clients that were replaced during reconnect.
-        if client is not None and client is not self.mqtt:
-            return
         rc = args[2] if len(args) > 2 else kwargs.get("rc", 0)
-        self._mqtt_connecting = False
-        self._mqtt_connecting_since = 0.0
-        self._mqtt_connected_since = 0.0
-        self._mqtt_stable_logged = False
         self._mqtt_connected = False
         try:
             self._last_mqtt_error = f"disconnect rc={rc}"
@@ -2410,28 +2365,13 @@ class ThermEngine:
 
     def _on_connect(self, *args, **kwargs):
         client = args[0] if len(args) > 0 else None
-        # Ignore callbacks from stale MQTT clients that were replaced during reconnect.
-        if client is not None and client is not self.mqtt:
-            return
         flags = args[2] if len(args) > 2 else kwargs.get("flags", {})
         rc = args[3] if len(args) > 3 else kwargs.get("rc", 0)
-        ok = (int(rc) == 0)
-        self._mqtt_connecting = False
-        self._mqtt_connecting_since = 0.0
-        self._mqtt_connected = bool(ok)
-        if not ok:
-            try:
-                self._last_mqtt_error = f"connect rc={rc}"
-            except Exception:
-                pass
-            print(f"[WARN] MQTT on_connect rc={rc} (connection not established)")
-            return
+        self._mqtt_connected = True
         try:
             self._reconnect_backoff_sec = 5.0
             self._last_mqtt_any_ts = time.time()
             self._last_mqtt_error = ""
-            self._mqtt_connected_since = time.time()
-            self._mqtt_stable_logged = False
         except Exception:
             pass
         try:
@@ -3745,6 +3685,10 @@ class ThermEngine:
             pass
 
     def _publish_discovery(self):
+        try:
+            self._last_discovery_publish_ts = time.time()
+        except Exception:
+            pass
         base = "homeassistant"
         # General PDC consensus switch
         pdc_uid = "e_therm_pdc"

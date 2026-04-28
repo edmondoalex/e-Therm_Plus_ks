@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-28 - v2.6.106 - Autore: Codex
+- Rollback mirato della gestione reconnect MQTT al comportamento stabile pre-regressione (baseline 2.6.87).
+- Ridotto burst MQTT su reconnessione: republish discovery completo limitato a massimo 1 volta ogni 300s.
+- Rimossa opzione non piu usata `watchdog_reconnect_on_stale_source` per coerenza config/runtime.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-04-28 - v2.6.104 - Autore: Codex
 - Risolto reconnect periodico non desiderato: il watchdog non forza piu reconnect su `stale_source` di default.
 - Nuova opzione `watchdog_reconnect_on_stale_source` (default `false`) per riattivare il comportamento precedente solo se richiesto.
