@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.95"
+APP_VERSION = "2.6.97"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1329,12 +1329,22 @@ class ThermEngine:
         if not ent.startswith("switch."):
             return
         desired = "ON" if on else "OFF"
+        desired_state = "on" if on else "off"
         cache_key = f"sw:{ent}"
         if str(self._real_target_last.get(cache_key) or "") == desired:
-            return
+            st = self._ha_api_request("GET", f"/states/{ent}")
+            cur = str((st or {}).get("state") or "").strip().lower() if isinstance(st, dict) else ""
+            if cur == desired_state:
+                return
         ok = self._ha_service_call("switch", "turn_on" if on else "turn_off", {"entity_id": ent})
-        if ok:
+        st2 = self._ha_api_request("GET", f"/states/{ent}")
+        cur2 = str((st2 or {}).get("state") or "").strip().lower() if isinstance(st2, dict) else ""
+        if ok and cur2 == desired_state:
             self._real_target_last[cache_key] = desired
+        else:
+            # Do not cache desired state if HA still reports a different value;
+            # this forces automatic retry on the next control cycle.
+            self._real_target_last.pop(cache_key, None)
 
     def _apply_real_switches(self, entities: Any, on: bool) -> None:
         for ent in self._split_entities(entities):
@@ -2747,7 +2757,9 @@ class ThermEngine:
     def _calc_auto_valves(self, t: Dict[str, Any]) -> tuple[bool, bool]:
         """Return (low_on, hot_on) for automatic logic."""
         tid = str(t.get("id"))
-        demand = self._valve_on_for_therm(t)
+        # Use the same demand signal used by consensus groups to avoid
+        # stale OUT_STATUS-driven valve activations.
+        demand = self._consensus_demand_for_therm(t)
         sea = ""
         try:
             rt = self.rt.get(tid) or {}
@@ -2761,9 +2773,13 @@ class ThermEngine:
             if sea == "SUM":
                 hot_on = True
                 low_on = False
-            else:
+            elif sea == "WIN":
                 hot_on = True
                 low_on = True
+            else:
+                # Unknown season: fail-safe OFF to avoid energizing floor loop.
+                hot_on = False
+                low_on = False
         return (low_on, hot_on)
 
     def _publish_valve_state(self, t: Dict[str, Any]) -> None:
