@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.109"
+APP_VERSION = "2.6.110"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -3512,7 +3512,21 @@ class ThermEngine:
                 if target is not None:
                     v = _as_float(target)
                     if v is not None:
-                        th["TEMP_THR"] = {"VAL": float(v)}
+                        # Anti-rollback: if a setpoint command is pending ACK, do not
+                        # overwrite local TEMP_THR with stale source value.
+                        keep_local = False
+                        try:
+                            ack = self._pending_acks.get(self._ack_key(str(tid), "setpoint")) or {}
+                            if ack:
+                                exp = _as_float(ack.get("expected"))
+                                ts0 = float(ack.get("ts") or 0.0)
+                                if exp is not None and ts0 and (time.time() - ts0) <= float(self.log_ack_timeout_sec):
+                                    if abs(float(v) - float(exp)) > 0.05:
+                                        keep_local = True
+                        except Exception:
+                            keep_local = False
+                        if not keep_local:
+                            th["TEMP_THR"] = {"VAL": float(v)}
 
                 # Best-effort ACT_MODE mapping
                 sea_up = str(th.get("ACT_SEA") or "").upper()

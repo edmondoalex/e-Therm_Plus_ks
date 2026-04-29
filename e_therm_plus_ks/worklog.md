@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-29 - v2.6.110 - Autore: Codex
+- Fix setpoint climate clone: evitato rollback immediato al valore vecchio quando arriva un update e-safe stale dopo `target_temperature/set`.
+- Durante ACK pendente del setpoint, `TEMP_THR` non viene sovrascritto da valori sorgente diversi dall'atteso.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-04-29 - v2.6.109 - Autore: Codex
 - Migliorata reattivita spegnimento switch reali: rimosso doppio readback sincrono HA (`GET /states`) per ogni comando `switch.turn_on/off`.
 - Applicato fast-path su cache comando riuscito per ridurre latenza quando molte entita devono spegnersi insieme.
