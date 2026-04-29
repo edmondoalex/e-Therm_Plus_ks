@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-29 - v2.6.111 - Autore: Codex
+- Registro Eventi: aggiunti in header `File KB` e `Eventi su disco` (metadati runtime da `e_therm_events_meta`).
+- Backend log: aggiornati metadati dimensione/conteggio file eventi con refresh dopo trim e aggiornamento incrementale a runtime.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-04-29 - v2.6.110 - Autore: Codex
 - Fix setpoint climate clone: evitato rollback immediato al valore vecchio quando arriva un update e-safe stale dopo `target_temperature/set`.
 - Durante ACK pendente del setpoint, `TEMP_THR` non viene sovrascritto da valori sorgente diversi dall'atteso.

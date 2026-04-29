@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.110"
+APP_VERSION = "2.6.111"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -234,6 +234,7 @@ class ThermEngine:
         # event log (for /logs UI)
         self._events_lock = threading.Lock()
         self._events: List[Dict[str, Any]] = []
+        self._events_file_count = 0
         self._last_temp_log: Dict[str, Dict[str, Any]] = {}
         self._event_seq = 0
         self._pending_acks: Dict[str, Dict[str, Any]] = {}
@@ -369,8 +370,41 @@ class ThermEngine:
                 self._events = out[-400:]
             try:
                 self.state.set_meta("e_therm_events", self._events[-200:])
+                self._update_events_meta_stats(recount=True)
             except Exception:
                 pass
+        except Exception:
+            pass
+
+    def _update_events_meta_stats(self, *, recount: bool = False, delta: int = 0) -> None:
+        try:
+            file_bytes = int(os.path.getsize(EVENTS_PATH)) if os.path.exists(EVENTS_PATH) else 0
+        except Exception:
+            file_bytes = 0
+        file_events = int(self._events_file_count or 0)
+        if recount:
+            try:
+                c = 0
+                if os.path.exists(EVENTS_PATH):
+                    with open(EVENTS_PATH, "rb") as f:
+                        for ln in f:
+                            if ln.strip():
+                                c += 1
+                file_events = int(c)
+            except Exception:
+                file_events = int(self._events_file_count or 0)
+        elif delta:
+            file_events = max(0, int(file_events) + int(delta))
+        self._events_file_count = int(file_events)
+        try:
+            self.state.set_meta(
+                "e_therm_events_meta",
+                {
+                    "file_bytes": int(file_bytes),
+                    "file_kb": round(float(file_bytes) / 1024.0, 1),
+                    "file_events": int(file_events),
+                },
+            )
         except Exception:
             pass
 
@@ -446,6 +480,7 @@ class ThermEngine:
                 snap = self._events[-200:]
             try:
                 self.state.set_meta("e_therm_events", snap)
+                self._update_events_meta_stats(delta=1)
             except Exception:
                 pass
         except Exception:
@@ -501,6 +536,7 @@ class ThermEngine:
             with open(tmp, "wb") as f:
                 f.write(data)
             os.replace(tmp, EVENTS_PATH)
+            self._update_events_meta_stats(recount=True)
         except Exception:
             try:
                 if os.path.exists(tmp):

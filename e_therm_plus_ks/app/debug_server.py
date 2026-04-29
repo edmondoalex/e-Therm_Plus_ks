@@ -12074,6 +12074,8 @@ def render_logs(snapshot):
     <h2>Ksenia Lares - Registro Eventi {f'<span class="badge">v{_html_escape(ADDON_VERSION)}</span>' if ADDON_VERSION else ''}</h2>
     <div class="meta">
       Log: <span id="count" class="badge">{len(logs)}</span>
+      &nbsp;|&nbsp; File KB: <span id="fileKb" class="badge">{_html_escape(((meta.get("e_therm_events_meta") or {}).get("file_kb", "-")))}</span>
+      &nbsp;|&nbsp; Eventi su disco: <span id="fileEvents" class="badge">{_html_escape(((meta.get("e_therm_events_meta") or {}).get("file_events", "-")))}</span>
       &nbsp;|&nbsp; Last update: <span id="lastUpdate" class="badge">{_html_escape(_fmt_ts(meta.get("last_update")))}</span>
       &nbsp;|&nbsp; Add-on: <span class="badge">v{_html_escape(ADDON_VERSION or _read_addon_version_from_config() or UI_REV)}</span>
     </div>
@@ -12380,6 +12382,11 @@ def render_logs(snapshot):
           const lastUpdateStr = meta.last_update ? new Date(meta.last_update * 1000).toISOString().replace('T', ' ').slice(0, 19) : '-';
           const el = document.getElementById('lastUpdate');
           if (el) el.innerText = lastUpdateStr;
+          const evm = meta.e_therm_events_meta || {{}};
+          const kbEl = document.getElementById('fileKb');
+          if (kbEl) kbEl.innerText = (evm.file_kb !== undefined && evm.file_kb !== null) ? String(evm.file_kb) : '-';
+          const feEl = document.getElementById('fileEvents');
+          if (feEl) feEl.innerText = (evm.file_events !== undefined && evm.file_events !== null) ? String(evm.file_events) : '-';
           let changed = false;
           if (ingestEThermEvents(meta)) changed = true;
           const ents = data.entities || [];
@@ -12418,6 +12425,11 @@ def render_logs(snapshot):
           const lastUpdateStr = meta.last_update ? new Date(meta.last_update * 1000).toISOString().replace('T', ' ').slice(0, 19) : '-';
           const el = document.getElementById('lastUpdate');
           if (el) el.innerText = lastUpdateStr;
+          const evm = meta.e_therm_events_meta || {{}};
+          const kbEl = document.getElementById('fileKb');
+          if (kbEl) kbEl.innerText = (evm.file_kb !== undefined && evm.file_kb !== null) ? String(evm.file_kb) : '-';
+          const feEl = document.getElementById('fileEvents');
+          if (feEl) feEl.innerText = (evm.file_events !== undefined && evm.file_events !== null) ? String(evm.file_events) : '-';
           const ents = data.entities || [];
           let changed = false;
           if (ingestEThermEvents(meta)) changed = true;
