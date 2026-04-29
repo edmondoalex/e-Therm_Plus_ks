@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.108"
+APP_VERSION = "2.6.109"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1330,21 +1330,14 @@ class ThermEngine:
         if not ent.startswith("switch."):
             return
         desired = "ON" if on else "OFF"
-        desired_state = "on" if on else "off"
         cache_key = f"sw:{ent}"
         if str(self._real_target_last.get(cache_key) or "") == desired:
-            st = self._ha_api_request("GET", f"/states/{ent}")
-            cur = str((st or {}).get("state") or "").strip().lower() if isinstance(st, dict) else ""
-            if cur == desired_state:
-                return
+            return
         ok = self._ha_service_call("switch", "turn_on" if on else "turn_off", {"entity_id": ent})
-        st2 = self._ha_api_request("GET", f"/states/{ent}")
-        cur2 = str((st2 or {}).get("state") or "").strip().lower() if isinstance(st2, dict) else ""
-        if ok and cur2 == desired_state:
+        if ok:
+            # Fast path: avoid blocking readback GET per entity.
             self._real_target_last[cache_key] = desired
         else:
-            # Do not cache desired state if HA still reports a different value;
-            # this forces automatic retry on the next control cycle.
             self._real_target_last.pop(cache_key, None)
 
     def _apply_real_switches(self, entities: Any, on: bool) -> None:

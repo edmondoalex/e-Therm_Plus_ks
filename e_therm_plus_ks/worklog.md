@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-29 - v2.6.109 - Autore: Codex
+- Migliorata reattivita spegnimento switch reali: rimosso doppio readback sincrono HA (`GET /states`) per ogni comando `switch.turn_on/off`.
+- Applicato fast-path su cache comando riuscito per ridurre latenza quando molte entita devono spegnersi insieme.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-04-29 - v2.6.108 - Autore: Codex
 - Stabilita MQTT/HA: rimosso reconnect forzato su `stale_source` (si riconnette solo su vera disconnessione MQTT).
 - Evitato publish retained `offline` su disconnect transitori per non far sparire/andare unavailable le entita e-Therm in HA.
