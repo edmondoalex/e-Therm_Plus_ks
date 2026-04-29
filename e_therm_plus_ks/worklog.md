@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-29 - v2.6.107 - Autore: Codex
+- Fix MQTT: ripristinato filtro callback per client stale su `on_connect`/`on_disconnect` (evita falsi `mqtt_not_connected` durante reconnect).
+- Reintrodotta opzione `watchdog_reconnect_on_stale_source` (default `false`) per disattivare reconnect periodici su sorgente non aggiornata.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-04-28 - v2.6.106 - Autore: Codex
 - Rollback mirato della gestione reconnect MQTT al comportamento stabile pre-regressione (baseline 2.6.87).
 - Ridotto burst MQTT su reconnessione: republish discovery completo limitato a massimo 1 volta ogni 300s.
