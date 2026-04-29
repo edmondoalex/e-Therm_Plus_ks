@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-04-29 - v2.6.108 - Autore: Codex
+- Stabilita MQTT/HA: rimosso reconnect forzato su `stale_source` (si riconnette solo su vera disconnessione MQTT).
+- Evitato publish retained `offline` su disconnect transitori per non far sparire/andare unavailable le entita e-Therm in HA.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-04-29 - v2.6.107 - Autore: Codex
 - Fix MQTT: ripristinato filtro callback per client stale su `on_connect`/`on_disconnect` (evita falsi `mqtt_not_connected` durante reconnect).
 - Reintrodotta opzione `watchdog_reconnect_on_stale_source` (default `false`) per disattivare reconnect periodici su sorgente non aggiornata.

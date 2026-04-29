@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.107"
+APP_VERSION = "2.6.108"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1952,12 +1952,7 @@ class ThermEngine:
             self._reconnect_mqtt("mqtt_not_connected")
             return
 
-        # Only check "stale source" if we have received at least one source message before.
-        reconnect_on_stale = bool(self.opts.get("watchdog_reconnect_on_stale_source", False))
-        if reconnect_on_stale and cfg_has_therms and self._ever_got_source:
-            last_src = float(self._last_source_ts or 0.0)
-            if last_src and (now - last_src) > float(stale_sec):
-                self._reconnect_mqtt(f"stale_source>{stale_sec}s")
+        # Do not force reconnect based on source staleness; reconnect only on real MQTT disconnect.
 
 
 
@@ -2361,11 +2356,8 @@ class ThermEngine:
             )
         except Exception:
             pass
-        try:
-            if client is not None:
-                client.publish(f"{self.out_prefix}/status", "offline", retain=True)
-        except Exception:
-            pass
+        # Do not publish retained offline on transient disconnects: this may make
+        # HA entities appear unavailable/disappear during short MQTT hiccups.
 
     def _on_connect(self, *args, **kwargs):
         client = args[0] if len(args) > 0 else None
