@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-06 - v2.6.130 - Autore: Codex
+- UI termostati: aggiunte route dirette proxy-friendly `/t` per elenco e `/t/<id-o-nome>` per dettaglio.
+- Il dettaglio accetta ID numerico o nome normalizzato, es. `/t/11` o `/t/bagno-mansarda`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-06 - v2.6.129 - Autore: Codex
 - HA climate bridge: i comandi del clone e-Therm vengono inoltrati anche con sorgente `ha_sensor`/virtuale quando e configurato `real_thermostat.entity_id`.
 - Supporta la catena: altro add-on -> climate clone e-Therm -> e-Therm -> climate HA reale.

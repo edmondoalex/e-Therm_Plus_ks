@@ -9,7 +9,7 @@ import time
 import queue
 from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 
 UI_REV = "2026-01-25.D"
 # Keep a code-side version so the UI shows the right value even when
@@ -839,6 +839,43 @@ def _html_escape(s):
         .replace('"', "&quot;")
         .replace("'", "&#39;")
     )
+
+
+def _route_slug(value):
+    try:
+        s = unquote(str(value or "")).strip().lower()
+        out = []
+        prev_sep = False
+        for ch in s:
+            if ch.isalnum():
+                out.append(ch)
+                prev_sep = False
+            elif not prev_sep:
+                out.append("-")
+                prev_sep = True
+        return "".join(out).strip("-")
+    except Exception:
+        return ""
+
+
+def _resolve_thermostat_route_id(snapshot, token):
+    raw = unquote(str(token or "")).strip()
+    if not raw:
+        return ""
+    if raw.isdigit():
+        return raw
+    slug = _route_slug(raw)
+    for e in snapshot.get("entities") or []:
+        if str(e.get("type") or "").lower() != "thermostats":
+            continue
+        tid = str(e.get("id") or "").strip()
+        st = e.get("static") if isinstance(e.get("static"), dict) else {}
+        rt = e.get("realtime") if isinstance(e.get("realtime"), dict) else {}
+        names = [e.get("name"), st.get("DES"), rt.get("DES"), f"thermostat-{tid}"]
+        for name in names:
+            if slug and _route_slug(name) == slug:
+                return tid
+    return raw
 
 
 def _static_field_info(entity_type: str, key: str, value):
@@ -13612,9 +13649,15 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(200, "application/json; charset=utf-8", body)
             return
 
-        if path in ("/thermostats", "/thermostats/"):
+        if path in ("/thermostats", "/thermostats/", "/t", "/t/"):
             snap = self.state.snapshot()
             self._send(200, "text/html; charset=utf-8", render_thermostats(snap))
+            return
+        if path.startswith("/t/"):
+            token = path.split("/", 2)[2] if len(path.split("/")) >= 3 else ""
+            snap = self.state.snapshot()
+            tid = _resolve_thermostat_route_id(snap, token)
+            self._send(200, "text/html; charset=utf-8", render_thermostat_detail(snap, tid))
             return
         if path.startswith("/thermostats/"):
             tid = path.split("/", 2)[2] if len(path.split("/")) >= 3 else ""
