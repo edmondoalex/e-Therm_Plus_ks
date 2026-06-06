@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.120"
+APP_VERSION = "2.6.121"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1153,6 +1153,37 @@ class ThermEngine:
         payload.update(data or {})
         res = self._ha_api_request("POST", f"/services/climate/{service}", payload)
         return res is not None
+
+    def _ha_climate_set_hvac_mode_safe(self, entity_id: str, mode: str) -> bool:
+        ent = str(entity_id or "").strip()
+        m = str(mode or "").strip().lower()
+        if not ent or m not in ("heat", "cool", "off"):
+            return False
+        ok = self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": m})
+        if ok or m == "off":
+            return bool(ok)
+        # Some climate integrations reject set_hvac_mode while off until turn_on.
+        try:
+            self._ha_service_call("climate", "turn_on", {"entity_id": ent})
+        except Exception:
+            pass
+        return bool(self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": m}))
+
+    def _ha_climate_set_temperature_safe(self, entity_id: str, temperature: float, preferred_mode: str = "") -> bool:
+        ent = str(entity_id or "").strip()
+        if not ent:
+            return False
+        temp = float(temperature)
+        mode = str(preferred_mode or "").strip().lower()
+        if mode in ("heat", "cool"):
+            # Include hvac_mode in the service payload first; several HA climate
+            # platforms require this when current state is off.
+            if self._ha_climate_service(ent, "set_temperature", {"temperature": temp, "hvac_mode": mode}):
+                return True
+            self._ha_climate_set_hvac_mode_safe(ent, mode)
+            if self._ha_climate_service(ent, "set_temperature", {"temperature": temp}):
+                return True
+        return bool(self._ha_climate_service(ent, "set_temperature", {"temperature": temp}))
 
     def _ha_service_call(self, domain: str, service: str, data: Dict[str, Any]) -> bool:
         res = self._ha_api_request("POST", f"/services/{domain}/{service}", data or {})
@@ -3376,7 +3407,21 @@ class ThermEngine:
                 self.mqtt.publish(f"{self.source_prefix}/cmd/thermostat/{num}/temperature", str(v), retain=False)
             elif is_ha or is_ha_avg:
                 if sync_setp:
-                    self._ha_climate_service(ent, "set_temperature", {"temperature": float(v)})
+                    preferred_mode = ""
+                    try:
+                        with self.lock:
+                            rt_pref = self.rt.get(str(tid)) or {}
+                            th_pref = rt_pref.get("THERM") if isinstance(rt_pref.get("THERM"), dict) else {}
+                            model_pref = str(th_pref.get("ACT_MODEL") or th_pref.get("ACT_MODE") or "").upper()
+                            sea_pref = str(th_pref.get("ACT_SEA") or "").upper()
+                        if model_pref != "OFF":
+                            if sea_pref == "WIN":
+                                preferred_mode = "heat"
+                            elif sea_pref == "SUM":
+                                preferred_mode = "cool"
+                    except Exception:
+                        preferred_mode = ""
+                    self._ha_climate_set_temperature_safe(ent, float(v), preferred_mode)
             try:
                 self._register_ack(tid=str(tid), field="setpoint", origin=origin, expected=float(v))
             except Exception:
@@ -3416,7 +3461,7 @@ class ThermEngine:
                 self.mqtt.publish(f"{self.source_prefix}/cmd/thermostat/{num}/mode", m, retain=False)
             elif is_ha or is_ha_avg:
                 if sync_mode:
-                    self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": m})
+                    self._ha_climate_set_hvac_mode_safe(ent, m)
             new_sea = "WIN" if m == "heat" else ("SUM" if m == "cool" else "OFF")
             try:
                 self._register_ack(tid=str(tid), field="season", origin=origin, expected=new_sea)

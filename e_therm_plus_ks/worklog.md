@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-06 - v2.6.121 - Autore: Codex
+- HA climate bridge: comandi mode/setpoint resi piu robusti per climate reali spenti (`turn_on`, `set_hvac_mode`, `set_temperature` con `hvac_mode`).
+- Migliora controllo di termostati Home Assistant che espongono `temperature: null` quando sono in `off`.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-06 - v2.6.120 - Autore: Codex
 - MQTT Discovery climate: entity_id e nome entita basati sul nome termostato (`climate.e_therm_<nome>`).
 - Cleanup discovery delle versioni climate precedenti basate su ID (`v1/v2/v3/v4`) per forzare la migrazione dei vecchi.
