@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.128"
+APP_VERSION = "2.6.129"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -3619,6 +3619,7 @@ class ThermEngine:
         if (is_ha or is_ha_avg) and not ent:
             return
         rtcfg = self._real_thermostat_cfg(t)
+        can_bridge_real_climate = bool(ent) and (is_ha or is_ha_avg or is_ha_sensor or is_virtual)
         adaptive_cfg = rtcfg.get("adaptive_demand_setpoint")
         adaptive_enabled = True if is_ha_avg else (bool(adaptive_cfg) if adaptive_cfg is not None else False)
         sync_setp = self._bool_cfg(rtcfg, "sync_setpoint", True)
@@ -3648,7 +3649,7 @@ class ThermEngine:
                     old_v = _as_float(thr0.get("VAL"))
             if is_esafe:
                 self.mqtt.publish(f"{self.source_prefix}/cmd/thermostat/{num}/temperature", str(v), retain=False)
-            elif is_ha or is_ha_avg:
+            elif can_bridge_real_climate:
                 if sync_setp:
                     preferred_mode = ""
                     try:
@@ -3723,7 +3724,7 @@ class ThermEngine:
                 old_sea = str(th0.get("ACT_SEA") or "").upper() or None
             if is_esafe:
                 self.mqtt.publish(f"{self.source_prefix}/cmd/thermostat/{num}/mode", m, retain=False)
-            elif is_ha or is_ha_avg:
+            elif can_bridge_real_climate:
                 if sync_mode:
                     self._ha_climate_set_hvac_mode_safe(ent, m)
                     if m in ("heat", "cool") and sync_setp:
@@ -3812,7 +3813,7 @@ class ThermEngine:
                 old_p = str(th0.get("ACT_MODEL") or th0.get("ACT_MODE") or "").upper() or None
             if is_esafe:
                 self.mqtt.publish(f"{self.source_prefix}/cmd/thermostat/{num}/preset_mode", p, retain=False)
-            elif is_ha or is_ha_avg:
+            elif can_bridge_real_climate:
                 if sync_preset:
                     self._ha_climate_service(ent, "set_preset_mode", {"preset_mode": p.lower()})
             try:

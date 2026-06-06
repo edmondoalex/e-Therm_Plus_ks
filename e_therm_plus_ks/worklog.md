@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-06 - v2.6.129 - Autore: Codex
+- HA climate bridge: i comandi del clone e-Therm vengono inoltrati anche con sorgente `ha_sensor`/virtuale quando e configurato `real_thermostat.entity_id`.
+- Supporta la catena: altro add-on -> climate clone e-Therm -> e-Therm -> climate HA reale.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-06 - v2.6.128 - Autore: Codex
 - MQTT Discovery: ascolta i retained `homeassistant/climate/+/config` e cancella automaticamente i climate e-Therm orfani non presenti nella config.
 - Cleanup termostati rimossi: genera varianti name-based senza prefisso `e-Therm` per cancellare topic tipo `e_therm_z_giorno_mansarda_climate`.
