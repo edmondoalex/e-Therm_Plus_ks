@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.112"
+APP_VERSION = "2.6.113"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1994,10 +1994,9 @@ class ThermEngine:
         except Exception:
             pass
         self._sync_ui()
-        # Throttle full discovery republish on reconnect to avoid MQTT burst/flood.
-        now_pub = time.time()
-        if (now_pub - float(self._last_discovery_publish_ts or 0.0)) >= 300.0:
-            self._publish_discovery()
+        # Config saves may cleanup old retained discovery topics. Republish
+        # immediately so HA does not temporarily lose the MQTT entities.
+        self._publish_discovery()
 
     # -------------------- MQTT connect --------------------
 

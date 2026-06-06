@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-06 - v2.6.113 - Autore: Codex
+- Fix MQTT Discovery dopo salvataggio `/vtherm`: il discovery viene ripubblicato subito dopo la config save.
+- Evita che Home Assistant perda temporaneamente le entita MQTT dopo cleanup/modifica di un termostato.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-06 - v2.6.112 - Autore: Codex
 - Aggiunta sorgente `ha_sensor` per creare vTherm da una sonda temperatura Home Assistant.
 - Aggiunta sorgente `virtual` locale per esporre un climate MQTT senza sorgenti esterne.
