@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-06 - v2.6.114 - Autore: Codex
+- UI dettaglio termostato: aggiunto indicatore centrale relè/richiesta sotto RH.
+- Indicatore giallo `HEAT ON` in richiesta caldo, blu `COOL ON` in richiesta freddo, grigio `OFF` senza richiesta.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-06 - v2.6.113 - Autore: Codex
 - Fix MQTT Discovery dopo salvataggio `/vtherm`: il discovery viene ripubblicato subito dopo la config save.
 - Evita che Home Assistant perda temporaneamente le entita MQTT dopo cleanup/modifica di un termostato.

@@ -13874,8 +13874,8 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
          --ring-w: 14px;
          --ring-track: rgba(255,255,255,0.14);
          --ring-off: rgba(255,255,255,0.22);
-         --ring-heat: #ff9800;
-         --ring-cool: #2a7fff;
+         --ring-heat: #ffd166;
+         --ring-cool: #66c7ff;
          --bd: rgba(255,255,255,0.10);
          --accent: var(--ring-off);
          --pin-fg: rgba(255,255,255,0.92);
@@ -13932,6 +13932,12 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
       .big { font-size: clamp(64px, 10vw, 112px); font-weight: 300; letter-spacing: 0.5px; line-height: 1; }
       .sub { font-size: 14px; color: rgba(255,255,255,0.72); }
       .sub2 { font-size: 12px; color: rgba(255,255,255,0.62); }
+      .relayState { margin-top: 2px; display:inline-flex; align-items:center; justify-content:center; gap: 8px; min-width: 120px; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.16); color: rgba(255,255,255,0.48); font-size: 12px; font-weight: 800; letter-spacing: 0.8px; }
+      .relayState .dot { width: 10px; height: 10px; border-radius: 999px; background: rgba(255,255,255,0.26); box-shadow: none; }
+      .relayState.heatOn { color: #ffd166; border-color: rgba(255,209,102,0.42); background: rgba(255,177,32,0.12); }
+      .relayState.heatOn .dot { background: #ffd166; box-shadow: 0 0 18px rgba(255,209,102,0.78); }
+      .relayState.coolOn { color: #66c7ff; border-color: rgba(102,199,255,0.42); background: rgba(42,127,255,0.12); }
+      .relayState.coolOn .dot { background: #66c7ff; box-shadow: 0 0 18px rgba(102,199,255,0.78); }
       .btnRow, .roundBtn, .side, .sideCard, .sideHead, .sideBody, .actionBtn, .aLeft, .aTxt, .aName, .aVal { display:none; }
       .ico { width: 56px; height: 56px; border-radius: 999px; display:flex; align-items:center; justify-content:center; border: 1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.18); color: rgba(255,255,255,0.86); }
 
@@ -14054,6 +14060,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
               <div class="big" id="centerTemp">--,-</div>
               <div class="sub" id="centerSet">Set --,-&deg;C</div>
               <div class="sub2" id="centerRh">RH --%</div>
+              <div class="relayState" id="centerRelay"><span class="dot"></span><span id="centerRelayText">OFF</span></div>
             </div>
           </div>
         </div>
@@ -14436,6 +14443,8 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const elTemp = document.getElementById("centerTemp");
         const elSet = document.getElementById("centerSet");
         const elRh = document.getElementById("centerRh");
+        const elRelay = document.getElementById("centerRelay");
+        const elRelayText = document.getElementById("centerRelayText");
         const elOut = document.getElementById("badgeOut");
         const elSea = document.getElementById("valSeason");
         const elMode = document.getElementById("valMode");
@@ -14443,6 +14452,16 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         if (elTemp) elTemp.textContent = tempDisp;
         if (elSet) elSet.innerHTML = "Set " + setDisp + "&deg;C";
         if (elRh) elRh.textContent = "RH " + rhDisp;
+        if (elRelay) {
+          elRelay.classList.remove("heatOn", "coolOn");
+          if (reqOn && seaKey === "SUM") elRelay.classList.add("coolOn");
+          else if (reqOn) elRelay.classList.add("heatOn");
+        }
+        if (elRelayText) {
+          if (reqOn && seaKey === "SUM") elRelayText.textContent = "COOL ON";
+          else if (reqOn) elRelayText.textContent = "HEAT ON";
+          else elRelayText.textContent = "OFF";
+        }
         if (elOut) elOut.textContent = "OUT: " + (out || "-");
         if (elSea) elSea.textContent = "";
         if (elMode) elMode.textContent = "";
