@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-06 - v2.6.122 - Autore: Codex
+- HA climate bridge: aggiunto anti-rimbalzo per non reinviare mode/setpoint identici troppo ravvicinati.
+- Prima di comandare un climate HA reale, ora controlla stato e target correnti per evitare loop di accensione/spegnimento.
+- Il cambio setpoint ora invia prima il modo solo se serve, poi la temperatura; `set_temperature` con `hvac_mode` resta solo fallback.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-06 - v2.6.121 - Autore: Codex
 - HA climate bridge: comandi mode/setpoint resi piu robusti per climate reali spenti (`turn_on`, `set_hvac_mode`, `set_temperature` con `hvac_mode`).
 - Migliora controllo di termostati Home Assistant che espongono `temperature: null` quando sono in `off`.

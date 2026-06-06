@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.121"
+APP_VERSION = "2.6.122"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -248,6 +248,7 @@ class ThermEngine:
         self._real_switch_skip_warned: set[str] = set()
         self._demand_latch: Dict[str, bool] = {}
         self._real_therm_adapt: Dict[str, Dict[str, Any]] = {}
+        self._ha_bridge_cmd_last: Dict[str, float] = {}
         self._control_thread: Optional[threading.Thread] = None
         self._watchdog_thread: Optional[threading.Thread] = None
 
@@ -1154,11 +1155,25 @@ class ThermEngine:
         res = self._ha_api_request("POST", f"/services/climate/{service}", payload)
         return res is not None
 
+    def _ha_bridge_recent(self, key: str, window_sec: float = 2.0) -> bool:
+        now = time.time()
+        k = str(key)
+        last = float(self._ha_bridge_cmd_last.get(k, 0.0) or 0.0)
+        if last and (now - last) < float(window_sec):
+            return True
+        self._ha_bridge_cmd_last[k] = now
+        return False
+
     def _ha_climate_set_hvac_mode_safe(self, entity_id: str, mode: str) -> bool:
         ent = str(entity_id or "").strip()
         m = str(mode or "").strip().lower()
         if not ent or m not in ("heat", "cool", "off"):
             return False
+        cur = self._ha_climate_state(ent)
+        if cur == m:
+            return True
+        if self._ha_bridge_recent(f"{ent}:mode:{m}", 3.0):
+            return True
         ok = self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": m})
         if ok or m == "off":
             return bool(ok)
@@ -1175,13 +1190,21 @@ class ThermEngine:
             return False
         temp = float(temperature)
         mode = str(preferred_mode or "").strip().lower()
-        if mode in ("heat", "cool"):
-            # Include hvac_mode in the service payload first; several HA climate
-            # platforms require this when current state is off.
-            if self._ha_climate_service(ent, "set_temperature", {"temperature": temp, "hvac_mode": mode}):
+        cur_state = self._ha_climate_state(ent)
+        cur_target = self._ha_climate_target(ent)
+        if cur_target is not None and abs(float(cur_target) - float(temp)) < 0.05:
+            if mode not in ("heat", "cool") or cur_state == mode:
                 return True
-            self._ha_climate_set_hvac_mode_safe(ent, mode)
+        if self._ha_bridge_recent(f"{ent}:temp:{round(temp, 2)}:{mode}", 2.0):
+            return True
+        if mode in ("heat", "cool"):
+            if cur_state != mode:
+                self._ha_climate_set_hvac_mode_safe(ent, mode)
             if self._ha_climate_service(ent, "set_temperature", {"temperature": temp}):
+                return True
+            # Last fallback for platforms that only accept target updates when
+            # the desired HVAC mode is included in the same service call.
+            if self._ha_climate_service(ent, "set_temperature", {"temperature": temp, "hvac_mode": mode}):
                 return True
         return bool(self._ha_climate_service(ent, "set_temperature", {"temperature": temp}))
 
