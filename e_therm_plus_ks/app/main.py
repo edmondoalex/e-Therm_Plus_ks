@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.118"
+APP_VERSION = "2.6.119"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1770,6 +1770,7 @@ class ThermEngine:
         topics = [
             f"{base}/climate/e_therm_{tid}_climate/config",
             f"{base}/climate/e_therm_{tid}_climate_v2/config",
+            f"{base}/climate/e_therm_{tid}_climate_v3/config",
             f"{base}/sensor/e_therm_{tid}_humidity/config",
             f"{base}/switch/e_therm_{tid}_valv/config",
             f"{base}/switch/e_therm_{tid}_valv_hot/config",
@@ -1814,6 +1815,7 @@ class ThermEngine:
         topics = [
             f"{base}/climate/e_therm_{tid}_climate/config",
             f"{base}/climate/e_therm_{tid}_climate_v2/config",
+            f"{base}/climate/e_therm_{tid}_climate_v3/config",
             f"{base}/sensor/e_therm_{tid}_humidity/config",
             f"{base}/switch/e_therm_{tid}_valv/config",
             f"{base}/switch/e_therm_{tid}_valv_hot/config",
@@ -4188,14 +4190,15 @@ class ThermEngine:
             cool_out = t.get("outputs_cool") if isinstance(t.get("outputs_cool"), dict) else None
             dev = self._device_block(tid, name)
 
-            # MQTT climate clone of e-safe thermostat
-            # v2 unique_id/object_id to break stale HA entity_id aliases (e.g. old room names).
-            climate_uid = f"e_therm_{tid}_climate_v2"
+            # MQTT climate clone. v3 uses default_entity_id so HA creates a
+            # stable entity_id based on thermostat id, not room/device names.
+            climate_uid = f"e_therm_{tid}_climate_v3"
             climate_topic = f"{base}/climate/{climate_uid}/config"
             climate_cfg = {
                 "name": name,
                 "unique_id": climate_uid,
                 "object_id": f"e_therm_{tid}_climate",
+                "default_entity_id": f"climate.e_therm_{tid}_climate",
                 "availability_topic": f"{self.out_prefix}/status",
                 "payload_available": "online",
                 "payload_not_available": "offline",
@@ -4214,11 +4217,11 @@ class ThermEngine:
                 "temp_step": 0.1,
             }
             self.mqtt.publish(climate_topic, json.dumps(climate_cfg, ensure_ascii=False), retain=True)
-            # Cleanup legacy discovery topic (v1 unique_id) so HA does not keep reviving old aliases.
+            # Cleanup legacy discovery topics so HA does not keep reviving old aliases.
             try:
-                legacy_uid = f"e_therm_{tid}_climate"
-                legacy_topic = f"{base}/climate/{legacy_uid}/config"
-                self.mqtt.publish(legacy_topic, "", retain=True)
+                for legacy_uid in (f"e_therm_{tid}_climate", f"e_therm_{tid}_climate_v2"):
+                    legacy_topic = f"{base}/climate/{legacy_uid}/config"
+                    self.mqtt.publish(legacy_topic, "", retain=True)
             except Exception:
                 pass
 
