@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.125"
+APP_VERSION = "2.6.126"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -3574,6 +3574,27 @@ class ThermEngine:
                 return
             # OFF must always map to a real HVAC OFF command.
             if p == "OFF":
+                if origin == "ha_mqtt":
+                    hold = self._ha_bridge_mode_hold.get(str(tid))
+                    if isinstance(hold, dict):
+                        hold_until = float(hold.get("until", 0.0) or 0.0)
+                        hold_mode = str(hold.get("mode") or "").strip().lower()
+                        if time.time() <= hold_until and hold_mode in ("heat", "cool"):
+                            try:
+                                self._log_event(
+                                    origin=origin,
+                                    tid=str(tid),
+                                    name=name,
+                                    source_num=num,
+                                    category="cmd",
+                                    field="preset",
+                                    old=hold_mode,
+                                    new="OFF",
+                                    msg="ignored transient preset OFF during HA climate mode hold",
+                                )
+                            except Exception:
+                                pass
+                            return
                 self._handle_ha_clone_command(tid, "mode", "off", origin=origin)
                 return
             with self.lock:

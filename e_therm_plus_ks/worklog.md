@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-06 - v2.6.126 - Autore: Codex
+- HA climate bridge: blocca anche `preset_mode=OFF` MQTT durante la finestra di hold dopo `heat/cool`.
+- Evita che preset OFF ecoati da Home Assistant richiamino internamente `mode=off` e alimentino il loop heat/off.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-06 - v2.6.125 - Autore: Codex
 - HA climate bridge: ignora comandi MQTT `off` transitori durante la finestra di hold dopo `heat/cool`.
 - Quando invia `heat/cool` a un climate HA reale, invia subito anche il setpoint corrente per evitare che il climate resti senza target e torni `off`.
