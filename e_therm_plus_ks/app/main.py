@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.119"
+APP_VERSION = "2.6.120"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -161,6 +161,25 @@ def _topic_safe_name(name: Any) -> str:
         return s
     except Exception:
         return "unknown"
+
+
+def _entity_safe_name(name: Any, fallback: str = "unknown") -> str:
+    try:
+        s = str(name or "").strip().lower()
+        out = []
+        prev_us = False
+        for ch in s:
+            if ch.isalnum():
+                out.append(ch)
+                prev_us = False
+            else:
+                if not prev_us:
+                    out.append("_")
+                    prev_us = True
+        slug = "".join(out).strip("_")
+        return slug or str(fallback or "unknown")
+    except Exception:
+        return str(fallback or "unknown")
 
 
 class ThermEngine:
@@ -1771,6 +1790,7 @@ class ThermEngine:
             f"{base}/climate/e_therm_{tid}_climate/config",
             f"{base}/climate/e_therm_{tid}_climate_v2/config",
             f"{base}/climate/e_therm_{tid}_climate_v3/config",
+            f"{base}/climate/e_therm_{tid}_climate_v4/config",
             f"{base}/sensor/e_therm_{tid}_humidity/config",
             f"{base}/switch/e_therm_{tid}_valv/config",
             f"{base}/switch/e_therm_{tid}_valv_hot/config",
@@ -1786,13 +1806,17 @@ class ThermEngine:
 
     def _discovery_topics_for_any(self, t: Dict[str, Any]) -> List[str]:
         tid = str(t.get("id"))
+        name_slug = _entity_safe_name(t.get("name") or f"thermostat_{tid}", f"thermostat_{tid}")
         if self._is_split_outputs(t):
-            return self._discovery_topics_for_therm_split(
+            topics = self._discovery_topics_for_therm_split(
                 tid,
                 t.get("outputs_heat") or {},
                 t.get("outputs_cool") or {},
             )
-        return self._discovery_topics_for_therm(tid, (t.get("outputs") or {}))
+        else:
+            topics = self._discovery_topics_for_therm(tid, (t.get("outputs") or {}))
+        topics.append(f"homeassistant/climate/e_therm_{name_slug}_climate/config")
+        return topics
 
     def _is_split_outputs(self, t: Dict[str, Any]) -> bool:
         try:
@@ -1816,6 +1840,7 @@ class ThermEngine:
             f"{base}/climate/e_therm_{tid}_climate/config",
             f"{base}/climate/e_therm_{tid}_climate_v2/config",
             f"{base}/climate/e_therm_{tid}_climate_v3/config",
+            f"{base}/climate/e_therm_{tid}_climate_v4/config",
             f"{base}/sensor/e_therm_{tid}_humidity/config",
             f"{base}/switch/e_therm_{tid}_valv/config",
             f"{base}/switch/e_therm_{tid}_valv_hot/config",
@@ -4190,15 +4215,16 @@ class ThermEngine:
             cool_out = t.get("outputs_cool") if isinstance(t.get("outputs_cool"), dict) else None
             dev = self._device_block(tid, name)
 
-            # MQTT climate clone. v3 uses default_entity_id so HA creates a
-            # stable entity_id based on thermostat id, not room/device names.
-            climate_uid = f"e_therm_{tid}_climate_v3"
+            # MQTT climate clone. v4 uses the thermostat name for the stable
+            # HA entity_id, e.g. climate.e_therm_ufficio.
+            name_slug = _entity_safe_name(name, f"thermostat_{tid}")
+            climate_uid = f"e_therm_{name_slug}_climate"
             climate_topic = f"{base}/climate/{climate_uid}/config"
             climate_cfg = {
-                "name": name,
+                "name": f"e-Therm {name}",
                 "unique_id": climate_uid,
-                "object_id": f"e_therm_{tid}_climate",
-                "default_entity_id": f"climate.e_therm_{tid}_climate",
+                "object_id": f"e_therm_{name_slug}",
+                "default_entity_id": f"climate.e_therm_{name_slug}",
                 "availability_topic": f"{self.out_prefix}/status",
                 "payload_available": "online",
                 "payload_not_available": "offline",
@@ -4219,7 +4245,12 @@ class ThermEngine:
             self.mqtt.publish(climate_topic, json.dumps(climate_cfg, ensure_ascii=False), retain=True)
             # Cleanup legacy discovery topics so HA does not keep reviving old aliases.
             try:
-                for legacy_uid in (f"e_therm_{tid}_climate", f"e_therm_{tid}_climate_v2"):
+                for legacy_uid in (
+                    f"e_therm_{tid}_climate",
+                    f"e_therm_{tid}_climate_v2",
+                    f"e_therm_{tid}_climate_v3",
+                    f"e_therm_{tid}_climate_v4",
+                ):
                     legacy_topic = f"{base}/climate/{legacy_uid}/config"
                     self.mqtt.publish(legacy_topic, "", retain=True)
             except Exception:

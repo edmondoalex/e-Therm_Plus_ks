@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-06 - v2.6.120 - Autore: Codex
+- MQTT Discovery climate: entity_id e nome entita basati sul nome termostato (`climate.e_therm_<nome>`).
+- Cleanup discovery delle versioni climate precedenti basate su ID (`v1/v2/v3/v4`) per forzare la migrazione dei vecchi.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-06 - v2.6.119 - Autore: Codex
 - MQTT Discovery climate: aggiunto `default_entity_id` stabile `climate.e_therm_<id>_climate`.
 - Discovery climate migrata a `v3` e cleanup automatico dei vecchi topic `v1/v2` per evitare entity_id duplicati basati sul nome stanza.
