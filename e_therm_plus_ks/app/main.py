@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.124"
+APP_VERSION = "2.6.125"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -3487,6 +3487,27 @@ class ThermEngine:
             m = str(payload_raw or "").strip().lower()
             if m not in ("heat", "cool", "off"):
                 return
+            if m == "off" and origin == "ha_mqtt":
+                hold = self._ha_bridge_mode_hold.get(str(tid))
+                if isinstance(hold, dict):
+                    hold_until = float(hold.get("until", 0.0) or 0.0)
+                    hold_mode = str(hold.get("mode") or "").strip().lower()
+                    if time.time() <= hold_until and hold_mode in ("heat", "cool"):
+                        try:
+                            self._log_event(
+                                origin=origin,
+                                tid=str(tid),
+                                name=name,
+                                source_num=num,
+                                category="cmd",
+                                field="season",
+                                old=hold_mode,
+                                new="off",
+                                msg="ignored transient OFF command during HA climate mode hold",
+                            )
+                        except Exception:
+                            pass
+                        return
             with self.lock:
                 rt0 = self.rt.setdefault(str(tid), {})
                 th0 = rt0.setdefault("THERM", {})
@@ -3496,6 +3517,17 @@ class ThermEngine:
             elif is_ha or is_ha_avg:
                 if sync_mode:
                     self._ha_climate_set_hvac_mode_safe(ent, m)
+                    if m in ("heat", "cool") and sync_setp:
+                        try:
+                            with self.lock:
+                                rt_cmd = self.rt.get(str(tid)) or {}
+                                th_cmd = rt_cmd.get("THERM") if isinstance(rt_cmd.get("THERM"), dict) else {}
+                                thr_cmd = th_cmd.get("TEMP_THR") if isinstance(th_cmd.get("TEMP_THR"), dict) else None
+                                target_cmd = _as_float(thr_cmd.get("VAL")) if isinstance(thr_cmd, dict) else None
+                            if target_cmd is not None:
+                                self._ha_climate_set_temperature_safe(ent, float(target_cmd), m)
+                        except Exception:
+                            pass
                     if m in ("heat", "cool"):
                         self._ha_bridge_mode_hold[str(tid)] = {"mode": m, "until": time.time() + 30.0}
                     else:

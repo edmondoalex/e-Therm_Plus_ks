@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-06 - v2.6.125 - Autore: Codex
+- HA climate bridge: ignora comandi MQTT `off` transitori durante la finestra di hold dopo `heat/cool`.
+- Quando invia `heat/cool` a un climate HA reale, invia subito anche il setpoint corrente per evitare che il climate resti senza target e torni `off`.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-06 - v2.6.124 - Autore: Codex
 - HA climate bridge: aggiunta tenuta ottimistica dello stato `heat/cool` per 30s dopo comando mode.
 - Evita che il polling del climate reale, ancora `off` durante la transizione, ripubblichi subito `OFF` sul climate e-Therm.
