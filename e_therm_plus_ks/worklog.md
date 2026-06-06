@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-06 - v2.6.127 - Autore: Codex
+- Cancellazione termostati: rimuove subito l'entita dallo snapshot UI, runtime cache, desired state e latch interni.
+- Cleanup MQTT piu completo per termostati rimossi: discovery id/name-based, state topic, command topic e valvole retained.
+- Recupera e pulisce anche termostati orfani gia spariti dalla config ma ancora presenti nello snapshot UI.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-06 - v2.6.126 - Autore: Codex
 - HA climate bridge: blocca anche `preset_mode=OFF` MQTT durante la finestra di hold dopo `heat/cool`.
 - Evita che preset OFF ecoati da Home Assistant richiamino internamente `mode=off` e alimentino il loop heat/off.

@@ -419,6 +419,35 @@ class LaresState:
         if changed:
             self._publish_event({"type": "update", "meta": {"last_update": now}, "entities": changed})
 
+    def remove_entity(self, entity_type, entity_id):
+        if entity_id is None:
+            return
+
+        def _norm_id(v):
+            try:
+                if isinstance(v, int):
+                    return str(v)
+                s = str(v).strip()
+                if s.isdigit():
+                    return str(int(s))
+                return s
+            except Exception:
+                return str(v)
+
+        now = time.time()
+        norm_id = _norm_id(entity_id)
+        key = f"{entity_type}:{norm_id}"
+        removed = None
+        with self._lock:
+            removed = self._entities.pop(key, None)
+            self._meta["last_update"] = now
+        if removed is not None:
+            self._publish_event({
+                "type": "remove",
+                "meta": {"last_update": now},
+                "entities": [{"type": entity_type, "id": norm_id, "key": key, "removed": True}],
+            })
+
     def _upsert(self, entity_type, entity_id, patch, now):
         if entity_id is None:
             return None

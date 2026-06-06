@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.126"
+APP_VERSION = "2.6.127"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1949,6 +1949,69 @@ class ThermEngine:
             except Exception:
                 continue
 
+    def _cleanup_retained_topics(self, topics: List[str]) -> None:
+        if not topics:
+            return
+        uniq = [t for t in sorted(set(topics)) if isinstance(t, str) and t.strip()]
+        if not uniq:
+            return
+        if not self._mqtt_connected:
+            return
+        for tp in uniq:
+            try:
+                self.mqtt.publish(tp, payload="", retain=True)
+            except Exception:
+                continue
+
+    def _retained_topics_for_removed_therm(self, t: Dict[str, Any]) -> List[str]:
+        tid = str((t or {}).get("id") or "").strip()
+        if not tid:
+            return []
+        name = str((t or {}).get("name") or f"vTherm_{tid}")
+        name_slug = _topic_safe_name(name)
+        topics = [
+            f"{self.out_prefix}/thermostats/{tid}/current_temperature",
+            f"{self.out_prefix}/thermostats/{tid}/humidity",
+            f"{self.out_prefix}/thermostats/{tid}/target_temperature",
+            f"{self.out_prefix}/thermostats/{tid}/mode",
+            f"{self.out_prefix}/thermostats/{tid}/preset_mode",
+            f"{self.out_prefix}/thermostats/{tid}/target_temperature/set",
+            f"{self.out_prefix}/thermostats/{tid}/mode/set",
+            f"{self.out_prefix}/thermostats/{tid}/preset_mode/set",
+            f"{self.out_prefix}/thermostats/{tid}/power",
+            f"{self.out_prefix}/thermostats/{tid}/power/set",
+            f"{self.out_prefix}/thermostats/{tid}/heat/power",
+            f"{self.out_prefix}/thermostats/{tid}/heat/power/set",
+            f"{self.out_prefix}/thermostats/{tid}/cool/power",
+            f"{self.out_prefix}/thermostats/{tid}/cool/power/set",
+            f"{self.out_prefix}/thermostats/{tid}/valv/state",
+            f"{self.out_prefix}/thermostats/{tid}/valv_hot/state",
+            f"{self.out_prefix}/thermostats/{tid}/valv_low/state",
+            f"{self.out_prefix}/valv/{tid}/state",
+            f"{self.out_prefix}/valv/{tid}/set",
+            f"{self.out_prefix}/valv_hot/{tid}/state",
+            f"{self.out_prefix}/valv_hot/{tid}/set",
+            f"{self.out_prefix}/valv_low/{tid}/state",
+            f"{self.out_prefix}/valv_low/{tid}/set",
+        ]
+        for sp in ("min", "med", "max"):
+            topics.extend([
+                f"{self.out_prefix}/thermostats/{tid}/fan/{sp}",
+                f"{self.out_prefix}/thermostats/{tid}/fan/{sp}/set",
+                f"{self.out_prefix}/thermostats/{tid}/heat/fan/{sp}",
+                f"{self.out_prefix}/thermostats/{tid}/heat/fan/{sp}/set",
+                f"{self.out_prefix}/thermostats/{tid}/cool/fan/{sp}",
+                f"{self.out_prefix}/thermostats/{tid}/cool/fan/{sp}/set",
+            ])
+        if name_slug:
+            topics.extend([
+                f"{self.out_prefix}/thermostats/{name_slug}/valv/state",
+                f"{self.out_prefix}/thermostats/{name_slug}/valv/set",
+                f"{self.out_prefix}/thermostats/{name_slug}/valv_hot/state",
+                f"{self.out_prefix}/thermostats/{name_slug}/valv_low/state",
+            ])
+        return topics
+
     def _discovery_topics_full_cleanup(self, max_tid: int = 128) -> List[str]:
         topics: List[str] = []
         # Conservative superset for legacy/current thermostat discovery topics.
@@ -1995,11 +2058,35 @@ class ThermEngine:
             for t in new_therms
             if isinstance(t, dict) and t.get("id") is not None
         }
+        try:
+            snap = self.state.snapshot()
+            for e in snap.get("entities") or []:
+                if str(e.get("type") or "").lower() != "thermostats":
+                    continue
+                tid0 = str(e.get("id") or "").strip()
+                if not tid0 or tid0 in new_by_id or tid0 in old_by_id:
+                    continue
+                st0 = e.get("static") if isinstance(e.get("static"), dict) else {}
+                rt0 = e.get("realtime") if isinstance(e.get("realtime"), dict) else {}
+                old_by_id[tid0] = {
+                    "id": tid0,
+                    "name": e.get("name") or st0.get("DES") or rt0.get("DES") or f"vTherm_{tid0}",
+                    "outputs": {"power": True, "fan3": True},
+                    "outputs_heat": {"power": True, "fan3": True},
+                    "outputs_cool": {"power": True, "fan3": True},
+                }
+        except Exception:
+            pass
 
         # Cleanup discovery for removed thermostats or removed outputs.
         to_cleanup: List[str] = []
+        retained_cleanup: List[str] = []
+        removed_ids: List[str] = []
         for tid, old_t in old_by_id.items():
             if tid not in new_by_id:
+                removed_ids.append(str(tid))
+                to_cleanup.extend(self._discovery_topics_for_any(old_t))
+                retained_cleanup.extend(self._retained_topics_for_removed_therm(old_t))
                 if self._is_split_outputs(old_t):
                     to_cleanup.extend(
                         self._discovery_topics_for_therm_split(
@@ -2035,6 +2122,8 @@ class ThermEngine:
                     to_cleanup.append(f"homeassistant/switch/e_therm_{tid}_fan_max/config")
         if to_cleanup:
             self._cleanup_discovery_topics(to_cleanup)
+        if retained_cleanup:
+            self._cleanup_retained_topics(retained_cleanup)
 
         # Cleanup discovery for removed consensus groups.
         try:
@@ -2080,11 +2169,34 @@ class ThermEngine:
 
         with self.lock:
             self.cfg = cfg or {}
+            for tid in removed_ids:
+                self.rt.pop(str(tid), None)
+                self.desired.pop(str(tid), None)
+                self.therm_static.pop(str(tid), None)
+                self._demand_latch.pop(f"{tid}:single", None)
+                self._demand_latch.pop(f"{tid}:heat", None)
+                self._demand_latch.pop(f"{tid}:cool", None)
+                self._pwm.pop(str(tid), None)
+                self._manual_override_until.pop(str(tid), None)
+                self._manual_valve_until.pop(str(tid), None)
+                self._manual_valve_state.pop(str(tid), None)
+                self._ha_bridge_mode_hold.pop(str(tid), None)
+            self.runtime["rt_cache"] = self.rt
+            self.runtime["desired"] = self.desired
             save_config(self.cfg)
+            try:
+                save_runtime(self.runtime)
+            except Exception:
+                pass
         try:
             self.state.set_meta("vtherm_config", self.cfg)
         except Exception:
             pass
+        for tid in removed_ids:
+            try:
+                self.state.remove_entity("thermostats", tid)
+            except Exception:
+                pass
         self._sync_ui()
         # Config saves may cleanup old retained discovery topics. Republish
         # immediately so HA does not temporarily lose the MQTT entities.
