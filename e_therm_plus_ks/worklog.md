@@ -3,6 +3,15 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-06 - v2.6.112 - Autore: Codex
+- Aggiunta sorgente `ha_sensor` per creare vTherm da una sonda temperatura Home Assistant.
+- Aggiunta sorgente `virtual` locale per esporre un climate MQTT senza sorgenti esterne.
+- UI `/vtherm`: aggiunti source `ha_sensor`/`virtual` e campi relè Heat/Cool (`switch.*`).
+- Backend: mapping `power_switch` per pilotare relè reali separati su heat/cool con uscite split.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-04-29 - v2.6.111 - Autore: Codex
 - Registro Eventi: aggiunti in header `File KB` e `Eventi su disco` (metadati runtime da `e_therm_events_meta`).
 - Backend log: aggiornati metadati dimensione/conteggio file eventi con refresh dopo trim e aggiornamento incrementale a runtime.

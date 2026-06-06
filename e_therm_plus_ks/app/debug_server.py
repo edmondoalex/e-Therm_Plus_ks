@@ -15052,6 +15052,8 @@ def render_vtherm_config_page(snapshot):
           <select id="f_src_type">
             <option value="esafe">esafe</option>
             <option value="ha_climate">ha_climate</option>
+            <option value="ha_sensor">ha_sensor</option>
+            <option value="virtual">virtual</option>
             <option value="ha_multi_sensor_avg">ha_multi_sensor_avg</option>
           </select>
         </div>
@@ -15060,8 +15062,8 @@ def render_vtherm_config_page(snapshot):
           <input id="f_src_num" placeholder="Es: 1" inputmode="numeric" />
         </div>
         <div id="f_src_entity_wrap">
-          <label>Source entity_id (climate HA)</label>
-          <input id="f_src_entity_id" placeholder="Es: climate.sala" />
+          <label>Source entity_id (climate/sensor HA)</label>
+          <input id="f_src_entity_id" placeholder="Es: climate.sala o sensor.temperatura_sala" />
         </div>
         <div id="f_src_sensors_wrap" style="grid-column: 1 / -1;">
           <label>Sonde HA (media, separate da virgola)</label>
@@ -15151,6 +15153,13 @@ def render_vtherm_config_page(snapshot):
           <div class="row">
             <input id="f_rt_valve_low_switch" placeholder="Bassa: switch.xxx, switch.yyy" />
             <input id="f_rt_valve_hot_switch" placeholder="Alta: switch.xxx, switch.yyy" />
+          </div>
+        </div>
+        <div>
+          <label>Relè Heat/Cool (switch, opzionale)</label>
+          <div class="row">
+            <input id="f_rt_heat_power_switch" placeholder="Heat: switch.rele_heat" />
+            <input id="f_rt_cool_power_switch" placeholder="Cool: switch.rele_cool" />
           </div>
         </div>
         <div>
@@ -15334,8 +15343,20 @@ function isHaMultiAvgType(v) {
   return s === 'ha_multi_sensor_avg' || s === 'ha_sensor_avg' || s === 'ha_multi_avg';
 }
 
+function isHaSensorType(v) {
+  const s = String(v || '').trim().toLowerCase();
+  return s === 'ha_sensor' || s === 'homeassistant_sensor' || s === 'sensor';
+}
+
+function isVirtualSourceType(v) {
+  const s = String(v || '').trim().toLowerCase();
+  return s === 'virtual' || s === 'local' || s === 'local_virtual';
+}
+
 function canonicalSourceType(v) {
   if (isHaMultiAvgType(v)) return 'ha_multi_sensor_avg';
+  if (isHaSensorType(v)) return 'ha_sensor';
+  if (isVirtualSourceType(v)) return 'virtual';
   if (isHaSourceType(v)) return 'ha_climate';
   return 'esafe';
 }
@@ -15363,7 +15384,7 @@ function toggleSourceFields() {
   const rtLimitsWrap = document.getElementById('f_rt_limits_wrap');
 
   if (numWrap) numWrap.style.display = (srcType === 'esafe') ? '' : 'none';
-  if (entWrap) entWrap.style.display = (srcType === 'ha_climate') ? '' : 'none';
+  if (entWrap) entWrap.style.display = (srcType === 'ha_climate' || srcType === 'ha_sensor') ? '' : 'none';
   if (sensorsWrap) sensorsWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
   if (minValidWrap) minValidWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
   if (staleWrap) staleWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
@@ -15418,6 +15439,10 @@ function sanitizeTherm(t) {
   let sourceObj = { type: 'esafe', num: Number.isFinite(srcNum) ? srcNum : 1 };
   if (srcType === 'ha_climate') {
     sourceObj = { type: 'ha_climate', entity_id: srcEntityId };
+  } else if (srcType === 'ha_sensor') {
+    sourceObj = { type: 'ha_sensor', entity_id: srcEntityId };
+  } else if (srcType === 'virtual') {
+    sourceObj = { type: 'virtual' };
   } else if (srcType === 'ha_multi_sensor_avg') {
     sourceObj = {
       type: 'ha_multi_sensor_avg',
@@ -15725,6 +15750,10 @@ function editItem(idx) {
   document.getElementById('f_rt_power_light').value = String(rt.power_light || '');
   document.getElementById('f_rt_valve_low_switch').value = String(rt.valve_switch_low || rt.valv_switch_low || rt.valve_switch_bassa || '');
   document.getElementById('f_rt_valve_hot_switch').value = String(rt.valve_switch_hot || rt.valv_switch_hot || rt.valve_switch_alta || '');
+  const heatRt = (rt.heat && typeof rt.heat === 'object') ? rt.heat : {};
+  const coolRt = (rt.cool && typeof rt.cool === 'object') ? rt.cool : {};
+  document.getElementById('f_rt_heat_power_switch').value = String(heatRt.power_switch || heatRt.relay_switch || '');
+  document.getElementById('f_rt_cool_power_switch').value = String(coolRt.power_switch || coolRt.relay_switch || '');
   document.getElementById('f_rt_fan_min_switch').value = String(fanSw.min || '');
   document.getElementById('f_rt_fan_med_switch').value = String(fanSw.med || '');
   document.getElementById('f_rt_fan_max_switch').value = String(fanSw.max || '');
@@ -15784,6 +15813,8 @@ function addNew() {
   document.getElementById('f_rt_power_light').value = '';
   document.getElementById('f_rt_valve_low_switch').value = '';
   document.getElementById('f_rt_valve_hot_switch').value = '';
+  document.getElementById('f_rt_heat_power_switch').value = '';
+  document.getElementById('f_rt_cool_power_switch').value = '';
   document.getElementById('f_rt_fan_min_switch').value = '';
   document.getElementById('f_rt_fan_med_switch').value = '';
   document.getElementById('f_rt_fan_max_switch').value = '';
@@ -15840,14 +15871,16 @@ function saveItem() {
   const rtPowerLight = String(document.getElementById('f_rt_power_light').value || '').trim();
   const rtValveLow = String(document.getElementById('f_rt_valve_low_switch').value || '').trim();
   const rtValveHot = String(document.getElementById('f_rt_valve_hot_switch').value || '').trim();
+  const rtHeatPowerSwitch = String(document.getElementById('f_rt_heat_power_switch').value || '').trim();
+  const rtCoolPowerSwitch = String(document.getElementById('f_rt_cool_power_switch').value || '').trim();
   const rtFanMin = String(document.getElementById('f_rt_fan_min_switch').value || '').trim();
   const rtFanMed = String(document.getElementById('f_rt_fan_med_switch').value || '').trim();
   const rtFanMax = String(document.getElementById('f_rt_fan_max_switch').value || '').trim();
-  const split = (srcType === 'ha_multi_sensor_avg') ? false : !!document.getElementById('f_split').checked;
+  const split = (srcType === 'ha_multi_sensor_avg') ? false : (!!document.getElementById('f_split').checked || !!rtHeatPowerSwitch || !!rtCoolPowerSwitch);
   const autoCtl = !!document.getElementById('f_auto').checked;
-  const hPower = (srcType === 'ha_multi_sensor_avg') ? false : !!document.getElementById('f_heat_power').checked;
+  const hPower = (srcType === 'ha_multi_sensor_avg') ? false : (!!document.getElementById('f_heat_power').checked || !!rtHeatPowerSwitch);
   const hFan3 = (srcType === 'ha_multi_sensor_avg') ? false : !!document.getElementById('f_heat_fan3').checked;
-  const cPower = (srcType === 'ha_multi_sensor_avg') ? false : !!document.getElementById('f_cool_power').checked;
+  const cPower = (srcType === 'ha_multi_sensor_avg') ? false : (!!document.getElementById('f_cool_power').checked || !!rtCoolPowerSwitch);
   const cFan3 = (srcType === 'ha_multi_sensor_avg') ? false : !!document.getElementById('f_cool_fan3').checked;
   const msg = document.getElementById('dlgMsg');
 
@@ -15855,6 +15888,8 @@ function saveItem() {
   if (!ensureUniqueId(id, editIndex)) { if (msg) msg.textContent = 'ID già usato: scegli un ID unico.'; return; }
   if (srcType === 'ha_climate') {
     if (!srcEntityId) { if (msg) msg.textContent = 'Source entity_id obbligatorio (es: climate.sala).'; return; }
+  } else if (srcType === 'ha_sensor') {
+    if (!srcEntityId) { if (msg) msg.textContent = 'Source entity_id obbligatorio (es: sensor.temperatura_sala).'; return; }
   } else if (srcType === 'ha_multi_sensor_avg') {
     if (srcSensors.length < 1) { if (msg) msg.textContent = 'Inserisci almeno una sonda HA.'; return; }
     if (!rtClimateEntity) { if (msg) msg.textContent = 'Termostato reale obbligatorio (climate.xxx).'; return; }
@@ -15862,6 +15897,8 @@ function saveItem() {
       if (msg) msg.textContent = 'Min sonde valide deve essere tra 1 e numero sonde.'; return;
     }
     if (Number.isFinite(srcStale) && srcStale < 0) { if (msg) msg.textContent = 'stale_sec deve essere >= 0.'; return; }
+  } else if (srcType === 'virtual') {
+    // No external source required.
   } else {
     if (!Number.isFinite(srcNum) || srcNum <= 0) { if (msg) msg.textContent = 'Source num non valido (deve essere un numero > 0).'; return; }
   }
@@ -15873,11 +15910,13 @@ function saveItem() {
     }
   }
   let realTargets = null;
-  if (rtPowerLight || rtValveLow || rtValveHot || rtFanMin || rtFanMed || rtFanMax) {
+  if (rtPowerLight || rtValveLow || rtValveHot || rtHeatPowerSwitch || rtCoolPowerSwitch || rtFanMin || rtFanMed || rtFanMax) {
     realTargets = {};
     if (rtPowerLight) realTargets.power_light = rtPowerLight;
     if (rtValveLow) realTargets.valve_switch_low = rtValveLow;
     if (rtValveHot) realTargets.valve_switch_hot = rtValveHot;
+    if (rtHeatPowerSwitch) realTargets.heat = { power_switch: rtHeatPowerSwitch };
+    if (rtCoolPowerSwitch) realTargets.cool = { power_switch: rtCoolPowerSwitch };
     const fanSwitches = {};
     if (rtFanMin) fanSwitches.min = rtFanMin;
     if (rtFanMed) fanSwitches.med = rtFanMed;
@@ -15914,6 +15953,10 @@ function saveItem() {
   let sourceObj = { type: 'esafe', num: srcNum };
   if (srcType === 'ha_climate') {
     sourceObj = { type: 'ha_climate', entity_id: srcEntityId };
+  } else if (srcType === 'ha_sensor') {
+    sourceObj = { type: 'ha_sensor', entity_id: srcEntityId };
+  } else if (srcType === 'virtual') {
+    sourceObj = { type: 'virtual' };
   } else if (srcType === 'ha_multi_sensor_avg') {
     sourceObj = {
       type: 'ha_multi_sensor_avg',

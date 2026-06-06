@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.111"
+APP_VERSION = "2.6.112"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -200,6 +200,7 @@ class ThermEngine:
         self._last_mqtt_error = ""
         self._last_ha_poll_ts = 0.0
         self._last_ha_sensor_poll_ts = 0.0
+        self._last_ha_plain_sensor_poll_ts = 0.0
         self._last_ha_warn_ts = 0.0
         self._last_discovery_publish_ts = 0.0
 
@@ -679,6 +680,125 @@ class ThermEngine:
                 out.append(t)
         return out
 
+    def _ha_sensor_terms(self) -> List[Dict[str, Any]]:
+        out: List[Dict[str, Any]] = []
+        for t in self.therm_list():
+            src = t.get("source") or {}
+            st = str(src.get("type", "")).lower()
+            if st not in ("ha_sensor", "homeassistant_sensor", "sensor"):
+                continue
+            ent = str(src.get("entity_id") or "").strip()
+            sensors = src.get("sensors") if isinstance(src.get("sensors"), list) else []
+            if ent or sensors:
+                out.append(t)
+        return out
+
+    def _virtual_terms(self) -> List[Dict[str, Any]]:
+        out: List[Dict[str, Any]] = []
+        for t in self.therm_list():
+            src = t.get("source") or {}
+            st = str(src.get("type", "")).lower()
+            if st in ("virtual", "local", "local_virtual"):
+                out.append(t)
+        return out
+
+    def _sync_virtual_states(self, force: bool = False) -> None:
+        terms = self._virtual_terms()
+        if not terms:
+            return
+        any_update = False
+        now = time.time()
+
+        for t in terms:
+            tid = str(t.get("id"))
+            src = t.get("source") if isinstance(t.get("source"), dict) else {}
+            initial_temp = _as_float(
+                _get_any(src, "current_temperature", "temperature", "initial_temperature")
+            )
+            if initial_temp is None:
+                initial_temp = 20.0
+            initial_target = _as_float(
+                _get_any(src, "target_temperature", "target", "initial_target")
+            )
+            if initial_target is None:
+                initial_target = 21.0
+            rh = _as_float(_get_any(src, "humidity", "initial_humidity"))
+            season = str(_get_any(src, "season", "act_sea") or "WIN").strip().upper()
+            if season not in ("WIN", "SUM", "OFF"):
+                season = "WIN"
+            preset = str(_get_any(src, "preset", "mode", "act_model") or "MAN").strip().upper()
+            if not preset:
+                preset = "MAN"
+
+            with self.lock:
+                rt = self.rt.setdefault(tid, {})
+                th = rt.setdefault("THERM", {})
+                if force or rt.get("TEMP") is None:
+                    rt["TEMP"] = float(initial_temp)
+                    any_update = True
+                if rh is not None and (force or rt.get("RH") is None):
+                    rt["RH"] = float(rh)
+                    any_update = True
+                thr = th.get("TEMP_THR") if isinstance(th.get("TEMP_THR"), dict) else None
+                if force or not (thr and thr.get("VAL") is not None):
+                    th["TEMP_THR"] = {"VAL": float(initial_target)}
+                    any_update = True
+                if force or not th.get("ACT_SEA"):
+                    th["ACT_SEA"] = season
+                    any_update = True
+                if force or not th.get("ACT_MODEL"):
+                    th["ACT_MODEL"] = "OFF" if season == "OFF" else preset
+                    any_update = True
+                if force or not th.get("OUT_STATUS"):
+                    th["OUT_STATUS"] = "OFF"
+                    any_update = True
+
+                # Optional dev/test simulation. Disabled by default; when enabled it
+                # nudges the virtual current temperature based on demand state.
+                if bool(src.get("simulate_temperature", src.get("simulate", False))):
+                    last_key = "_last_virtual_sim_ts"
+                    last_map = self.runtime.get(last_key)
+                    if not isinstance(last_map, dict):
+                        last_map = {}
+                    last_ts = _as_float(last_map.get(tid))
+                    last_map[tid] = now
+                    self.runtime[last_key] = last_map
+                    if last_ts is not None and now > float(last_ts):
+                        dt_min = min(10.0, max(0.0, (now - float(last_ts)) / 60.0))
+                        cur = _as_float(rt.get("TEMP"))
+                        if cur is not None and dt_min > 0:
+                            demand = str(th.get("DEMAND_ON") or "").upper() == "ON"
+                            sea = str(th.get("ACT_SEA") or "WIN").upper()
+                            ambient = _as_float(src.get("ambient_temperature"))
+                            if ambient is None:
+                                ambient = float(initial_temp)
+                            heat_rate = _as_float(src.get("heat_rate_per_min"))
+                            cool_rate = _as_float(src.get("cool_rate_per_min"))
+                            drift_rate = _as_float(src.get("drift_rate_per_min"))
+                            heat_rate = float(heat_rate) if heat_rate is not None else 0.08
+                            cool_rate = float(cool_rate) if cool_rate is not None else 0.08
+                            drift_rate = float(drift_rate) if drift_rate is not None else 0.02
+                            next_temp = float(cur)
+                            if demand and sea == "WIN":
+                                next_temp += heat_rate * dt_min
+                            elif demand and sea == "SUM":
+                                next_temp -= cool_rate * dt_min
+                            else:
+                                delta = float(ambient) - next_temp
+                                step = max(-drift_rate * dt_min, min(drift_rate * dt_min, delta))
+                                next_temp += step
+                            rt["TEMP"] = round(float(next_temp), 2)
+                            any_update = True
+
+        if any_update:
+            try:
+                self._last_source_ts = time.time()
+                self._ever_got_source = True
+            except Exception:
+                pass
+            self._sync_ui()
+            self._persist_rt_cache()
+
     def _ha_api_request(self, method: str, path: str, payload: Optional[Dict[str, Any]] = None) -> Optional[Any]:
         token = os.environ.get("SUPERVISOR_TOKEN", "").strip()
         if not token:
@@ -830,9 +950,9 @@ class ThermEngine:
         if not terms:
             return
         now = time.time()
-        if not force and (now - float(self._last_ha_sensor_poll_ts or 0.0)) < 5.0:
+        if not force and (now - float(self._last_ha_plain_sensor_poll_ts or 0.0)) < 5.0:
             return
-        self._last_ha_sensor_poll_ts = now
+        self._last_ha_plain_sensor_poll_ts = now
 
         any_update = False
         for t in terms:
@@ -913,6 +1033,91 @@ class ThermEngine:
                     th[k] = v
                 if th_patch.get("REAL_TEMP") is not None:
                     rt["REAL_TEMP"] = float(th_patch.get("REAL_TEMP"))
+            any_update = True
+
+        if any_update:
+            try:
+                self._last_source_ts = time.time()
+                self._ever_got_source = True
+            except Exception:
+                pass
+            self._sync_ui()
+            self._persist_rt_cache()
+
+    def _poll_ha_sensor_states(self, force: bool = False) -> None:
+        terms = self._ha_sensor_terms()
+        if not terms:
+            return
+        now = time.time()
+        if not force and (now - float(self._last_ha_sensor_poll_ts or 0.0)) < 5.0:
+            return
+        self._last_ha_sensor_poll_ts = now
+
+        any_update = False
+        for t in terms:
+            tid = str(t.get("id"))
+            src = t.get("source") if isinstance(t.get("source"), dict) else {}
+            sensors = src.get("sensors") if isinstance(src.get("sensors"), list) else []
+            sensors = [str(x).strip() for x in sensors if str(x).strip()]
+            ent = str(src.get("entity_id") or "").strip()
+            if ent and ent not in sensors:
+                sensors.insert(0, ent)
+            if not sensors:
+                continue
+
+            min_valid = _as_int(src.get("min_valid_sensors"))
+            if min_valid is None:
+                min_valid = 1
+            min_valid = max(1, min(int(min_valid), len(sensors)))
+            stale_sec = _as_float(src.get("stale_sec"))
+            stale_sec = float(stale_sec) if stale_sec is not None else 0.0
+
+            vals: List[float] = []
+            sensor_rows: List[Dict[str, Any]] = []
+            for ent0 in sensors:
+                st = self._ha_api_request("GET", f"/states/{ent0}")
+                if not isinstance(st, dict):
+                    sensor_rows.append({"entity_id": ent0, "name": ent0, "temp": None, "status": "unavailable"})
+                    continue
+                attrs = st.get("attributes") if isinstance(st.get("attributes"), dict) else {}
+                name = str(attrs.get("friendly_name") or ent0).strip() or ent0
+                if not self._ha_state_is_fresh(st, stale_sec):
+                    sensor_rows.append({"entity_id": ent0, "name": name, "temp": None, "status": "stale"})
+                    continue
+                v = self._ha_state_temperature(st)
+                if v is None:
+                    sensor_rows.append({"entity_id": ent0, "name": name, "temp": None, "status": "invalid"})
+                    continue
+                vals.append(float(v))
+                sensor_rows.append({"entity_id": ent0, "name": name, "temp": float(v), "status": "ok"})
+
+            if len(vals) < int(min_valid):
+                continue
+            cur = float(sum(vals) / len(vals))
+            initial_target = _as_float(_get_any(src, "target_temperature", "target", "initial_target"))
+            if initial_target is None:
+                initial_target = 21.0
+            season = str(_get_any(src, "season", "act_sea") or "WIN").strip().upper()
+            if season not in ("WIN", "SUM", "OFF"):
+                season = "WIN"
+
+            with self.lock:
+                rt = self.rt.setdefault(tid, {})
+                rt["TEMP"] = float(cur)
+                rt["AVG_TEMP"] = float(cur)
+                rt["AVG_VALID"] = int(len(vals))
+                rt["AVG_COUNT"] = int(len(sensors))
+                rt["AVG_SENSORS"] = sensor_rows
+                th = rt.setdefault("THERM", {})
+                if not th.get("ACT_SEA"):
+                    th["ACT_SEA"] = season
+                if not th.get("ACT_MODEL"):
+                    th["ACT_MODEL"] = "OFF" if season == "OFF" else "MAN"
+                if not th.get("OUT_STATUS"):
+                    th["OUT_STATUS"] = "OFF"
+                thr = th.get("TEMP_THR") if isinstance(th.get("TEMP_THR"), dict) else None
+                if not (thr and thr.get("VAL") is not None):
+                    th["TEMP_THR"] = {"VAL": float(initial_target)}
             any_update = True
 
         if any_update:
@@ -1415,6 +1620,14 @@ class ThermEngine:
             )
             if pwm_light:
                 self._apply_real_pwm_lights(pwm_light, pwm)
+            power_switch = (
+                targets.get("power_switch")
+                or targets.get("relay_switch")
+                or targets.get("switch")
+                or ""
+            )
+            if power_switch:
+                self._apply_real_switches(power_switch, pwm > 0)
 
         if outputs.get("fan3"):
             fan = desired.get("fan") if isinstance(desired.get("fan"), dict) else {}
@@ -1975,6 +2188,14 @@ class ThermEngine:
             self._poll_ha_multi_sensor_states()
         except Exception:
             pass
+        try:
+            self._poll_ha_sensor_states()
+        except Exception:
+            pass
+        try:
+            self._sync_virtual_states()
+        except Exception:
+            pass
 
         # If MQTT reports disconnected, attempt reconnect with backoff.
         if not bool(self._mqtt_connected):
@@ -2029,6 +2250,14 @@ class ThermEngine:
             pass
         try:
             self._poll_ha_multi_sensor_states()
+        except Exception:
+            pass
+        try:
+            self._poll_ha_sensor_states()
+        except Exception:
+            pass
+        try:
+            self._sync_virtual_states()
         except Exception:
             pass
 
@@ -2458,6 +2687,14 @@ class ThermEngine:
             self._poll_ha_multi_sensor_states(force=True)
         except Exception:
             pass
+        try:
+            self._poll_ha_sensor_states(force=True)
+        except Exception:
+            pass
+        try:
+            self._sync_virtual_states(force=True)
+        except Exception:
+            pass
         self._publish_discovery()
         try:
             self._publish_pdc_consensus()
@@ -2615,6 +2852,14 @@ class ThermEngine:
                 or ""
             )
             for ent in self._split_entities(pwm_light):
+                ents.add(str(ent).strip().lower())
+            power_switch = (
+                targets.get("power_switch")
+                or targets.get("relay_switch")
+                or targets.get("switch")
+                or ""
+            )
+            for ent in self._split_entities(power_switch):
                 ents.add(str(ent).strip().lower())
         if outputs.get("fan3"):
             fan_sw = targets.get("fan_switches") if isinstance(targets.get("fan_switches"), dict) else {}
@@ -3060,7 +3305,9 @@ class ThermEngine:
         is_esafe = stype in ("esafe", "esafe_json")
         is_ha = stype in ("ha_climate", "homeassistant_climate", "ha")
         is_ha_avg = stype in ("ha_multi_sensor_avg", "ha_sensor_avg", "ha_multi_avg")
-        if not (is_esafe or is_ha or is_ha_avg):
+        is_ha_sensor = stype in ("ha_sensor", "homeassistant_sensor", "sensor")
+        is_virtual = stype in ("virtual", "local", "local_virtual")
+        if not (is_esafe or is_ha or is_ha_avg or is_ha_sensor or is_virtual):
             return
         num = None
         if is_esafe:
@@ -3101,7 +3348,7 @@ class ThermEngine:
                     old_v = _as_float(thr0.get("VAL"))
             if is_esafe:
                 self.mqtt.publish(f"{self.source_prefix}/cmd/thermostat/{num}/temperature", str(v), retain=False)
-            else:
+            elif is_ha or is_ha_avg:
                 if sync_setp:
                     self._ha_climate_service(ent, "set_temperature", {"temperature": float(v)})
             try:
@@ -3140,7 +3387,7 @@ class ThermEngine:
                 old_sea = str(th0.get("ACT_SEA") or "").upper() or None
             if is_esafe:
                 self.mqtt.publish(f"{self.source_prefix}/cmd/thermostat/{num}/mode", m, retain=False)
-            else:
+            elif is_ha or is_ha_avg:
                 if sync_mode:
                     self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": m})
             new_sea = "WIN" if m == "heat" else ("SUM" if m == "cool" else "OFF")
@@ -3192,7 +3439,7 @@ class ThermEngine:
                 old_p = str(th0.get("ACT_MODEL") or th0.get("ACT_MODE") or "").upper() or None
             if is_esafe:
                 self.mqtt.publish(f"{self.source_prefix}/cmd/thermostat/{num}/preset_mode", p, retain=False)
-            else:
+            elif is_ha or is_ha_avg:
                 if sync_preset:
                     self._ha_climate_service(ent, "set_preset_mode", {"preset_mode": p.lower()})
             try:
