@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-06 - v2.6.124 - Autore: Codex
+- HA climate bridge: aggiunta tenuta ottimistica dello stato `heat/cool` per 30s dopo comando mode.
+- Evita che il polling del climate reale, ancora `off` durante la transizione, ripubblichi subito `OFF` sul climate e-Therm.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-06 - v2.6.123 - Autore: Codex
 - HA climate bridge: aumentato cooldown dei comandi `heat/cool` ripetuti sullo stesso climate reale per fermare loop heat/off.
 - MQTT startup: pulizia retained anche per command topic climate (`mode/set`, `target_temperature/set`, `preset_mode/set`), non solo valvole.

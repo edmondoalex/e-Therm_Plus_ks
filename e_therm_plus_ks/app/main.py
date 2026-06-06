@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.123"
+APP_VERSION = "2.6.124"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -249,6 +249,7 @@ class ThermEngine:
         self._demand_latch: Dict[str, bool] = {}
         self._real_therm_adapt: Dict[str, Dict[str, Any]] = {}
         self._ha_bridge_cmd_last: Dict[str, float] = {}
+        self._ha_bridge_mode_hold: Dict[str, Dict[str, Any]] = {}
         self._control_thread: Optional[threading.Thread] = None
         self._watchdog_thread: Optional[threading.Thread] = None
 
@@ -885,6 +886,15 @@ class ThermEngine:
             hvac = str(st.get("state") or "").strip().lower()
             hvac_action = str(attrs.get("hvac_action") or "").strip().lower()
             preset = str(attrs.get("preset_mode") or "").strip().upper()
+            hold = self._ha_bridge_mode_hold.get(tid)
+            if isinstance(hold, dict):
+                hold_until = float(hold.get("until", 0.0) or 0.0)
+                hold_mode = str(hold.get("mode") or "").strip().lower()
+                if now <= hold_until and hvac == "off" and hold_mode in ("heat", "cool"):
+                    hvac = hold_mode
+                    preset = preset or "MAN"
+                elif now > hold_until:
+                    self._ha_bridge_mode_hold.pop(tid, None)
 
             with self.lock:
                 rt = self.rt.setdefault(tid, {})
@@ -3486,6 +3496,10 @@ class ThermEngine:
             elif is_ha or is_ha_avg:
                 if sync_mode:
                     self._ha_climate_set_hvac_mode_safe(ent, m)
+                    if m in ("heat", "cool"):
+                        self._ha_bridge_mode_hold[str(tid)] = {"mode": m, "until": time.time() + 30.0}
+                    else:
+                        self._ha_bridge_mode_hold.pop(str(tid), None)
             new_sea = "WIN" if m == "heat" else ("SUM" if m == "cool" else "OFF")
             try:
                 self._register_ack(tid=str(tid), field="season", origin=origin, expected=new_sea)
