@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.122"
+APP_VERSION = "2.6.123"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1172,7 +1172,8 @@ class ThermEngine:
         cur = self._ha_climate_state(ent)
         if cur == m:
             return True
-        if self._ha_bridge_recent(f"{ent}:mode:{m}", 3.0):
+        mode_window = 20.0 if m in ("heat", "cool") else 5.0
+        if self._ha_bridge_recent(f"{ent}:mode:{m}", mode_window):
             return True
         ok = self._ha_climate_service(ent, "set_hvac_mode", {"hvac_mode": m})
         if ok or m == "off":
@@ -2737,7 +2738,7 @@ class ThermEngine:
         if client is None:
             return
         # Clear any retained /set commands before subscribing, to avoid spurious manual overrides.
-        self._clear_retained_valve_commands()
+        self._clear_retained_command_topics()
         client.subscribe(f"{self.source_prefix}/thermostats/+", qos=0)
         client.subscribe(f"{self.source_prefix}/thermostats/+/+", qos=0)
 
@@ -3761,7 +3762,7 @@ class ThermEngine:
         self._publish_valve_state(t)
         return True
 
-    def _clear_retained_valve_commands(self) -> None:
+    def _clear_retained_command_topics(self) -> None:
         try:
             ids: List[int] = []
             for t in self.therm_list():
@@ -3773,6 +3774,9 @@ class ThermEngine:
                 return
             max_id = max(ids)
             for tid in range(1, max_id + 1):
+                self.mqtt.publish(f"{self.out_prefix}/thermostats/{tid}/target_temperature/set", "", retain=True)
+                self.mqtt.publish(f"{self.out_prefix}/thermostats/{tid}/mode/set", "", retain=True)
+                self.mqtt.publish(f"{self.out_prefix}/thermostats/{tid}/preset_mode/set", "", retain=True)
                 self.mqtt.publish(f"{self.out_prefix}/valv/{tid}/set", "", retain=True)
                 self.mqtt.publish(f"{self.out_prefix}/valv_hot/{tid}/set", "", retain=True)
                 self.mqtt.publish(f"{self.out_prefix}/valv_low/{tid}/set", "", retain=True)
