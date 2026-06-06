@@ -13744,13 +13744,51 @@ def render_thermostats(snapshot):
     for e in therms:
         tid = e.get("id")
         name = e.get("name") or (e.get("static") or {}).get("DES") or f"Termostato {tid}"
+        rt = e.get("realtime") if isinstance(e.get("realtime"), dict) else {}
+        therm = rt.get("THERM") if isinstance(rt.get("THERM"), dict) else {}
+        season = str(therm.get("ACT_SEA") or "").upper()
+        mode = str(therm.get("ACT_MODEL") or therm.get("ACT_MODE") or "").upper()
+        out = str(therm.get("OUT_STATUS") or "").upper()
+        demand = str(therm.get("DEMAND_ON") or "").upper()
+        req_on = out == "ON"
+        if demand == "ON":
+            req_on = True
+        elif demand == "OFF":
+            req_on = False
+        if mode == "OFF":
+            req_on = False
+        is_cool = season == "SUM"
+        status_class = "cool" if (req_on and is_cool) else ("heat" if req_on else "off")
+        status_label = "COOL ON" if (req_on and is_cool) else ("HEAT ON" if req_on else "OFF")
+        status_icon = "C" if (req_on and is_cool) else ("H" if req_on else "O")
+
+        def _fmt_temp(v):
+            try:
+                if v is None or str(v).strip() == "":
+                    return "--,-"
+                return f"{float(str(v).replace(',', '.')):.1f}".replace(".", ",")
+            except Exception:
+                return "--,-"
+
+        temp = _fmt_temp(rt.get("TEMP"))
+        thr = therm.get("TEMP_THR") if isinstance(therm.get("TEMP_THR"), dict) else {}
+        target = _fmt_temp(thr.get("VAL"))
+        mode_label = "Estate" if is_cool else "Inverno"
+        if season == "OFF" or mode == "OFF":
+            mode_label = "Off"
         rows.append(
-            f'<li><a href="./thermostats/{_html_escape(str(tid))}">{_html_escape(str(name))}</a> '
-            f'<span class="muted">(# {_html_escape(str(tid))})</span></li>'
+            f'<a class="thermRow {status_class}" href="./thermostats/{_html_escape(str(tid))}">'
+            f'  <span class="statusOrb"><span>{_html_escape(status_icon)}</span></span>'
+            f'  <span class="thermMain">'
+            f'    <span class="thermName">{_html_escape(str(name))}</span>'
+            f'    <span class="thermMeta">ID {_html_escape(str(tid))} · {temp}°C · Set {target}°C · {_html_escape(mode_label)}</span>'
+            f'  </span>'
+            f'  <span class="statusPill"><span class="statusDot"></span>{_html_escape(status_label)}</span>'
+            f'</a>'
         )
 
     items = (
-        "<ul>" + "".join(rows) + "</ul>"
+        '<div class="thermList">' + "".join(rows) + "</div>"
         if rows
         else '<div class="muted">Nessun termostato trovato.</div>'
     )
@@ -13811,8 +13849,76 @@ def render_thermostats(snapshot):
       .badge { display:inline-block; padding:2px 10px; border:1px solid var(--border); border-radius: 999px; color: var(--muted); }
       .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-top: 12px; }
       .muted { color: var(--muted); }
-      ul { margin: 8px 0 0; padding-left: 18px; }
-      li { margin: 6px 0; }
+      .thermList { display:flex; flex-direction:column; gap: 10px; }
+      .thermRow {
+        position:relative;
+        display:grid;
+        grid-template-columns: 48px minmax(0,1fr) auto;
+        align-items:center;
+        gap: 12px;
+        min-height: 62px;
+        padding: 10px 12px;
+        border: 1px solid rgba(255,255,255,0.10);
+        border-radius: 14px;
+        background: linear-gradient(90deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02));
+        overflow:hidden;
+      }
+      .thermRow:hover { text-decoration:none; background: linear-gradient(90deg, rgba(255,255,255,0.085), rgba(255,255,255,0.03)); }
+      .thermRow:before {
+        content:'';
+        position:absolute;
+        inset:-1px;
+        opacity:0;
+        pointer-events:none;
+        background: radial-gradient(320px 80px at 12% 50%, var(--rowGlow), transparent 70%);
+        transition: opacity .18s ease;
+      }
+      .thermRow.heat, .thermRow.cool { border-color: var(--rowBorder); }
+      .thermRow.heat:before, .thermRow.cool:before { opacity:1; }
+      .thermRow.heat { --rowGlow: rgba(255,159,28,0.30); --rowBorder: rgba(255,159,28,0.38); --rowColor: #ff9f1c; }
+      .thermRow.cool { --rowGlow: rgba(102,199,255,0.26); --rowBorder: rgba(102,199,255,0.38); --rowColor: #66c7ff; }
+      .thermRow.off { --rowColor: rgba(255,255,255,0.42); }
+      .statusOrb {
+        position:relative;
+        width: 38px;
+        height: 38px;
+        border-radius: 999px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(0,0,0,0.22);
+        color: var(--rowColor);
+        font-size: 13px;
+        font-weight: 900;
+        box-shadow: inset 0 0 18px rgba(255,255,255,0.035);
+      }
+      .thermRow.heat .statusOrb, .thermRow.cool .statusOrb { box-shadow: 0 0 26px color-mix(in srgb, var(--rowColor) 42%, transparent), inset 0 0 18px rgba(255,255,255,0.04); }
+      .thermMain { position:relative; display:flex; flex-direction:column; gap: 4px; min-width:0; }
+      .thermName { font-size: 15px; font-weight: 800; color: rgba(255,255,255,0.92); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .thermMeta { font-size: 12px; color: rgba(255,255,255,0.58); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .statusPill {
+        position:relative;
+        display:inline-flex;
+        align-items:center;
+        gap: 7px;
+        min-width: 92px;
+        justify-content:center;
+        padding: 7px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,0.12);
+        color: var(--rowColor);
+        background: rgba(0,0,0,0.18);
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: .4px;
+      }
+      .statusDot { width: 8px; height: 8px; border-radius:999px; background: var(--rowColor); opacity:.72; }
+      .thermRow.heat .statusDot, .thermRow.cool .statusDot { opacity:1; box-shadow: 0 0 14px var(--rowColor); }
+      @media (max-width: 620px) {
+        .thermRow { grid-template-columns: 42px minmax(0,1fr); }
+        .statusPill { grid-column: 2; width: fit-content; min-width: 84px; }
+      }
     </style>
   </head>
   <body>

@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-06 - v2.6.118 - Autore: Codex
+- UI elenco termostati: sostituita lista semplice con righe cliccabili e indicatore HEAT/COOL/OFF.
+- Badge e icona laterale usano gli stessi colori della pagina dettaglio: arancione heat, blu cool, grigio off.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-06 - v2.6.117 - Autore: Codex
 - UI dettaglio termostato: colore richiesta HEAT reso piu arancione su anello e indicatore centrale.
 - File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
