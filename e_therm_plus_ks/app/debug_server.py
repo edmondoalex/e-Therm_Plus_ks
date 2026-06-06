@@ -13865,7 +13865,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
     <meta http-equiv="Cache-Control" content="no-store, max-age=0"/>
     <meta http-equiv="Pragma" content="no-cache"/>
     <meta http-equiv="Expires" content="0"/>
-    <title>Ksenia Lares - __TITLE__</title>
+    <title>Termostato - __TITLE__</title>
     <style>
        :root {
          --bg0: #05070b;

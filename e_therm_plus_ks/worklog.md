@@ -3,6 +3,12 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-06 - v2.6.116 - Autore: Codex
+- UI dettaglio termostato: titolo browser cambiato da `Ksenia Lares - <nome>` a `Termostato - <nome>`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-06 - v2.6.115 - Autore: Codex
 - Persistenza runtime: setpoint, stagione/modalita e preset dei climate virtuali vengono salvati subito in `vtherm_runtime.json`.
 - Evita perdita di setpoint/modalita dopo riavvio addon per sorgenti locali come `ha_sensor` e `virtual`.
