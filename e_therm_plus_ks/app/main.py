@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.114"
+APP_VERSION = "2.6.115"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -3374,6 +3374,7 @@ class ThermEngine:
                 th = rt.setdefault("THERM", {})
                 th["TEMP_THR"] = {"VAL": float(v)}
             self._sync_ui()
+            self._persist_rt_cache()
             return
 
         if kind == "mode":
@@ -3422,6 +3423,7 @@ class ThermEngine:
                     th["ACT_SEA"] = "OFF"
                     th["ACT_MODEL"] = "OFF"
             self._sync_ui()
+            self._persist_rt_cache()
             return
 
         if kind == "preset_mode":
@@ -3465,6 +3467,7 @@ class ThermEngine:
                 th = rt.setdefault("THERM", {})
                 th["ACT_MODEL"] = p
             self._sync_ui()
+            self._persist_rt_cache()
             return
 
     # -------------------- Combined out_prefix handler --------------------

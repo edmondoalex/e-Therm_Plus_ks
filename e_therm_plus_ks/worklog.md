@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-06 - v2.6.115 - Autore: Codex
+- Persistenza runtime: setpoint, stagione/modalita e preset dei climate virtuali vengono salvati subito in `vtherm_runtime.json`.
+- Evita perdita di setpoint/modalita dopo riavvio addon per sorgenti locali come `ha_sensor` e `virtual`.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-06 - v2.6.114 - Autore: Codex
 - UI dettaglio termostato: aggiunto indicatore centrale relè/richiesta sotto RH.
 - Indicatore giallo `HEAT ON` in richiesta caldo, blu `COOL ON` in richiesta freddo, grigio `OFF` senza richiesta.
