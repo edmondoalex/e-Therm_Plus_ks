@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-06 - v2.6.128 - Autore: Codex
+- MQTT Discovery: ascolta i retained `homeassistant/climate/+/config` e cancella automaticamente i climate e-Therm orfani non presenti nella config.
+- Cleanup termostati rimossi: genera varianti name-based senza prefisso `e-Therm` per cancellare topic tipo `e_therm_z_giorno_mansarda_climate`.
+- Memorizza i topic discovery pubblicati per poterli rimuovere esattamente alle cancellazioni future.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-06 - v2.6.127 - Autore: Codex
 - Cancellazione termostati: rimuove subito l'entita dallo snapshot UI, runtime cache, desired state e latch interni.
 - Cleanup MQTT piu completo per termostati rimossi: discovery id/name-based, state topic, command topic e valvole retained.

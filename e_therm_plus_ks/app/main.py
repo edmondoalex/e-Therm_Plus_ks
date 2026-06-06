@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.127"
+APP_VERSION = "2.6.128"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1871,7 +1871,6 @@ class ThermEngine:
 
     def _discovery_topics_for_any(self, t: Dict[str, Any]) -> List[str]:
         tid = str(t.get("id"))
-        name_slug = _entity_safe_name(t.get("name") or f"thermostat_{tid}", f"thermostat_{tid}")
         if self._is_split_outputs(t):
             topics = self._discovery_topics_for_therm_split(
                 tid,
@@ -1880,8 +1879,33 @@ class ThermEngine:
             )
         else:
             topics = self._discovery_topics_for_therm(tid, (t.get("outputs") or {}))
-        topics.append(f"homeassistant/climate/e_therm_{name_slug}_climate/config")
+        for name_slug in self._entity_name_slugs_for_cleanup(t):
+            topics.append(f"homeassistant/climate/e_therm_{name_slug}_climate/config")
         return topics
+
+    def _entity_name_slugs_for_cleanup(self, t: Dict[str, Any]) -> List[str]:
+        tid = str((t or {}).get("id") or "").strip()
+        fallback = f"thermostat_{tid}" if tid else "unknown"
+        raw_names = [
+            (t or {}).get("name"),
+            (t or {}).get("DES"),
+            f"thermostat_{tid}" if tid else "",
+        ]
+        out: List[str] = []
+        for raw in raw_names:
+            s = str(raw or "").strip()
+            if not s:
+                continue
+            variants = [s]
+            low = s.lower()
+            for prefix in ("e-therm ", "e_therm ", "etherm "):
+                if low.startswith(prefix):
+                    variants.append(s[len(prefix):].strip())
+            for v in variants:
+                slug = _entity_safe_name(v, fallback)
+                if slug and slug not in out:
+                    out.append(slug)
+        return out
 
     def _is_split_outputs(self, t: Dict[str, Any]) -> bool:
         try:
@@ -1948,6 +1972,73 @@ class ThermEngine:
                 self.mqtt.publish(tp, payload="", retain=True)
             except Exception:
                 continue
+
+    def _remember_discovery_topic(self, tid: str, topic: str) -> None:
+        try:
+            key = str(tid)
+            tp = str(topic or "").strip()
+            if not key or not tp:
+                return
+            rec = self.runtime.get("published_discovery")
+            if not isinstance(rec, dict):
+                rec = {}
+            arr = rec.get(key)
+            if not isinstance(arr, list):
+                arr = []
+            if tp not in arr:
+                arr.append(tp)
+            rec[key] = arr
+            self.runtime["published_discovery"] = rec
+        except Exception:
+            pass
+
+    def _published_discovery_topics_for(self, tid: str) -> List[str]:
+        try:
+            rec = self.runtime.get("published_discovery")
+            arr = rec.get(str(tid)) if isinstance(rec, dict) else []
+            if isinstance(arr, list):
+                return [str(x) for x in arr if str(x or "").strip()]
+        except Exception:
+            pass
+        return []
+
+    def _current_climate_unique_ids(self) -> set[str]:
+        out: set[str] = set()
+        try:
+            for t in self.therm_list():
+                tid = str(t.get("id"))
+                name = t.get("name") or f"e-Therm {tid}"
+                name_slug = _entity_safe_name(name, f"thermostat_{tid}")
+                out.add(f"e_therm_{name_slug}_climate")
+        except Exception:
+            pass
+        return out
+
+    def _handle_discovery_config_message(self, topic: str, payload_raw: str) -> bool:
+        if not topic.startswith("homeassistant/climate/") or not topic.endswith("/config"):
+            return False
+        try:
+            cfg = json.loads(payload_raw or "{}")
+        except Exception:
+            return True
+        if not isinstance(cfg, dict):
+            return True
+        uid = str(cfg.get("unique_id") or "").strip()
+        if not (uid.startswith("e_therm_") and uid.endswith("_climate")):
+            return True
+        dev = cfg.get("device") if isinstance(cfg.get("device"), dict) else {}
+        model = str(dev.get("model") or "").strip()
+        manufacturer = str(dev.get("manufacturer") or "").strip()
+        if model != "e-Therm Plus KS" and manufacturer != "Ekonex":
+            return True
+        if uid in self._current_climate_unique_ids():
+            return True
+        try:
+            self.mqtt.publish(topic, payload="", retain=True)
+            print(f"[MQTT] cleaned orphan climate discovery {topic} ({uid})")
+        except Exception:
+            pass
+        return True
 
     def _cleanup_retained_topics(self, topics: List[str]) -> None:
         if not topics:
@@ -2086,6 +2177,7 @@ class ThermEngine:
             if tid not in new_by_id:
                 removed_ids.append(str(tid))
                 to_cleanup.extend(self._discovery_topics_for_any(old_t))
+                to_cleanup.extend(self._published_discovery_topics_for(tid))
                 retained_cleanup.extend(self._retained_topics_for_removed_therm(old_t))
                 if self._is_split_outputs(old_t):
                     to_cleanup.extend(
@@ -2181,6 +2273,10 @@ class ThermEngine:
                 self._manual_valve_until.pop(str(tid), None)
                 self._manual_valve_state.pop(str(tid), None)
                 self._ha_bridge_mode_hold.pop(str(tid), None)
+                rec = self.runtime.get("published_discovery")
+                if isinstance(rec, dict):
+                    rec.pop(str(tid), None)
+                    self.runtime["published_discovery"] = rec
             self.runtime["rt_cache"] = self.rt
             self.runtime["desired"] = self.desired
             save_config(self.cfg)
@@ -2877,6 +2973,7 @@ class ThermEngine:
         client.subscribe(f"{self.out_prefix}/thermostats/+/target_temperature/set", qos=0)
         client.subscribe(f"{self.out_prefix}/thermostats/+/mode/set", qos=0)
         client.subscribe(f"{self.out_prefix}/thermostats/+/preset_mode/set", qos=0)
+        client.subscribe("homeassistant/climate/+/config", qos=0)
         client.subscribe(f"{self.out_prefix}/valv/+/set", qos=0)
         client.subscribe(f"{self.out_prefix}/valv_hot/+/set", qos=0)
         client.subscribe(f"{self.out_prefix}/valv_low/+/set", qos=0)
@@ -3972,6 +4069,10 @@ class ThermEngine:
         topic = msg.topic
         payload_raw = msg.payload.decode("utf-8", errors="ignore").strip()
 
+        if topic.startswith("homeassistant/climate/") and topic.endswith("/config"):
+            if self._handle_discovery_config_message(topic, payload_raw):
+                return
+
         if topic.startswith(f"{self.out_prefix}/thermostats/"):
             # Stability: ignore retained "command" messages (*/set) that might be left on the broker.
             # Otherwise on (re)subscribe we would apply an old command and trigger manual override,
@@ -4494,6 +4595,7 @@ class ThermEngine:
                 "temp_step": 0.1,
             }
             self.mqtt.publish(climate_topic, json.dumps(climate_cfg, ensure_ascii=False), retain=True)
+            self._remember_discovery_topic(tid, climate_topic)
             # Cleanup legacy discovery topics so HA does not keep reviving old aliases.
             try:
                 for legacy_uid in (
