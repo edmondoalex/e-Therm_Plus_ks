@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-07 - v2.6.132 - Autore: Codex
+- HA sensor bridge: quando `source.entity_id` e un `climate.*`, la temperatura attuale viene letta da `current_temperature` invece che dal target `temperature`.
+- Aggiunti fallback per attributi custom `DISPLAY_TEMPERATURE` / `TEMPERATURE` sui climate HA non standard.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-07 - v2.6.131 - Autore: Codex
 - HA climate bridge: se un termostato `ha_sensor` usa direttamente un `climate.*` come `source.entity_id`, quel climate viene usato anche come target reale da comandare.
 - Permette configurazioni tipo `source: ha_sensor` + `entity_id: climate.bagno_mansarda` senza dover aggiungere manualmente `real_thermostat.entity_id`.

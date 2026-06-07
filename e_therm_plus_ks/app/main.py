@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.131"
+APP_VERSION = "2.6.132"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -964,6 +964,14 @@ class ThermEngine:
         if not isinstance(st, dict):
             return None
         attrs = st.get("attributes") if isinstance(st.get("attributes"), dict) else {}
+        ent_id = str(st.get("entity_id") or "").strip()
+        if ent_id.startswith("climate."):
+            v = _as_float(attrs.get("current_temperature"))
+            if v is None:
+                v = _as_float(attrs.get("DISPLAY_TEMPERATURE"))
+            if v is None:
+                v = _as_float(attrs.get("TEMPERATURE"))
+            return v
         v = _as_float(st.get("state"))
         if v is None:
             v = _as_float(attrs.get("temperature"))
