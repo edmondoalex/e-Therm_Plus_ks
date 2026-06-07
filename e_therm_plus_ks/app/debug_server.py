@@ -13849,7 +13849,7 @@ def render_thermostats(snapshot):
         if season == "OFF" or mode == "OFF":
             mode_label = "Off"
         rows.append(
-            f'<a class="thermRow {status_class}" href="./thermostats/{_html_escape(str(tid))}">'
+            f'<a class="thermRow {status_class}" data-tid="{_html_escape(str(tid))}" href="./thermostats/{_html_escape(str(tid))}">'
             f'  <span class="statusOrb"><span>{_html_escape(status_icon)}</span></span>'
             f'  <span class="thermMain">'
             f'    <span class="thermName">{_html_escape(str(name))}</span>'
@@ -14013,6 +14013,108 @@ def render_thermostats(snapshot):
         __ITEMS__
       </div>
     </div>
+    <script>
+      function apiRoot() {
+        const p = String(window.location && window.location.pathname ? window.location.pathname : "");
+        if (p.startsWith("/api/hassio_ingress/")) {
+          const parts = p.split("/").filter(Boolean);
+          if (parts.length >= 3) return "/" + parts.slice(0, 3).join("/");
+        }
+        return "";
+      }
+      function apiUrl(path) {
+        const root = apiRoot();
+        const p = String(path || "");
+        if (p.startsWith("/")) return root + p;
+        return root + "/" + p;
+      }
+      function fmtTemp(v) {
+        try {
+          if (v === null || v === undefined || String(v).trim() === "") return "--,-";
+          const n = Number(String(v).replace(",", "."));
+          return Number.isFinite(n) ? n.toFixed(1).replace(".", ",") : "--,-";
+        } catch (_e) {
+          return "--,-";
+        }
+      }
+      function calcThermState(e) {
+        const rt = e && typeof e.realtime === "object" ? e.realtime : {};
+        const therm = rt && typeof rt.THERM === "object" ? rt.THERM : {};
+        const season = String(therm.ACT_SEA || "").toUpperCase();
+        const mode = String(therm.ACT_MODEL || therm.ACT_MODE || "").toUpperCase();
+        const out = String(therm.OUT_STATUS || "").toUpperCase();
+        const demand = String(therm.DEMAND_ON || "").toUpperCase();
+        let reqOn = out === "ON";
+        if (demand === "ON") reqOn = true;
+        else if (demand === "OFF") reqOn = false;
+        if (mode === "OFF") reqOn = false;
+        const isCool = season === "SUM";
+        const cls = reqOn && isCool ? "cool" : (reqOn ? "heat" : "off");
+        const label = reqOn && isCool ? "COOL ON" : (reqOn ? "HEAT ON" : "OFF");
+        const icon = reqOn && isCool ? "C" : (reqOn ? "H" : "O");
+        let modeLabel = isCool ? "Estate" : "Inverno";
+        if (season === "OFF" || mode === "OFF") modeLabel = "Off";
+        const thr = therm && typeof therm.TEMP_THR === "object" ? therm.TEMP_THR : {};
+        return {
+          cls,
+          label,
+          icon,
+          meta: "ID " + String(e.id) + " · " + fmtTemp(rt.TEMP) + "°C · Set " + fmtTemp(thr.VAL) + "°C · " + modeLabel
+        };
+      }
+      function applyEntities(entities) {
+        const therms = (entities || []).filter(e => String(e.type || "").toLowerCase() === "thermostats");
+        const seen = new Set();
+        let structureChanged = false;
+        for (const e of therms) {
+          const id = String(e.id);
+          seen.add(id);
+          const row = Array.from(document.querySelectorAll(".thermRow[data-tid]")).find(el => String(el.getAttribute("data-tid")) === id);
+          if (!row) { structureChanged = true; continue; }
+          const st = calcThermState(e);
+          row.classList.remove("heat", "cool", "off");
+          row.classList.add(st.cls);
+          const orb = row.querySelector(".statusOrb span");
+          const meta = row.querySelector(".thermMeta");
+          const pill = row.querySelector(".statusPill");
+          if (orb) orb.textContent = st.icon;
+          if (meta) meta.textContent = st.meta;
+          if (pill) pill.innerHTML = '<span class="statusDot"></span>' + st.label;
+        }
+        for (const row of document.querySelectorAll(".thermRow[data-tid]")) {
+          if (!seen.has(String(row.getAttribute("data-tid")))) structureChanged = true;
+        }
+        if (structureChanged) window.location.reload();
+      }
+      async function fetchEntities() {
+        const res = await fetch(apiUrl("/api/entities"), { cache: "no-store" });
+        if (!res.ok) throw new Error(String(res.status));
+        const data = await res.json();
+        applyEntities(Array.isArray(data) ? data : (data.entities || []));
+      }
+      function startSSE() {
+        if (typeof EventSource === "undefined") return false;
+        try {
+          const es = new EventSource(apiUrl("/api/stream"));
+          es.onmessage = (ev) => {
+            try {
+              const msg = JSON.parse(ev.data);
+              if (msg && msg.type === "snapshot" && Array.isArray(msg.entities)) applyEntities(msg.entities);
+              else fetchEntities().catch(() => {});
+            } catch (_e) {}
+          };
+          es.onerror = () => {
+            try { es.close(); } catch (_e) {}
+          };
+          return true;
+        } catch (_e) {
+          return false;
+        }
+      }
+      startSSE();
+      setInterval(() => { fetchEntities().catch(() => {}); }, 2000);
+      document.getElementById("refreshBtn")?.addEventListener("click", () => fetchEntities().catch(() => window.location.reload()));
+    </script>
   </body>
 </html>"""
 

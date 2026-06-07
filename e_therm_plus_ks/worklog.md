@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-07 - v2.6.136 - Autore: Codex
+- UI elenco termostati: aggiunto refresh automatico su eventi stato tramite SSE con fallback polling ogni 2 secondi.
+- Le righe elenco aggiornano in-place icona, classe `heat/cool/off`, pillola stato e meta temperatura/setpoint senza ricaricare pagina.
+- Gestiti gli update parziali dello stream ricaricando le entita complete prima del render lista.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-07 - v2.6.135 - Autore: Codex
 - UI dettaglio termostato: layout responsive per mobile/tablet con ring dimensionato anche sull'altezza viewport.
 - Topbar e badge compattati per evitare sovrapposizione del titolo su smartphone.
