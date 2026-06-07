@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-07 - v2.6.133 - Autore: Codex
+- HA climate bridge: sincronizzazione bidirezionale del setpoint per catena clone e-Therm -> climate reale.
+- Se il setpoint cambia sul climate reale, il clone e-Therm aggiorna `TEMP_THR` dopo una breve finestra anti-rimbalzo.
+- Dopo un comando setpoint dal clone, e-Therm evita di reimportare subito valori vecchi dal climate reale.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-07 - v2.6.132 - Autore: Codex
 - HA sensor bridge: quando `source.entity_id` e un `climate.*`, la temperatura attuale viene letta da `current_temperature` invece che dal target `temperature`.
 - Aggiunti fallback per attributi custom `DISPLAY_TEMPERATURE` / `TEMPERATURE` sui climate HA non standard.

@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.132"
+APP_VERSION = "2.6.133"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -250,6 +250,7 @@ class ThermEngine:
         self._real_therm_adapt: Dict[str, Dict[str, Any]] = {}
         self._ha_bridge_cmd_last: Dict[str, float] = {}
         self._ha_bridge_mode_hold: Dict[str, Dict[str, Any]] = {}
+        self._ha_bridge_setpoint_hold: Dict[str, float] = {}
         self._control_thread: Optional[threading.Thread] = None
         self._watchdog_thread: Optional[threading.Thread] = None
 
@@ -1145,6 +1146,19 @@ class ThermEngine:
             season = str(_get_any(src, "season", "act_sea") or "WIN").strip().upper()
             if season not in ("WIN", "SUM", "OFF"):
                 season = "WIN"
+            real_target = None
+            real_ent = self._real_thermostat_entity(t)
+            if real_ent:
+                st_real = self._ha_api_request("GET", f"/states/{real_ent}")
+                if isinstance(st_real, dict):
+                    attrs_real = st_real.get("attributes") if isinstance(st_real.get("attributes"), dict) else {}
+                    real_target = _as_float(attrs_real.get("temperature"))
+                    if real_target is None:
+                        hvac_real = str(st_real.get("state") or "").strip().lower()
+                        if hvac_real == "cool":
+                            real_target = _as_float(attrs_real.get("target_temp_low") or attrs_real.get("DISPLAY_COOLSETPOINT"))
+                        else:
+                            real_target = _as_float(attrs_real.get("target_temp_high") or attrs_real.get("DISPLAY_HEATSETPOINT"))
 
             with self.lock:
                 rt = self.rt.setdefault(tid, {})
@@ -1161,7 +1175,12 @@ class ThermEngine:
                 if not th.get("OUT_STATUS"):
                     th["OUT_STATUS"] = "OFF"
                 thr = th.get("TEMP_THR") if isinstance(th.get("TEMP_THR"), dict) else None
-                if not (thr and thr.get("VAL") is not None):
+                hold_until = float(self._ha_bridge_setpoint_hold.get(str(tid), 0.0) or 0.0)
+                if real_target is not None and time.time() > hold_until:
+                    old_target = _as_float(thr.get("VAL")) if isinstance(thr, dict) else None
+                    if old_target is None or abs(float(old_target) - float(real_target)) >= 0.05:
+                        th["TEMP_THR"] = {"VAL": float(real_target)}
+                elif not (thr and thr.get("VAL") is not None):
                     th["TEMP_THR"] = {"VAL": float(initial_target)}
             any_update = True
 
@@ -2288,6 +2307,7 @@ class ThermEngine:
                 self._manual_valve_until.pop(str(tid), None)
                 self._manual_valve_state.pop(str(tid), None)
                 self._ha_bridge_mode_hold.pop(str(tid), None)
+                self._ha_bridge_setpoint_hold.pop(str(tid), None)
                 rec = self.runtime.get("published_discovery")
                 if isinstance(rec, dict):
                     rec.pop(str(tid), None)
@@ -3681,6 +3701,7 @@ class ThermEngine:
                     except Exception:
                         preferred_mode = ""
                     self._ha_climate_set_temperature_safe(ent, float(v), preferred_mode)
+                    self._ha_bridge_setpoint_hold[str(tid)] = time.time() + 8.0
             try:
                 self._register_ack(tid=str(tid), field="setpoint", origin=origin, expected=float(v))
             except Exception:
@@ -3751,6 +3772,7 @@ class ThermEngine:
                                 target_cmd = _as_float(thr_cmd.get("VAL")) if isinstance(thr_cmd, dict) else None
                             if target_cmd is not None:
                                 self._ha_climate_set_temperature_safe(ent, float(target_cmd), m)
+                                self._ha_bridge_setpoint_hold[str(tid)] = time.time() + 8.0
                         except Exception:
                             pass
                     if m in ("heat", "cool"):
