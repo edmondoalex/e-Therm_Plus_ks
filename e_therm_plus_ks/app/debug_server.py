@@ -14058,7 +14058,8 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
          --accent: var(--ring-off);
          --pin-fg: rgba(255,255,255,0.92);
       }
-      html, body { height:100%; }
+      *, *:before, *:after { box-sizing: border-box; }
+      html, body { height:100%; min-height:100%; overflow-x:hidden; }
       body {
         margin:0;
         font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
@@ -14075,7 +14076,8 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
       .topbar {
         position:fixed; top:0; left:0; right:0;
         display:flex; gap:18px; justify-content:center; align-items:center;
-        height:72px;
+        height:68px;
+        padding:0 118px;
         background: linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0));
         backdrop-filter: blur(8px);
         z-index: 2;
@@ -14090,28 +14092,27 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         text-decoration:none;
       }
       .back:hover { background: rgba(255,255,255,0.06); }
-      .barTitle { font-size: 18px; letter-spacing: 0.5px; color: rgba(255,255,255,0.88); }
+      .barTitle { max-width:min(58vw, 560px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; font-size: clamp(16px, 2vw, 20px); letter-spacing: 0.5px; color: rgba(255,255,255,0.88); }
       .barRight {
         position:absolute; right:12px; top:50%; transform: translateY(-50%);
         display:flex; gap:10px; align-items:center;
       }
-      .wrap { max-width: 1220px; margin: 0 auto; padding: 92px 16px 48px; }
+      .wrap { max-width: 1220px; min-height:100vh; min-height:100svh; margin: 0 auto; padding: 76px 16px 28px; display:flex; flex-direction:column; justify-content:center; }
       .meta { display:none; }
-      .badge { display:inline-block; padding:2px 10px; border:1px solid var(--bd); border-radius: 999px; color: var(--muted); background: rgba(0,0,0,0.14); font-size:12px; }
+      .badge { display:inline-block; padding:2px 10px; border:1px solid var(--bd); border-radius: 999px; color: var(--muted); background: rgba(0,0,0,0.14); font-size:12px; white-space:nowrap; }
       .muted { color: var(--muted); }
       .top, .chips, .grid { display:none; }
 
-      .layout { display:flex; align-items:center; justify-content:center; gap: min(9vw, 120px); margin-top: 0; min-height: calc(100vh - 160px); }
-      @media (max-width: 980px) { .layout { flex-direction:column; gap: 18px; min-height: auto; padding-top: 8px; } }
-      .ringWrap { position: relative; width: min(70vw, 560px); height: min(70vw, 560px); margin: 0 auto; touch-action: none; }
+      .layout { display:flex; align-items:center; justify-content:center; gap: clamp(18px, 6vw, 96px); margin-top: 0; min-height: calc(100vh - 116px); min-height: calc(100svh - 116px); }
+      .ringWrap { --ring-size: clamp(320px, min(54vw, calc(100vh - 190px)), 560px); --ring-size: clamp(320px, min(54vw, calc(100svh - 190px)), 560px); position: relative; width: var(--ring-size); height: var(--ring-size); margin: 0 auto; touch-action: none; }
       .ringSvg { position:absolute; inset:0; transform: rotate(-90deg); }
       .ringTick { position:absolute; left:50%; top: 10px; width: 4px; height: calc(var(--ring-w) * 0.9); border-radius: 999px; background: rgba(255,255,255,0.86); transform: translate(-50%,-50%); box-shadow: 0 10px 26px rgba(0,0,0,0.55); pointer-events:none; }
-      .ringCenter { position:absolute; inset: 15%; border-radius: 999px; background: radial-gradient(220px 220px at 40% 35%, rgba(255,255,255,0.14), rgba(0,0,0,0.42)); border: 1px solid var(--bd); box-shadow: 0 18px 60px rgba(0,0,0,0.65); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap: 10px; user-select:none; }
-      .big { font-size: clamp(64px, 10vw, 112px); font-weight: 300; letter-spacing: 0.5px; line-height: 1; }
-      .sub { font-size: 14px; color: rgba(255,255,255,0.72); }
-      .sub2 { font-size: 12px; color: rgba(255,255,255,0.62); }
-      .relayState { margin-top: 2px; display:inline-flex; align-items:center; justify-content:center; gap: 8px; min-width: 120px; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.16); color: rgba(255,255,255,0.48); font-size: 12px; font-weight: 800; letter-spacing: 0.8px; }
-      .relayState .dot { width: 10px; height: 10px; border-radius: 999px; background: rgba(255,255,255,0.26); box-shadow: none; }
+      .ringCenter { position:absolute; inset: 15%; border-radius: 999px; background: radial-gradient(220px 220px at 40% 35%, rgba(255,255,255,0.14), rgba(0,0,0,0.42)); border: 1px solid var(--bd); box-shadow: 0 18px 60px rgba(0,0,0,0.65); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap: clamp(6px, calc(var(--ring-size) * 0.018), 10px); user-select:none; }
+      .big { font-size: clamp(52px, calc(var(--ring-size) * 0.20), 108px); font-weight: 300; letter-spacing: 0.5px; line-height: 1; }
+      .sub { font-size: clamp(11px, calc(var(--ring-size) * 0.026), 14px); color: rgba(255,255,255,0.72); }
+      .sub2 { font-size: clamp(10px, calc(var(--ring-size) * 0.022), 12px); color: rgba(255,255,255,0.62); }
+      .relayState { margin-top: 2px; display:inline-flex; align-items:center; justify-content:center; gap: 8px; min-width: min(120px, calc(var(--ring-size) * 0.36)); height: clamp(26px, calc(var(--ring-size) * 0.06), 32px); padding: 0 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.16); color: rgba(255,255,255,0.48); font-size: clamp(10px, calc(var(--ring-size) * 0.022), 12px); font-weight: 800; letter-spacing: 0.8px; }
+      .relayState .dot { width: clamp(7px, calc(var(--ring-size) * 0.02), 10px); height: clamp(7px, calc(var(--ring-size) * 0.02), 10px); border-radius: 999px; background: rgba(255,255,255,0.26); box-shadow: none; }
       .relayState.heatOn { color: #ff9f1c; border-color: rgba(255,159,28,0.48); background: rgba(255,159,28,0.14); }
       .relayState.heatOn .dot { background: #ff9f1c; box-shadow: 0 0 18px rgba(255,159,28,0.82); }
       .relayState.coolOn { color: #66c7ff; border-color: rgba(102,199,255,0.42); background: rgba(42,127,255,0.12); }
@@ -14125,15 +14126,15 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
          left:50%;
          top:0;
          transform: translate(-50%, -110%);
-         width: 74px;
-         height: 54px;
+         width: clamp(58px, calc(var(--ring-size) * 0.14), 74px);
+         height: clamp(42px, calc(var(--ring-size) * 0.10), 54px);
          border-radius: 999px;
         background: linear-gradient(to bottom, rgba(255,255,255,0.18), rgba(0,0,0,0.08)), var(--accent);
         color: var(--pin-fg);
          display:flex;
          align-items:center;
          justify-content:center;
-         font-size: 22px;
+         font-size: clamp(17px, calc(var(--ring-size) * 0.04), 22px);
          letter-spacing: 0.2px;
          box-shadow: 0 14px 40px rgba(0,0,0,0.55);
        }
@@ -14151,11 +14152,50 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
       .knob.dragging { filter: drop-shadow(0 0 12px rgba(255,255,255,0.12)); }
 
       .sideCol { display:flex; flex-direction:column; align-items:center; justify-content:center; gap: 34px; min-width: 150px; }
-      @media (max-width: 980px) { .sideCol { flex-direction:row; min-width: auto; gap: 20px; } }
       .sideAction { width: 120px; display:flex; flex-direction:column; align-items:center; gap: 10px; cursor: pointer; user-select:none; }
       .sideAction:hover .ico { background: rgba(255,255,255,0.06); }
       .sideAction .lab { font-size: 13px; color: rgba(255,255,255,0.72); text-align:center; }
       .sideAction .val { font-size: 12px; color: rgba(255,255,255,0.55); text-align:center; margin-top: -6px; }
+
+      @media (max-width: 980px) {
+        .topbar { height:64px; padding:0 94px; }
+        .wrap { padding:78px 14px 22px; justify-content:flex-start; }
+        .layout { flex-direction:column; gap: clamp(12px, 2.6vh, 18px); min-height: calc(100vh - 102px); min-height: calc(100svh - 102px); padding-top: 0; }
+        .sideCol { flex-direction:row; min-width: 0; width:100%; max-width:420px; gap: clamp(14px, 7vw, 48px); }
+        .layout > div:nth-child(2) { order: 1; }
+        .layout > .sideCol[aria-hidden="true"] { display:none; }
+        .sideAction { width:min(42vw, 150px); gap: 7px; }
+        .ico { width: clamp(46px, 11vw, 58px); height: clamp(46px, 11vw, 58px); }
+        .ringWrap { --ring-size: clamp(300px, min(76vw, calc(100vh - 250px)), 500px); --ring-size: clamp(300px, min(76vw, calc(100svh - 250px)), 500px); }
+      }
+
+      @media (max-width: 620px) {
+        .topbar { height:62px; padding:0 70px; }
+        .back { left:10px; width:40px; height:40px; }
+        .barRight { right:8px; gap:4px; }
+        .barRight .badge:last-child { display:none; }
+        .barTitle { max-width:calc(100vw - 170px); font-size:clamp(15px, 5vw, 19px); letter-spacing:0.4px; }
+        .badge { padding:2px 8px; font-size:11px; }
+        .wrap { padding:76px 10px 16px; }
+        .layout { gap:12px; }
+        .sideCol { max-width:360px; gap:18px; }
+        .sideAction { width:132px; }
+        .sideAction .lab { font-size:12px; }
+        .sideAction .val { font-size:11px; line-height:1.25; min-height:28px; }
+        .ringWrap { --ring-size: clamp(250px, min(86vw, calc(100vh - 292px)), 390px); --ring-size: clamp(250px, min(86vw, calc(100svh - 292px)), 390px); }
+        .ringCenter { inset:16%; }
+      }
+
+      @media (max-height: 720px) and (min-width: 700px) {
+        .topbar { height:58px; }
+        .wrap { padding-top:62px; padding-bottom:12px; justify-content:center; }
+        .layout { min-height: calc(100vh - 74px); min-height: calc(100svh - 74px); gap: clamp(16px, 4vw, 58px); }
+        .ringWrap { --ring-size: clamp(300px, min(46vw, calc(100vh - 92px)), 500px); --ring-size: clamp(300px, min(46vw, calc(100svh - 92px)), 500px); }
+        .sideCol { gap:18px; }
+        .ico { width:48px; height:48px; }
+        .sideAction { width:112px; gap:7px; }
+        .barTitle { font-size:16px; }
+      }
 
       .panel { margin-top: 16px; border: 1px solid var(--bd); border-radius: 18px; background: rgba(0,0,0,0.14); overflow:hidden; display:none; }
       .panel.show { display:block; }

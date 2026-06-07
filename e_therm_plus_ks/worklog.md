@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-07 - v2.6.135 - Autore: Codex
+- UI dettaglio termostato: layout responsive per mobile/tablet con ring dimensionato anche sull'altezza viewport.
+- Topbar e badge compattati per evitare sovrapposizione del titolo su smartphone.
+- Controlli `Modalita`/`Extra`, testi interni e manopola ridimensionati per non tagliare il cerchio su tablet.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-07 - v2.6.134 - Autore: Codex
 - HA climate bridge: sincronizzazione bidirezionale anche di `heat/cool/off` dal climate reale verso il clone e-Therm.
 - Se il climate reale viene acceso/spento manualmente, il clone aggiorna `ACT_SEA/ACT_MODEL` dopo la finestra anti-rimbalzo.
