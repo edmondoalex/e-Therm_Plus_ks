@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.133"
+APP_VERSION = "2.6.134"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1147,15 +1147,16 @@ class ThermEngine:
             if season not in ("WIN", "SUM", "OFF"):
                 season = "WIN"
             real_target = None
+            real_hvac = ""
             real_ent = self._real_thermostat_entity(t)
             if real_ent:
                 st_real = self._ha_api_request("GET", f"/states/{real_ent}")
                 if isinstance(st_real, dict):
                     attrs_real = st_real.get("attributes") if isinstance(st_real.get("attributes"), dict) else {}
+                    real_hvac = str(st_real.get("state") or "").strip().lower()
                     real_target = _as_float(attrs_real.get("temperature"))
                     if real_target is None:
-                        hvac_real = str(st_real.get("state") or "").strip().lower()
-                        if hvac_real == "cool":
+                        if real_hvac == "cool":
                             real_target = _as_float(attrs_real.get("target_temp_low") or attrs_real.get("DISPLAY_COOLSETPOINT"))
                         else:
                             real_target = _as_float(attrs_real.get("target_temp_high") or attrs_real.get("DISPLAY_HEATSETPOINT"))
@@ -1175,6 +1176,18 @@ class ThermEngine:
                 if not th.get("OUT_STATUS"):
                     th["OUT_STATUS"] = "OFF"
                 thr = th.get("TEMP_THR") if isinstance(th.get("TEMP_THR"), dict) else None
+                mode_hold = self._ha_bridge_mode_hold.get(str(tid))
+                mode_hold_until = float(mode_hold.get("until", 0.0) if isinstance(mode_hold, dict) else 0.0)
+                if real_hvac in ("heat", "cool", "off") and time.time() > mode_hold_until:
+                    if real_hvac == "heat":
+                        th["ACT_SEA"] = "WIN"
+                        th["ACT_MODEL"] = "MAN"
+                    elif real_hvac == "cool":
+                        th["ACT_SEA"] = "SUM"
+                        th["ACT_MODEL"] = "MAN"
+                    else:
+                        th["ACT_SEA"] = "OFF"
+                        th["ACT_MODEL"] = "OFF"
                 hold_until = float(self._ha_bridge_setpoint_hold.get(str(tid), 0.0) or 0.0)
                 if real_target is not None and time.time() > hold_until:
                     old_target = _as_float(thr.get("VAL")) if isinstance(thr, dict) else None

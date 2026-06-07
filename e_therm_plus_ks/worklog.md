@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-07 - v2.6.134 - Autore: Codex
+- HA climate bridge: sincronizzazione bidirezionale anche di `heat/cool/off` dal climate reale verso il clone e-Therm.
+- Se il climate reale viene acceso/spento manualmente, il clone aggiorna `ACT_SEA/ACT_MODEL` dopo la finestra anti-rimbalzo.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-07 - v2.6.133 - Autore: Codex
 - HA climate bridge: sincronizzazione bidirezionale del setpoint per catena clone e-Therm -> climate reale.
 - Se il setpoint cambia sul climate reale, il clone e-Therm aggiorna `TEMP_THR` dopo una breve finestra anti-rimbalzo.
