@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-07 - v2.6.131 - Autore: Codex
+- HA climate bridge: se un termostato `ha_sensor` usa direttamente un `climate.*` come `source.entity_id`, quel climate viene usato anche come target reale da comandare.
+- Permette configurazioni tipo `source: ha_sensor` + `entity_id: climate.bagno_mansarda` senza dover aggiungere manualmente `real_thermostat.entity_id`.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-06 - v2.6.130 - Autore: Codex
 - UI termostati: aggiunte route dirette proxy-friendly `/t` per elenco e `/t/<id-o-nome>` per dettaglio.
 - Il dettaglio accetta ID numerico o nome normalizzato, es. `/t/11` o `/t/bagno-mansarda`.

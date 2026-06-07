@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.130"
+APP_VERSION = "2.6.131"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -942,7 +942,14 @@ class ThermEngine:
         if ent:
             return ent
         src = t.get("source") or {}
-        return str(src.get("real_entity_id") or "").strip()
+        ent = str(src.get("real_entity_id") or "").strip()
+        if ent:
+            return ent
+        src_type = str(src.get("type") or "").strip().lower()
+        src_ent = str(src.get("entity_id") or "").strip()
+        if src_type in ("ha_sensor", "homeassistant_sensor", "sensor") and src_ent.startswith("climate."):
+            return src_ent
+        return ""
 
     def _bool_cfg(self, d: Dict[str, Any], key: str, default: bool) -> bool:
         try:
