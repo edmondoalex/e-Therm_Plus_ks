@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-08 - v2.6.137 - Autore: Codex
+- vTherm `ha_sensor`/`ha_multi_sensor_avg`: aggiunto campo UI `Sensore umidita HA` salvato in `source.humidity_entity_id`.
+- Runtime: polling del sensore umidita dedicato e aggiornamento live di `RH`, pubblicato poi anche verso MQTT/HA.
+- Supportati sensori con valore nello stato e entita con attributi `current_humidity`/`humidity`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-07 - v2.6.136 - Autore: Codex
 - UI elenco termostati: aggiunto refresh automatico su eventi stato tramite SSE con fallback polling ogni 2 secondi.
 - Le righe elenco aggiornano in-place icona, classe `heat/cool/off`, pillola stato e meta temperatura/setpoint senza ricaricare pagina.

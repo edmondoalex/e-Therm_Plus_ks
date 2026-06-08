@@ -15404,6 +15404,10 @@ def render_vtherm_config_page(snapshot):
           <label>Source entity_id (climate/sensor HA)</label>
           <input id="f_src_entity_id" placeholder="Es: climate.sala o sensor.temperatura_sala" />
         </div>
+        <div id="f_src_humidity_wrap">
+          <label>Sensore umidità HA (opzionale)</label>
+          <input id="f_src_humidity_entity_id" placeholder="Es: sensor.umidita_sala" />
+        </div>
         <div id="f_src_sensors_wrap" style="grid-column: 1 / -1;">
           <label>Sonde HA (media, separate da virgola)</label>
           <input id="f_src_sensors" placeholder="Es: sensor.sonda_salone_temp, sensor.sonda_cucina_temp, sensor.sonda_ingresso_temp" />
@@ -15713,6 +15717,7 @@ function toggleSourceFields() {
   const srcType = canonicalSourceType(document.getElementById('f_src_type').value || 'esafe');
   const numWrap = document.getElementById('f_src_num_wrap');
   const entWrap = document.getElementById('f_src_entity_wrap');
+  const humWrap = document.getElementById('f_src_humidity_wrap');
   const sensorsWrap = document.getElementById('f_src_sensors_wrap');
   const minValidWrap = document.getElementById('f_src_min_valid_wrap');
   const staleWrap = document.getElementById('f_src_stale_wrap');
@@ -15724,6 +15729,7 @@ function toggleSourceFields() {
 
   if (numWrap) numWrap.style.display = (srcType === 'esafe') ? '' : 'none';
   if (entWrap) entWrap.style.display = (srcType === 'ha_climate' || srcType === 'ha_sensor') ? '' : 'none';
+  if (humWrap) humWrap.style.display = (srcType === 'ha_sensor' || srcType === 'ha_multi_sensor_avg') ? '' : 'none';
   if (sensorsWrap) sensorsWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
   if (minValidWrap) minValidWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
   if (staleWrap) staleWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
@@ -15761,6 +15767,7 @@ function sanitizeTherm(t) {
   const srcType = canonicalSourceType(String(src.type || 'esafe').trim().toLowerCase());
   const srcNum = Number(src.num);
   const srcEntityId = String(src.entity_id || '').trim();
+  const srcHumidityEntityId = String(src.humidity_entity_id || src.rh_entity_id || '').trim();
   const srcSensors = Array.isArray(src.sensors)
     ? src.sensors.map(x => String(x || '').trim()).filter(Boolean)
     : [];
@@ -15779,13 +15786,18 @@ function sanitizeTherm(t) {
   if (srcType === 'ha_climate') {
     sourceObj = { type: 'ha_climate', entity_id: srcEntityId };
   } else if (srcType === 'ha_sensor') {
-    sourceObj = { type: 'ha_sensor', entity_id: srcEntityId };
+    sourceObj = {
+      type: 'ha_sensor',
+      entity_id: srcEntityId,
+      ...(srcHumidityEntityId ? { humidity_entity_id: srcHumidityEntityId } : {}),
+    };
   } else if (srcType === 'virtual') {
     sourceObj = { type: 'virtual' };
   } else if (srcType === 'ha_multi_sensor_avg') {
     sourceObj = {
       type: 'ha_multi_sensor_avg',
       sensors: srcSensors,
+      ...(srcHumidityEntityId ? { humidity_entity_id: srcHumidityEntityId } : {}),
       ...(Number.isFinite(srcMinValid) && srcMinValid > 0 ? { min_valid_sensors: Math.trunc(srcMinValid) } : {}),
       ...(Number.isFinite(srcStale) && srcStale >= 0 ? { stale_sec: Math.trunc(srcStale) } : {}),
     };
@@ -16056,6 +16068,7 @@ function editItem(idx) {
   document.getElementById('f_src_type').value = canonicalSourceType(String((t.source || {}).type || 'esafe'));
   document.getElementById('f_src_num').value = String(t.source.num || 1);
   document.getElementById('f_src_entity_id').value = String((t.source || {}).entity_id || '');
+  document.getElementById('f_src_humidity_entity_id').value = String((t.source || {}).humidity_entity_id || (t.source || {}).rh_entity_id || '');
   document.getElementById('f_src_sensors').value = Array.isArray((t.source || {}).sensors) ? (t.source.sensors || []).join(', ') : '';
   document.getElementById('f_src_min_valid').value = String((t.source || {}).min_valid_sensors || '');
   document.getElementById('f_src_stale').value = String((t.source || {}).stale_sec || '');
@@ -16122,6 +16135,7 @@ function addNew() {
   document.getElementById('f_src_type').value = 'esafe';
   document.getElementById('f_src_num').value = '1';
   document.getElementById('f_src_entity_id').value = '';
+  document.getElementById('f_src_humidity_entity_id').value = '';
   document.getElementById('f_src_sensors').value = '';
   document.getElementById('f_src_min_valid').value = '2';
   document.getElementById('f_src_stale').value = '600';
@@ -16178,6 +16192,7 @@ function saveItem() {
   const srcType = canonicalSourceType(String(document.getElementById('f_src_type').value || 'esafe').trim().toLowerCase());
   const srcNum = Number(String(document.getElementById('f_src_num').value || '').trim());
   const srcEntityId = String(document.getElementById('f_src_entity_id').value || '').trim();
+  const srcHumidityEntityId = String(document.getElementById('f_src_humidity_entity_id').value || '').trim();
   const srcSensorsRaw = String(document.getElementById('f_src_sensors').value || '').trim();
   const srcSensors = srcSensorsRaw
     ? srcSensorsRaw.split(',').map(s => String(s || '').trim()).filter(Boolean)
@@ -16293,13 +16308,18 @@ function saveItem() {
   if (srcType === 'ha_climate') {
     sourceObj = { type: 'ha_climate', entity_id: srcEntityId };
   } else if (srcType === 'ha_sensor') {
-    sourceObj = { type: 'ha_sensor', entity_id: srcEntityId };
+    sourceObj = {
+      type: 'ha_sensor',
+      entity_id: srcEntityId,
+      ...(srcHumidityEntityId ? { humidity_entity_id: srcHumidityEntityId } : {}),
+    };
   } else if (srcType === 'virtual') {
     sourceObj = { type: 'virtual' };
   } else if (srcType === 'ha_multi_sensor_avg') {
     sourceObj = {
       type: 'ha_multi_sensor_avg',
       sensors: srcSensors,
+      ...(srcHumidityEntityId ? { humidity_entity_id: srcHumidityEntityId } : {}),
       ...(Number.isFinite(srcMinValid) ? { min_valid_sensors: Math.trunc(srcMinValid) } : {}),
       ...(Number.isFinite(srcStale) ? { stale_sec: Math.trunc(srcStale) } : {}),
     };

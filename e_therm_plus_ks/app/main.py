@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.136"
+APP_VERSION = "2.6.137"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -980,6 +980,17 @@ class ThermEngine:
             v = _as_float(attrs.get("current_temperature"))
         return v
 
+    def _ha_state_humidity(self, st: Dict[str, Any]) -> Optional[float]:
+        if not isinstance(st, dict):
+            return None
+        attrs = st.get("attributes") if isinstance(st.get("attributes"), dict) else {}
+        v = _as_float(st.get("state"))
+        if v is None:
+            v = _as_float(attrs.get("current_humidity"))
+        if v is None:
+            v = _as_float(attrs.get("humidity"))
+        return v
+
     def _ha_state_is_fresh(self, st: Dict[str, Any], stale_sec: float) -> bool:
         if stale_sec <= 0:
             return True
@@ -1037,6 +1048,12 @@ class ThermEngine:
             if len(vals) < int(min_valid):
                 continue
             avg = float(sum(vals) / len(vals))
+            rh = None
+            humidity_ent = str(src.get("humidity_entity_id") or src.get("rh_entity_id") or "").strip()
+            if humidity_ent:
+                st_h = self._ha_api_request("GET", f"/states/{humidity_ent}")
+                if isinstance(st_h, dict) and self._ha_state_is_fresh(st_h, stale_sec):
+                    rh = self._ha_state_humidity(st_h)
 
             th_patch: Dict[str, Any] = {}
             real_ent = self._real_thermostat_entity(t)
@@ -1063,6 +1080,8 @@ class ThermEngine:
                 rt = self.rt.setdefault(tid, {})
                 rt["TEMP"] = float(avg)
                 rt["AVG_TEMP"] = float(avg)
+                if rh is not None:
+                    rt["RH"] = float(rh)
                 rt["AVG_VALID"] = int(len(vals))
                 rt["AVG_COUNT"] = int(len(sensors))
                 rt["AVG_SENSORS"] = sensor_rows
@@ -1140,6 +1159,12 @@ class ThermEngine:
             if len(vals) < int(min_valid):
                 continue
             cur = float(sum(vals) / len(vals))
+            rh = None
+            humidity_ent = str(src.get("humidity_entity_id") or src.get("rh_entity_id") or "").strip()
+            if humidity_ent:
+                st_h = self._ha_api_request("GET", f"/states/{humidity_ent}")
+                if isinstance(st_h, dict) and self._ha_state_is_fresh(st_h, stale_sec):
+                    rh = self._ha_state_humidity(st_h)
             initial_target = _as_float(_get_any(src, "target_temperature", "target", "initial_target"))
             if initial_target is None:
                 initial_target = 21.0
@@ -1165,6 +1190,8 @@ class ThermEngine:
                 rt = self.rt.setdefault(tid, {})
                 rt["TEMP"] = float(cur)
                 rt["AVG_TEMP"] = float(cur)
+                if rh is not None:
+                    rt["RH"] = float(rh)
                 rt["AVG_VALID"] = int(len(vals))
                 rt["AVG_COUNT"] = int(len(sensors))
                 rt["AVG_SENSORS"] = sensor_rows
