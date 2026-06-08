@@ -3,6 +3,15 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-08 - v2.6.141 - Autore: Codex
+- KAPPA FORNO: supporto speciale cool-only/off con range temperatura 0-50 C, senza impattare gli altri termostati.
+- MQTT Discovery climate: modes e min/max temperatura ora sono per singolo termostato tramite `climate.modes`, `climate.min_temp`, `climate.max_temp`.
+- UI dettaglio: anello/setpoint e selettore modalita leggono il range e i modi consentiti del singolo termostato.
+- Runtime: comandi `heat` non ammessi vengono forzati a OFF e gli output heat sono disabilitati per termostati cool-only.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-08 - v2.6.140 - Autore: Codex
 - Config vTherm: sostituiti i pulsanti `Su`/`Giu` con una maniglia trascinabile per riordinare i termostati.
 - Drag & drop sulle righe termostato: trascina la maniglia a puntini e rilascia nella posizione desiderata, poi `Salva`.

@@ -14173,6 +14173,25 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
 
     rt0 = ent0.get("realtime") if isinstance(ent0, dict) and isinstance(ent0.get("realtime"), dict) else {}
     therm0 = rt0.get("THERM") if isinstance(rt0.get("THERM"), dict) else {}
+    cfg0 = (snapshot.get("meta") or {}).get("vtherm_config") or {}
+    therm_cfg0 = None
+    for _t0 in (cfg0.get("thermostats") if isinstance(cfg0, dict) else []) or []:
+        if isinstance(_t0, dict) and str(_t0.get("id")) == str(thermostat_id):
+            therm_cfg0 = _t0
+            break
+    clim0 = therm_cfg0.get("climate") if isinstance(therm_cfg0, dict) and isinstance(therm_cfg0.get("climate"), dict) else {}
+    name0_l = str((therm_cfg0 or {}).get("name") or title or "").strip().lower()
+    if "kappa forno" in name0_l or str(thermostat_id) == "15":
+        _tmp = {"modes": ["off", "cool"], "min_temp": 0, "max_temp": 50}
+        _tmp.update(clim0)
+        clim0 = _tmp
+    modes0 = [str(x or "").strip().lower() for x in (clim0.get("modes") if isinstance(clim0.get("modes"), list) else [])]
+    if not modes0:
+        modes0 = ["off", "heat", "cool"]
+    min0 = _init_float(clim0.get("min_temp"), 5.0)
+    max0 = _init_float(clim0.get("max_temp"), 35.0)
+    if max0 <= min0:
+        min0, max0 = 5.0, 35.0
     season0 = str(therm0.get("ACT_SEA") or "").upper()
     mode0 = str(therm0.get("ACT_MODEL") or therm0.get("ACT_MODE") or "").upper()
     out0 = str(therm0.get("OUT_STATUS") or "").upper()
@@ -14183,6 +14202,11 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
     elif demand0 == "OFF":
         req_on0 = False
     if mode0 == "OFF":
+        req_on0 = False
+    if "heat" not in modes0 and "cool" in modes0 and season0 == "WIN":
+        season0 = "SUM"
+    if season0 == "WIN" and "heat" not in modes0:
+        mode0 = "OFF"
         req_on0 = False
     sea_key0 = "SUM" if season0 == "SUM" else "WIN"
     mode_label0 = "Off" if (season0 == "OFF" or mode0 == "OFF") else ("Estate" if sea_key0 == "SUM" else "Inverno")
@@ -14196,8 +14220,9 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
     rh0 = str(rh0_raw) if rh0_raw not in (None, "") else "--"
     thr0 = therm0.get("TEMP_THR") if isinstance(therm0.get("TEMP_THR"), dict) else {}
     target0_num = _init_float(thr0.get("VAL"), 20.0)
+    target0_num = max(float(min0), min(float(max0), float(target0_num)))
     target0 = _fmt_init_temp(target0_num)
-    pct0 = max(0.01, min(0.999, (max(5.0, min(35.0, target0_num)) - 5.0) / 30.0))
+    pct0 = max(0.01, min(0.999, (target0_num - float(min0)) / (float(max0) - float(min0))))
     circ0 = 527.79
     dash0 = f"{(pct0 * circ0):.2f} {((1 - pct0) * circ0):.2f}"
 
@@ -14639,6 +14664,52 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         return "";
       }
 
+      function getThermConfig() {
+        try {
+          const meta = (snap && snap.meta && typeof snap.meta === "object") ? snap.meta : null;
+          const cfg = (meta && meta.vtherm_config && typeof meta.vtherm_config === "object") ? meta.vtherm_config : null;
+          const therms = (cfg && Array.isArray(cfg.thermostats)) ? cfg.thermostats : [];
+          for (const t of therms) {
+            if (String((t && t.id) || "") === String(TH_ID)) return t || null;
+          }
+        } catch (_e) {}
+        return null;
+      }
+
+      function climateCfg() {
+        const t = getThermConfig();
+        const c = (t && t.climate && typeof t.climate === "object") ? t.climate : {};
+        const name = String((t && t.name) || "").trim().toLowerCase();
+        if (name.includes("kappa forno") || String(TH_ID) === "15") {
+          return { modes: ["off", "cool"], min_temp: 0, max_temp: 50, ...c };
+        }
+        return c || {};
+      }
+
+      function tempBounds() {
+        const c = climateCfg();
+        let min = Number(String(c.min_temp ?? "5").replace(",", "."));
+        let max = Number(String(c.max_temp ?? "35").replace(",", "."));
+        if (!Number.isFinite(min)) min = 5;
+        if (!Number.isFinite(max)) max = 35;
+        if (max <= min) return { min: 5, max: 35, span: 30 };
+        return { min, max, span: max - min };
+      }
+
+      function allowedModes() {
+        const raw = climateCfg().modes;
+        const out = [];
+        if (Array.isArray(raw)) {
+          for (const m of raw) {
+            const v = String(m || "").toLowerCase();
+            if ((v === "off" || v === "heat" || v === "cool") && !out.includes(v)) out.push(v);
+          }
+        }
+        if (!out.length) return ["off", "heat", "cool"];
+        if (!out.includes("off")) out.unshift("off");
+        return out;
+      }
+
       function fmtDec(s) {
         const n = Number(String(s || "").replace(",", "."));
         if (!Number.isFinite(n)) return "";
@@ -14664,8 +14735,9 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const C = 2 * Math.PI * r;
         let n = Number(String(val || "").replace(",", "."));
         if (!Number.isFinite(n)) n = 20;
-        n = Math.max(5, Math.min(35, n));
-        const pct = (n - 5) / 30;
+        const b = tempBounds();
+        n = Math.max(b.min, Math.min(b.max, n));
+        const pct = (n - b.min) / b.span;
         const dash = Math.max(0.01, Math.min(0.999, pct)) * C;
         fg.setAttribute("stroke-dasharray", String(dash.toFixed(2)) + " " + String((C - dash).toFixed(2)));
       }
@@ -15060,7 +15132,8 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         // Convert to 0..360 where 0 is top, clockwise
         const degFromTop = (ang * 180 / Math.PI + 90 + 360) % 360;
         const pct = clamp01(degFromTop / 360);
-        const val = 5 + pct * 30;
+        const b = tempBounds();
+        const val = b.min + pct * b.span;
         return round05(val);
       }
 
@@ -15069,7 +15142,8 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const rect = ringWrap.getBoundingClientRect();
         const cx = rect.width / 2;
         const cy = rect.height / 2;
-        const pct = clamp01((val - 5) / 30);
+        const b = tempBounds();
+        const pct = clamp01((val - b.min) / b.span);
         const deg = pct * 360 - 90; // align with rotated ring
         const rad = deg * Math.PI / 180;
         let ringW = 14;
@@ -15094,8 +15168,9 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         } catch (_e) {}
         let v = Number(val);
         if (!Number.isFinite(v)) return;
-        v = Math.max(5, Math.min(35, v));
-        const pct = clamp01((v - 5) / 30);
+        const b = tempBounds();
+        v = Math.max(b.min, Math.min(b.max, v));
+        const pct = clamp01((v - b.min) / b.span);
         const deg = pct * 360 - 90;
         const rad = deg * Math.PI / 180;
         const radius = Math.max(10, rect.width / 2 - ringW - 14);
@@ -15158,11 +15233,12 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const curMode = therm ? String(therm.ACT_MODEL || therm.ACT_MODE || "").toUpperCase() : "";
         const curSea = therm ? String(therm.ACT_SEA || "WIN").toUpperCase() : "WIN";
         const cur = (curMode === "OFF") ? "OFF" : (curSea === "SUM" ? "SUM" : "WIN");
-        openPicker([
-          { value: "WIN", label: "Inverno", hint: "Caldo" },
-          { value: "SUM", label: "Estate", hint: "Freddo" },
-          { value: "OFF", label: "Off" },
-        ], cur, (v) => {
+        const modes = allowedModes();
+        const items = [];
+        if (modes.includes("heat")) items.push({ value: "WIN", label: "Inverno", hint: "Caldo" });
+        if (modes.includes("cool")) items.push({ value: "SUM", label: "Estate", hint: "Freddo" });
+        items.push({ value: "OFF", label: "Off" });
+        openPicker(items, cur, (v) => {
           if (String(v).toUpperCase() === "OFF") {
             return sendCmd("set_mode", "OFF").catch(e => toast("Errore: " + (e && e.message ? e.message : e)));
           }
@@ -15862,6 +15938,7 @@ function sanitizeTherm(t) {
   const consensusGroupCool = String((t && (t.consensus_group_cool || t.consensus_group)) ?? '').trim();
   const realTargets = (t && t.real_targets && typeof t.real_targets === 'object') ? t.real_targets : null;
   const realTherm = (t && t.real_thermostat && typeof t.real_thermostat === 'object') ? t.real_thermostat : null;
+  const climate = (t && t.climate && typeof t.climate === 'object') ? t.climate : null;
   const autoCtl = !!(t && t.auto_control_enabled);
   let sourceObj = { type: 'esafe', num: Number.isFinite(srcNum) ? srcNum : 1 };
   if (srcType === 'ha_climate') {
@@ -15894,7 +15971,11 @@ function sanitizeTherm(t) {
     ...(consensusGroupCool ? { consensus_group_cool: consensusGroupCool } : {}),
     ...(realTargets ? { real_targets: realTargets } : {}),
     ...(realTherm ? { real_thermostat: realTherm } : {}),
+    ...(climate ? { climate } : {}),
   };
+  if (String(name || '').trim().toLowerCase().includes('kappa forno') || String(id) === '15') {
+    base.climate = { modes: ['off', 'cool'], min_temp: 0, max_temp: 50, ...(base.climate || {}) };
+  }
   if (outHeat || outCool) {
     // Split outputs by season
     const h = outHeat || {};
@@ -16427,6 +16508,9 @@ function saveItem() {
     real_thermostat: realThermostat,
     auto_control_enabled: autoCtl,
   };
+  if (String(name || '').trim().toLowerCase().includes('kappa forno') || String(id) === '15') {
+    itemBase.climate = { modes: ['off', 'cool'], min_temp: 0, max_temp: 50 };
+  }
   let item = null;
   if (!split) {
     item = sanitizeTherm({

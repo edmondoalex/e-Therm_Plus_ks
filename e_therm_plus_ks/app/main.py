@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.140"
+APP_VERSION = "2.6.141"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -679,6 +679,50 @@ class ThermEngine:
                 return t
         return None
 
+    def _therm_climate_cfg(self, t: Dict[str, Any]) -> Dict[str, Any]:
+        cfg = t.get("climate") if isinstance(t, dict) else None
+        out = cfg if isinstance(cfg, dict) else {}
+        name = str((t or {}).get("name") or "").strip().lower()
+        tid = str((t or {}).get("id") or "").strip()
+        # Backward-compatible special case requested for KAPPA FORNO:
+        # cool-only clone with wider 0..50C range unless explicitly configured.
+        if "kappa forno" in name or tid == "15":
+            merged = {"modes": ["off", "cool"], "min_temp": 0, "max_temp": 50}
+            merged.update(out)
+            return merged
+        return out
+
+    def _therm_allowed_modes(self, t: Dict[str, Any]) -> List[str]:
+        cfg = self._therm_climate_cfg(t)
+        raw = cfg.get("modes")
+        modes: List[str] = []
+        if isinstance(raw, list):
+            for m in raw:
+                sm = str(m or "").strip().lower()
+                if sm in ("off", "heat", "cool") and sm not in modes:
+                    modes.append(sm)
+        if not modes:
+            modes = ["off", "heat", "cool"]
+        if "off" not in modes:
+            modes.insert(0, "off")
+        return modes
+
+    def _therm_temp_bounds(self, t: Dict[str, Any]) -> tuple[float, float]:
+        cfg = self._therm_climate_cfg(t)
+        tmin = _as_float(cfg.get("min_temp"))
+        tmax = _as_float(cfg.get("max_temp"))
+        if tmin is None:
+            tmin = 5.0
+        if tmax is None:
+            tmax = 35.0
+        if float(tmax) <= float(tmin):
+            return 5.0, 35.0
+        return float(tmin), float(tmax)
+
+    def _clamp_therm_target(self, t: Dict[str, Any], value: float) -> float:
+        tmin, tmax = self._therm_temp_bounds(t)
+        return max(float(tmin), min(float(tmax), float(value)))
+
     def _ha_climate_terms(self) -> List[Dict[str, Any]]:
         out: List[Dict[str, Any]] = []
         for t in self.therm_list():
@@ -748,6 +792,9 @@ class ThermEngine:
             season = str(_get_any(src, "season", "act_sea") or "WIN").strip().upper()
             if season not in ("WIN", "SUM", "OFF"):
                 season = "WIN"
+            allowed_modes = self._therm_allowed_modes(t)
+            if "heat" not in allowed_modes and "cool" in allowed_modes and season == "WIN":
+                season = "SUM"
             preset = str(_get_any(src, "preset", "mode", "act_model") or "MAN").strip().upper()
             if not preset:
                 preset = "MAN"
@@ -1171,6 +1218,9 @@ class ThermEngine:
             season = str(_get_any(src, "season", "act_sea") or "WIN").strip().upper()
             if season not in ("WIN", "SUM", "OFF"):
                 season = "WIN"
+            allowed_modes = self._therm_allowed_modes(t)
+            if "heat" not in allowed_modes and "cool" in allowed_modes and season == "WIN":
+                season = "SUM"
             real_target = None
             real_hvac = ""
             real_ent = self._real_thermostat_entity(t)
@@ -1991,6 +2041,10 @@ class ThermEngine:
         return "cool" if str(act_sea or "").upper() == "SUM" else "heat"
 
     def _outputs_for_season(self, t: Dict[str, Any], season_key: str) -> Dict[str, Any]:
+        if str(season_key) == "heat" and "heat" not in self._therm_allowed_modes(t):
+            return {}
+        if str(season_key) == "cool" and "cool" not in self._therm_allowed_modes(t):
+            return {}
         if not self._is_split_outputs(t):
             return t.get("outputs") or {}
         if str(season_key) == "cool":
@@ -3652,6 +3706,8 @@ class ThermEngine:
                 hvac_mode = "heat"
             elif sea == "SUM":
                 hvac_mode = "cool"
+        if hvac_mode not in self._therm_allowed_modes(t):
+            hvac_mode = "off"
 
         # target
         tgt = None
@@ -3715,6 +3771,7 @@ class ThermEngine:
             v = _as_float(payload_raw)
             if v is None:
                 return
+            v = self._clamp_therm_target(t, float(v))
             with self.lock:
                 rt0 = self.rt.setdefault(str(tid), {})
                 th0 = rt0.setdefault("THERM", {})
@@ -3773,6 +3830,10 @@ class ThermEngine:
             m = str(payload_raw or "").strip().lower()
             if m not in ("heat", "cool", "off"):
                 return
+            allowed_modes = self._therm_allowed_modes(t)
+            if m not in allowed_modes:
+                # Cool-only or heat-only thermostats should never enter an unsupported HVAC mode.
+                m = "off"
             if m == "off" and origin == "ha_mqtt":
                 hold = self._ha_bridge_mode_hold.get(str(tid))
                 if isinstance(hold, dict):
@@ -4246,7 +4307,13 @@ class ThermEngine:
                         rt["RH"] = v
 
                 if season:
-                    th["ACT_SEA"] = str(season).upper()
+                    sea_v = str(season).upper()
+                    allowed_modes = self._therm_allowed_modes(t)
+                    if sea_v == "WIN" and "heat" not in allowed_modes and "cool" in allowed_modes:
+                        sea_v = "SUM"
+                    if sea_v == "SUM" and "cool" not in allowed_modes:
+                        sea_v = "OFF"
+                    th["ACT_SEA"] = sea_v
                 if model:
                     th["ACT_MODEL"] = str(model).upper()
                 if out_status:
@@ -4643,6 +4710,11 @@ class ThermEngine:
             outputs = t.get("outputs") or {}
             heat_out = t.get("outputs_heat") if isinstance(t.get("outputs_heat"), dict) else None
             cool_out = t.get("outputs_cool") if isinstance(t.get("outputs_cool"), dict) else None
+            allowed_modes = self._therm_allowed_modes(t)
+            if "heat" not in allowed_modes:
+                heat_out = {}
+            if "cool" not in allowed_modes:
+                cool_out = {}
             dev = self._device_block(tid, name)
 
             # MQTT climate clone. v4 uses the thermostat name for the stable
@@ -4650,6 +4722,8 @@ class ThermEngine:
             name_slug = _entity_safe_name(name, f"thermostat_{tid}")
             climate_uid = f"e_therm_{name_slug}_climate"
             climate_topic = f"{base}/climate/{climate_uid}/config"
+            climate_modes = allowed_modes
+            climate_min_temp, climate_max_temp = self._therm_temp_bounds(t)
             climate_cfg = {
                 "name": f"e-Therm {name}",
                 "unique_id": climate_uid,
@@ -4667,9 +4741,9 @@ class ThermEngine:
                 "preset_mode_state_topic": f"{self._ha_base(tid)}/preset_mode",
                 "preset_mode_command_topic": f"{self._ha_base(tid)}/preset_mode/set",
                 "preset_modes": ["OFF", "MAN", "MAN_TMR", "WEEKLY", "AUTO", "SD1", "SD2"],
-                "modes": ["off", "heat", "cool"],
-                "min_temp": 5,
-                "max_temp": 35,
+                "modes": climate_modes,
+                "min_temp": climate_min_temp,
+                "max_temp": climate_max_temp,
                 "temp_step": 0.1,
             }
             self.mqtt.publish(climate_topic, json.dumps(climate_cfg, ensure_ascii=False), retain=True)
