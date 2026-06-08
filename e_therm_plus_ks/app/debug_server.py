@@ -13840,8 +13840,13 @@ def render_thermostats(snapshot):
         mode = str(therm.get("ACT_MODEL") or therm.get("ACT_MODE") or "").upper()
         out = str(therm.get("OUT_STATUS") or "").upper()
         demand = str(therm.get("DEMAND_ON") or "").upper()
+        real_hvac_action = str(therm.get("REAL_HVAC_ACTION") or "").upper()
         req_on = out == "ON"
-        if demand == "ON":
+        if real_hvac_action in ("HEATING", "COOLING"):
+            req_on = True
+        elif real_hvac_action in ("IDLE", "OFF"):
+            req_on = False
+        elif demand == "ON":
             req_on = True
         elif demand == "OFF":
             req_on = False
@@ -14062,8 +14067,11 @@ def render_thermostats(snapshot):
         const mode = String(therm.ACT_MODEL || therm.ACT_MODE || "").toUpperCase();
         const out = String(therm.OUT_STATUS || "").toUpperCase();
         const demand = String(therm.DEMAND_ON || "").toUpperCase();
+        const realAction = String(therm.REAL_HVAC_ACTION || "").toUpperCase();
         let reqOn = out === "ON";
-        if (demand === "ON") reqOn = true;
+        if (realAction === "HEATING" || realAction === "COOLING") reqOn = true;
+        else if (realAction === "IDLE" || realAction === "OFF") reqOn = false;
+        else if (demand === "ON") reqOn = true;
         else if (demand === "OFF") reqOn = false;
         if (mode === "OFF") reqOn = false;
         const isCool = season === "SUM";
@@ -14196,8 +14204,13 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
     mode0 = str(therm0.get("ACT_MODEL") or therm0.get("ACT_MODE") or "").upper()
     out0 = str(therm0.get("OUT_STATUS") or "").upper()
     demand0 = str(therm0.get("DEMAND_ON") or "").upper()
+    real_hvac_action0 = str(therm0.get("REAL_HVAC_ACTION") or "").upper()
     req_on0 = out0 == "ON"
-    if demand0 == "ON":
+    if real_hvac_action0 in ("HEATING", "COOLING"):
+        req_on0 = True
+    elif real_hvac_action0 in ("IDLE", "OFF"):
+        req_on0 = False
+    elif demand0 == "ON":
         req_on0 = True
     elif demand0 == "OFF":
         req_on0 = False
@@ -14867,6 +14880,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const demandOn = therm ? String(therm.DEMAND_ON || "") : "";
         const demandReason = therm ? String(therm.DEMAND_REASON || "") : "";
         const realHvacState = therm ? String(therm.REAL_HVAC_STATE || "") : "";
+        const realHvacAction = therm ? String(therm.REAL_HVAC_ACTION || "") : "";
         const offCmdResult = therm ? String(therm.OFF_CMD_RESULT || "") : "";
         const bridgeError = therm ? String(therm.BRIDGE_ERROR || "") : "";
         const temp = (rt.TEMP !== undefined && rt.TEMP !== null) ? String(rt.TEMP) : "";
@@ -14882,8 +14896,11 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const seaKey = (String(season || "WIN").toUpperCase() === "SUM") ? "SUM" : "WIN";
         const outOn = String(out || "").toUpperCase() === "ON";
         const demandState = String(demandOn || "").toUpperCase();
+        const realAction = String(realHvacAction || "").toUpperCase();
         let reqOn = outOn;
-        if (demandState === "ON") reqOn = true;
+        if (realAction === "HEATING" || realAction === "COOLING") reqOn = true;
+        else if (realAction === "IDLE" || realAction === "OFF") reqOn = false;
+        else if (demandState === "ON") reqOn = true;
         else if (demandState === "OFF") reqOn = false;
         if (String(mode || "").toUpperCase() === "OFF") reqOn = false;
         const tempDisp = temp ? fmtDec(temp).replace(".", ",") : "--,-";

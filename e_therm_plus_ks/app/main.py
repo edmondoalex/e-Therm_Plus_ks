@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.144"
+APP_VERSION = "2.6.145"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1120,8 +1120,13 @@ class ThermEngine:
                         th_patch["REAL_TARGET"] = float(tgt)
                     if hvac:
                         th_patch["REAL_HVAC"] = str(hvac).upper()
+                        th_patch["REAL_HVAC_STATE"] = str(hvac).upper()
                     if hvac_action:
                         th_patch["REAL_HVAC_ACTION"] = str(hvac_action).upper()
+                        if hvac_action in ("heating", "cooling"):
+                            th_patch["OUT_STATUS"] = "ON"
+                        elif hvac_action in ("idle", "off"):
+                            th_patch["OUT_STATUS"] = "OFF"
 
             with self.lock:
                 rt = self.rt.setdefault(tid, {})
