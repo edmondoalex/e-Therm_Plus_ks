@@ -15340,8 +15340,13 @@ def render_vtherm_config_page(snapshot):
     .btn.danger { background: rgba(185,28,28,0.25); border-color: rgba(185,28,28,0.4); }
     .btn.ghost { background: transparent; }
     .list { display:flex; flex-direction:column; gap:10px; margin-top: 10px; }
-    .item { border:1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.25); border-radius:12px; padding:12px; display:flex; gap:12px; align-items:center; justify-content:space-between; }
-    .left { min-width:0; }
+    .item { border:1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.25); border-radius:12px; padding:12px; display:flex; gap:12px; align-items:center; justify-content:space-between; transition: border-color .14s ease, background .14s ease, transform .14s ease; }
+    .item.dragging { opacity:.58; border-color: rgba(46,125,246,0.58); background: rgba(46,125,246,0.12); }
+    .item.dropBefore { border-top-color: rgba(46,125,246,0.95); box-shadow: inset 0 3px 0 rgba(46,125,246,0.8); }
+    .dragHandle { flex:0 0 auto; width:32px; height:42px; border-radius:10px; border:1px solid rgba(255,255,255,0.10); background:rgba(255,255,255,0.035); color:rgba(255,255,255,0.48); cursor:grab; display:grid; place-items:center; touch-action:none; }
+    .dragHandle:active { cursor:grabbing; }
+    .dragHandle::before { content:'::'; font-weight:900; letter-spacing:2px; transform:rotate(90deg); }
+    .left { min-width:0; flex:1; }
     .name { font-weight: 800; }
     .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
     .chips { display:flex; gap:8px; flex-wrap:wrap; margin-top: 8px; }
@@ -15928,6 +15933,14 @@ function renderList() {
     const split = !!(t.outputs_heat || t.outputs_cool);
     const el = document.createElement('div');
     el.className = 'item';
+    el.setAttribute('draggable', 'false');
+    el.dataset.idx = String(idx);
+    const handle = document.createElement('div');
+    handle.className = 'dragHandle';
+    handle.title = 'Trascina per cambiare ordine';
+    handle.setAttribute('role', 'button');
+    handle.setAttribute('aria-label', 'Trascina per cambiare ordine');
+    handle.setAttribute('draggable', 'true');
     const left = document.createElement('div');
     left.className = 'left';
     const src = t.source || {};
@@ -15976,17 +15989,15 @@ function renderList() {
     const right = document.createElement('div');
     right.className = 'row';
     right.innerHTML =
-      '<button class="btn" data-a="up" title="Sposta su" ' + (idx === 0 ? 'disabled' : '') + '>Su</button>' +
-      '<button class="btn" data-a="down" title="Sposta giu" ' + (idx === items.length - 1 ? 'disabled' : '') + '>Giu</button>' +
       '<button class="btn" data-a="edit">Modifica</button>' +
       '<button class="btn" data-a="dup">Duplica</button>' +
       '<button class="btn danger" data-a="del">Elimina</button>';
-    right.querySelector('[data-a="up"]').onclick = () => moveItem(idx, -1);
-    right.querySelector('[data-a="down"]').onclick = () => moveItem(idx, 1);
     right.querySelector('[data-a="edit"]').onclick = () => editItem(idx);
     right.querySelector('[data-a="dup"]').onclick = () => dupItem(idx);
     right.querySelector('[data-a="del"]').onclick = () => delItem(idx);
 
+    wireDragHandle(handle, el, idx);
+    el.appendChild(handle);
     el.appendChild(left);
     el.appendChild(right);
     list.appendChild(el);
@@ -16466,6 +16477,98 @@ function moveItem(idx, delta) {
   cfg.thermostats = items;
   renderList();
   setMsg('Ordine modificato. Premi Salva per applicarlo all elenco termostati.');
+}
+
+let dragThermIndex = null;
+let pointerDrag = null;
+function clearDragMarks() {
+  document.querySelectorAll('#list .item').forEach(el => {
+    el.classList.remove('dragging', 'dropBefore');
+  });
+}
+
+function moveItemTo(from, to) {
+  const items = cfg.thermostats || [];
+  if (from === null || from === undefined) return;
+  from = Number(from);
+  to = Number(to);
+  if (!Number.isInteger(from) || !Number.isInteger(to)) return;
+  if (from < 0 || to < 0 || from >= items.length || to >= items.length || from === to) return;
+  const item = items.splice(from, 1)[0];
+  items.splice(to, 0, item);
+  cfg.thermostats = items;
+  dragThermIndex = null;
+  clearDragMarks();
+  renderList();
+  setMsg('Ordine modificato. Premi Salva per applicarlo all elenco termostati.');
+}
+
+function wireDragHandle(handle, row, idx) {
+  if (!handle || !row) return;
+  const rowFromPoint = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    return el ? el.closest('#list .item[data-idx]') : null;
+  };
+  handle.addEventListener('pointerdown', (ev) => {
+    if (ev.pointerType === 'mouse') return;
+    pointerDrag = { from: idx, to: idx, started: false };
+    try { handle.setPointerCapture(ev.pointerId); } catch (_e) {}
+  });
+  handle.addEventListener('pointermove', (ev) => {
+    if (!pointerDrag || ev.pointerType === 'mouse') return;
+    ev.preventDefault();
+    pointerDrag.started = true;
+    dragThermIndex = pointerDrag.from;
+    row.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+    clearDragMarks();
+    row.classList.add('dragging');
+    const target = rowFromPoint(ev.clientX, ev.clientY);
+    if (!target) return;
+    const to = Number(target.dataset.idx);
+    if (!Number.isInteger(to) || to === pointerDrag.from) return;
+    pointerDrag.to = to;
+    target.classList.add('dropBefore');
+  });
+  const finishPointer = (ev) => {
+    if (!pointerDrag || ev.pointerType === 'mouse') return;
+    const from = pointerDrag.from;
+    const to = pointerDrag.to;
+    pointerDrag = null;
+    dragThermIndex = null;
+    document.body.style.userSelect = '';
+    clearDragMarks();
+    if (from !== to) moveItemTo(from, to);
+  };
+  handle.addEventListener('pointerup', finishPointer);
+  handle.addEventListener('pointercancel', finishPointer);
+  handle.addEventListener('dragstart', (ev) => {
+    dragThermIndex = idx;
+    row.classList.add('dragging');
+    try {
+      ev.dataTransfer.effectAllowed = 'move';
+      ev.dataTransfer.setData('text/plain', String(idx));
+    } catch (_e) {}
+  });
+  handle.addEventListener('dragend', () => {
+    dragThermIndex = null;
+    clearDragMarks();
+  });
+  row.addEventListener('dragover', (ev) => {
+    if (dragThermIndex === null || dragThermIndex === idx) return;
+    ev.preventDefault();
+    row.classList.add('dropBefore');
+    try { ev.dataTransfer.dropEffect = 'move'; } catch (_e) {}
+  });
+  row.addEventListener('dragleave', () => row.classList.remove('dropBefore'));
+  row.addEventListener('drop', (ev) => {
+    ev.preventDefault();
+    const raw = (() => {
+      try { return ev.dataTransfer.getData('text/plain'); } catch (_e) { return ''; }
+    })();
+    const from = raw !== '' ? Number(raw) : dragThermIndex;
+    moveItemTo(from, idx);
+  });
 }
 
 function clearAll() {
