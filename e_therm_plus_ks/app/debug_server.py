@@ -14129,10 +14129,59 @@ def render_thermostats(snapshot):
 def render_thermostat_detail(snapshot, thermostat_id: str):
     # Clean, stable base page (we'll iterate design step-by-step).
     title = f"Termostato {thermostat_id}"
+    ent0 = None
     for e in (snapshot.get("entities") or []):
         if str(e.get("type") or "").lower() == "thermostats" and str(e.get("id")) == str(thermostat_id):
             title = e.get("name") or title
+            ent0 = e
             break
+
+    def _fmt_init_temp(v, fallback="--,-"):
+        try:
+            if v is None or str(v).strip() == "":
+                return fallback
+            return f"{float(str(v).replace(',', '.')):.1f}".replace(".", ",")
+        except Exception:
+            return fallback
+
+    def _init_float(v, fallback=20.0):
+        try:
+            n = float(str(v).replace(",", "."))
+            if n == n:
+                return n
+        except Exception:
+            pass
+        return fallback
+
+    rt0 = ent0.get("realtime") if isinstance(ent0, dict) and isinstance(ent0.get("realtime"), dict) else {}
+    therm0 = rt0.get("THERM") if isinstance(rt0.get("THERM"), dict) else {}
+    season0 = str(therm0.get("ACT_SEA") or "").upper()
+    mode0 = str(therm0.get("ACT_MODEL") or therm0.get("ACT_MODE") or "").upper()
+    out0 = str(therm0.get("OUT_STATUS") or "").upper()
+    demand0 = str(therm0.get("DEMAND_ON") or "").upper()
+    req_on0 = out0 == "ON"
+    if demand0 == "ON":
+        req_on0 = True
+    elif demand0 == "OFF":
+        req_on0 = False
+    if mode0 == "OFF":
+        req_on0 = False
+    sea_key0 = "SUM" if season0 == "SUM" else "WIN"
+    mode_label0 = "Off" if (season0 == "OFF" or mode0 == "OFF") else ("Estate" if sea_key0 == "SUM" else "Inverno")
+    state_label0 = "OFF" if mode_label0 == "Off" else ("MAN" if mode0 == "MAN" else (mode0 or "MAN"))
+    relay_label0 = "COOL ON" if (req_on0 and sea_key0 == "SUM") else ("HEAT ON" if req_on0 else "OFF")
+    relay_class0 = " coolOn" if (req_on0 and sea_key0 == "SUM") else (" heatOn" if req_on0 else "")
+    accent0 = "var(--ring-cool)" if (req_on0 and sea_key0 == "SUM") else ("var(--ring-heat)" if req_on0 else "var(--ring-off)")
+    pin_fg0 = "rgba(0,0,0,0.86)" if req_on0 else "rgba(255,255,255,0.92)"
+    temp0 = _fmt_init_temp(rt0.get("TEMP"))
+    rh0_raw = rt0.get("RH")
+    rh0 = str(rh0_raw) if rh0_raw not in (None, "") else "--"
+    thr0 = therm0.get("TEMP_THR") if isinstance(therm0.get("TEMP_THR"), dict) else {}
+    target0_num = _init_float(thr0.get("VAL"), 20.0)
+    target0 = _fmt_init_temp(target0_num)
+    pct0 = max(0.01, min(0.999, (max(5.0, min(35.0, target0_num)) - 5.0) / 30.0))
+    circ0 = 527.79
+    dash0 = f"{(pct0 * circ0):.2f} {((1 - pct0) * circ0):.2f}"
 
     init = json.dumps(snapshot, ensure_ascii=False)
     tid_esc = _html_escape(str(thermostat_id))
@@ -14157,8 +14206,8 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
          --ring-heat: #ff9f1c;
          --ring-cool: #66c7ff;
          --bd: rgba(255,255,255,0.10);
-         --accent: var(--ring-off);
-         --pin-fg: rgba(255,255,255,0.92);
+         --accent: __INIT_ACCENT__;
+         --pin-fg: __INIT_PIN_FG__;
       }
       *, *:before, *:after { box-sizing: border-box; }
       html, body { height:100%; min-height:100%; overflow-x:hidden; }
@@ -14369,18 +14418,18 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
            <div class="ringWrap" id="ringWrap">
              <svg class="ringSvg" viewBox="0 0 200 200" aria-hidden="true">
                <circle id="ringTrack" cx="100" cy="100" r="84" fill="none" stroke="var(--ring-track)" stroke-width="var(--ring-w)" stroke-linecap="round"></circle>
-               <circle id="ringFg" cx="100" cy="100" r="84" fill="none" stroke="var(--ring-off)" stroke-width="var(--ring-w)" stroke-linecap="round" stroke-dasharray="1 999"></circle>
+               <circle id="ringFg" cx="100" cy="100" r="84" fill="none" stroke="__INIT_ACCENT__" stroke-width="var(--ring-w)" stroke-linecap="round" stroke-dasharray="__INIT_DASH__"></circle>
              </svg>
              <div class="ringTick" id="ringTick" aria-hidden="true"></div>
              <div class="knob" id="knob" role="slider" tabindex="0" aria-label="Set temperatura">
-               <div class="knobPin"><span id="knobVal">--,-</span></div>
+               <div class="knobPin"><span id="knobVal">__INIT_TARGET__</span></div>
              </div>
             <div class="ringCenter">
-              <div class="sub" id="centerSub">-</div>
-              <div class="big" id="centerTemp">--,-</div>
-              <div class="sub" id="centerSet">Set --,-&deg;C</div>
-              <div class="sub2" id="centerRh">RH --%</div>
-              <div class="relayState" id="centerRelay"><span class="dot"></span><span id="centerRelayText">OFF</span></div>
+              <div class="sub" id="centerSub">__INIT_MODE__</div>
+              <div class="big" id="centerTemp">__INIT_TEMP__</div>
+              <div class="sub" id="centerSet">Set __INIT_TARGET__&deg;C</div>
+              <div class="sub2" id="centerRh">RH __INIT_RH__%</div>
+              <div class="relayState__INIT_RELAY_CLASS__" id="centerRelay"><span class="dot"></span><span id="centerRelayText">__INIT_RELAY__</span></div>
             </div>
           </div>
         </div>
@@ -15178,6 +15227,15 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         .replace("__TID__", tid_esc)
         .replace("__ADDON_VERSION__", _html_escape(ADDON_VERSION))
         .replace("__INIT__", init)
+        .replace("__INIT_ACCENT__", _html_escape(accent0))
+        .replace("__INIT_PIN_FG__", _html_escape(pin_fg0))
+        .replace("__INIT_DASH__", _html_escape(dash0))
+        .replace("__INIT_MODE__", _html_escape(f"{mode_label0} | {state_label0}"))
+        .replace("__INIT_TEMP__", _html_escape(temp0))
+        .replace("__INIT_TARGET__", _html_escape(target0))
+        .replace("__INIT_RH__", _html_escape(rh0))
+        .replace("__INIT_RELAY_CLASS__", relay_class0)
+        .replace("__INIT_RELAY__", _html_escape(relay_label0))
     )
     return html.encode("utf-8")
 

@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-08 - v2.6.138 - Autore: Codex
+- UI dettaglio termostato: valori principali pre-renderizzati lato server nello HTML iniziale.
+- Temperatura, setpoint, RH, stato relay e colore anello non aspettano piu il completamento del JavaScript client.
+- Ridotto il ritardo percepito all'apertura da elenco/proxy su tablet e browser lenti.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-08 - v2.6.137 - Autore: Codex
 - vTherm `ha_sensor`/`ha_multi_sensor_avg`: aggiunto campo UI `Sensore umidita HA` salvato in `source.humidity_entity_id`.
 - Runtime: polling del sensore umidita dedicato e aggiornamento live di `RH`, pubblicato poi anche verso MQTT/HA.
