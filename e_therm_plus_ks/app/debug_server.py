@@ -13825,10 +13825,12 @@ def render_thermostats(snapshot):
     cfg = (snapshot.get("meta") or {}).get("vtherm_config") or {}
     cfg_therms = cfg.get("thermostats") if isinstance(cfg, dict) else []
     order = {}
+    cfg_by_id = {}
     if isinstance(cfg_therms, list):
         for idx, t in enumerate(cfg_therms):
             if isinstance(t, dict) and t.get("id") is not None:
                 order[str(t.get("id"))] = int(idx)
+                cfg_by_id[str(t.get("id"))] = t
     original_pos = {id(e): idx for idx, e in enumerate(therms)}
     therms.sort(key=lambda e: (order.get(str(e.get("id")), 999999), original_pos.get(id(e), 999999)))
 

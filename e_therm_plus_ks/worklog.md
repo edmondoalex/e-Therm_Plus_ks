@@ -3,6 +3,12 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-08 - v2.6.147 - Autore: Codex
+- Fix crash pagina `/thermostats`: dichiarata la mappa `cfg_by_id` anche nel renderer attivo dell'elenco.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-08 - v2.6.146 - Autore: Codex
 - UI configurazione vTherm: aggiunto campo `Piano` per ogni termostato, salvato come `floor`.
 - Pagina elenco `/thermostats`: termostati raggruppati con intestazioni per piano, rispettando l'ordine configurato/trascinato.
