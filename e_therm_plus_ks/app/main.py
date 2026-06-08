@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.141"
+APP_VERSION = "2.6.142"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -3762,6 +3762,12 @@ class ThermEngine:
             sync_setp = False
         name = str(t.get("name") or f"vTherm {tid}")
 
+        def publish_clone_now() -> None:
+            try:
+                self._ha_publish_clone_state(str(tid))
+            except Exception:
+                pass
+
         # ensure rt/therm exist
         with self.lock:
             rt = self.rt.setdefault(str(tid), {})
@@ -3822,6 +3828,7 @@ class ThermEngine:
                 rt = self.rt.setdefault(str(tid), {})
                 th = rt.setdefault("THERM", {})
                 th["TEMP_THR"] = {"VAL": float(v)}
+            publish_clone_now()
             self._sync_ui()
             self._persist_rt_cache()
             return
@@ -3912,6 +3919,7 @@ class ThermEngine:
                 else:
                     th["ACT_SEA"] = "OFF"
                     th["ACT_MODEL"] = "OFF"
+            publish_clone_now()
             self._sync_ui()
             self._persist_rt_cache()
             return
@@ -3977,6 +3985,7 @@ class ThermEngine:
                 rt = self.rt.setdefault(str(tid), {})
                 th = rt.setdefault("THERM", {})
                 th["ACT_MODEL"] = p
+            publish_clone_now()
             self._sync_ui()
             self._persist_rt_cache()
             return

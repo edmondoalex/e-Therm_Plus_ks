@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-08 - v2.6.142 - Autore: Codex
+- Comandi clone UI: dopo setpoint/modalita/preset viene pubblicato subito lo stato MQTT del climate clone verso Home Assistant.
+- Evita che un errore o ritardo nella sincronizzazione output/real switch ritardi l'aggiornamento del setpoint visibile in Hassio.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-08 - v2.6.141 - Autore: Codex
 - KAPPA FORNO: supporto speciale cool-only/off con range temperatura 0-50 C, senza impattare gli altri termostati.
 - MQTT Discovery climate: modes e min/max temperatura ora sono per singolo termostato tramite `climate.modes`, `climate.min_temp`, `climate.max_temp`.
