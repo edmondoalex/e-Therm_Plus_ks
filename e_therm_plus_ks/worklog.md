@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-08 - v2.6.146 - Autore: Codex
+- UI configurazione vTherm: aggiunto campo `Piano` per ogni termostato, salvato come `floor`.
+- Pagina elenco `/thermostats`: termostati raggruppati con intestazioni per piano, rispettando l'ordine configurato/trascinato.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-08 - v2.6.145 - Autore: Codex
 - Priorita UI corretta: `REAL_HVAC_ACTION=HEATING/COOLING` ora prevale su `DEMAND_ON=OFF` in dettaglio e lista termostati.
 - Anche i termostati `ha_multi_sensor_avg` con climate reale salvano `OUT_STATUS` da `hvac_action`.

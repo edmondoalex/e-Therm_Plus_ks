@@ -3473,10 +3473,12 @@ def render_thermostats(snapshot):
     cfg = (snapshot.get("meta") or {}).get("vtherm_config") or {}
     cfg_therms = cfg.get("thermostats") if isinstance(cfg, dict) else []
     order = {}
+    cfg_by_id = {}
     if isinstance(cfg_therms, list):
         for idx, t in enumerate(cfg_therms):
             if isinstance(t, dict) and t.get("id") is not None:
                 order[str(t.get("id"))] = int(idx)
+                cfg_by_id[str(t.get("id"))] = t
     original_pos = {id(e): idx for idx, e in enumerate(therms)}
     therms.sort(key=lambda e: (order.get(str(e.get("id")), 999999), original_pos.get(id(e), 999999)))
     # Note: this is the thermostat list page (no single thermostat selected).
@@ -13831,8 +13833,18 @@ def render_thermostats(snapshot):
     therms.sort(key=lambda e: (order.get(str(e.get("id")), 999999), original_pos.get(id(e), 999999)))
 
     rows = []
+    last_floor = None
     for e in therms:
         tid = e.get("id")
+        cfg_t = cfg_by_id.get(str(tid), {}) if isinstance(cfg_by_id, dict) else {}
+        floor = str((cfg_t or {}).get("floor") or (cfg_t or {}).get("piano") or "").strip() or "Senza piano"
+        if floor != last_floor:
+            rows.append(
+                '<div class="floorHead">'
+                f'<span class="floorLine"></span><span>{_html_escape(floor)}</span><span class="floorLine"></span>'
+                '</div>'
+            )
+            last_floor = floor
         name = e.get("name") or (e.get("static") or {}).get("DES") or f"Termostato {tid}"
         rt = e.get("realtime") if isinstance(e.get("realtime"), dict) else {}
         therm = rt.get("THERM") if isinstance(rt.get("THERM"), dict) else {}
@@ -13945,6 +13957,23 @@ def render_thermostats(snapshot):
       .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-top: 12px; }
       .muted { color: var(--muted); }
       .thermList { display:flex; flex-direction:column; gap: 10px; }
+      .floorHead {
+        display:grid;
+        grid-template-columns: minmax(22px,1fr) auto minmax(22px,1fr);
+        align-items:center;
+        gap: 12px;
+        margin: 16px 4px 2px;
+        color: rgba(255,255,255,0.72);
+        font-size: 13px;
+        font-weight: 900;
+        letter-spacing: 1.6px;
+        text-transform: uppercase;
+      }
+      .floorHead:first-child { margin-top: 2px; }
+      .floorLine {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.16), transparent);
+      }
       .thermRow {
         position:relative;
         display:grid;
@@ -15561,6 +15590,10 @@ def render_vtherm_config_page(snapshot):
           <input id="f_name" placeholder="Es: Cantina 1" />
         </div>
         <div>
+          <label>Piano</label>
+          <input id="f_floor" placeholder="Es: Piano Terra, Primo Piano, Mansarda" />
+        </div>
+        <div>
           <label>Source type</label>
           <select id="f_src_type">
             <option value="esafe">esafe</option>
@@ -15937,6 +15970,7 @@ function toggleSourceFields() {
 function sanitizeTherm(t) {
   const id = String((t && t.id) ?? '').trim();
   const name = String((t && t.name) ?? '').trim();
+  const floor = String((t && (t.floor || t.piano)) ?? '').trim();
   const src = (t && t.source && typeof t.source === 'object') ? t.source : {};
   const srcType = canonicalSourceType(String(src.type || 'esafe').trim().toLowerCase());
   const srcNum = Number(src.num);
@@ -15980,6 +16014,7 @@ function sanitizeTherm(t) {
   const base = {
     id: id,
     name: name || ('e-Therm ' + (id || '?')),
+    ...(floor ? { floor } : {}),
     source: sourceObj,
     outputs: { power: !!outputs.power, fan3: !!outputs.fan3 },
     auto_control_enabled: autoCtl,
@@ -16052,7 +16087,7 @@ function renderList() {
     }
     left.innerHTML =
       '<div class="name">' + escapeHtml(t.name) + '</div>' +
-      '<div class="sub">ID ' + escapeHtml(String(t.id)) + ' • source ' + escapeHtml(srcInfo) + '</div>';
+      '<div class="sub">ID ' + escapeHtml(String(t.id)) + ' • piano ' + escapeHtml(t.floor || 'Senza piano') + ' • source ' + escapeHtml(srcInfo) + '</div>';
     const chips = document.createElement('div');
     chips.className = 'chips';
     if (!split) {
@@ -16254,6 +16289,7 @@ function editItem(idx) {
   const split = !!(t.outputs_heat || t.outputs_cool);
   document.getElementById('f_id').value = String(t.id || '');
   document.getElementById('f_name').value = String(t.name || '');
+  document.getElementById('f_floor').value = String(t.floor || '');
   document.getElementById('f_src_type').value = canonicalSourceType(String((t.source || {}).type || 'esafe'));
   document.getElementById('f_src_num').value = String(t.source.num || 1);
   document.getElementById('f_src_entity_id').value = String((t.source || {}).entity_id || '');
@@ -16321,6 +16357,7 @@ function addNew() {
   const nextId = String(findNextId());
   document.getElementById('f_id').value = nextId;
   document.getElementById('f_name').value = 'Cantina ' + nextId;
+  document.getElementById('f_floor').value = '';
   document.getElementById('f_src_type').value = 'esafe';
   document.getElementById('f_src_num').value = '1';
   document.getElementById('f_src_entity_id').value = '';
@@ -16378,6 +16415,7 @@ function findNextId() {
 function saveItem() {
   const id = String(document.getElementById('f_id').value || '').trim();
   const name = String(document.getElementById('f_name').value || '').trim();
+  const floor = String(document.getElementById('f_floor').value || '').trim();
   const srcType = canonicalSourceType(String(document.getElementById('f_src_type').value || 'esafe').trim().toLowerCase());
   const srcNum = Number(String(document.getElementById('f_src_num').value || '').trim());
   const srcEntityId = String(document.getElementById('f_src_entity_id').value || '').trim();
@@ -16517,6 +16555,7 @@ function saveItem() {
   const itemBase = {
     id: id,
     name: name,
+    floor: floor,
     source: sourceObj,
     profile: profile,
     consensus_group_heat: consensusGroupHeat,
