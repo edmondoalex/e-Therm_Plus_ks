@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-08 - v2.6.144 - Autore: Codex
+- Proxy climate reale via `ha_sensor`: lettura `hvac_action` (`heating/cooling/idle/off`) dal climate HA sorgente.
+- `OUT_STATUS` viene allineato a `heating/cooling`, cosi cerchio/pillola e lista indicano richiesta reale e non solo modalita `heat/cool`.
+- Aggiunta telemetria `REAL_HVAC`, `REAL_HVAC_STATE`, `REAL_HVAC_ACTION` per debug UI.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-08 - v2.6.143 - Autore: Codex
 - Fix clone MQTT climate: `_ha_publish_clone_state()` ora risolve correttamente il termostato config prima di controllare i modi consentiti.
 - Risolto disallineamento UI e-Therm -> Hassio dove il clone poteva restare `off` anche con runtime `WIN/MAN`.

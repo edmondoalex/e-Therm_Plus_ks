@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.143"
+APP_VERSION = "2.6.144"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1223,12 +1223,14 @@ class ThermEngine:
                 season = "SUM"
             real_target = None
             real_hvac = ""
+            real_hvac_action = ""
             real_ent = self._real_thermostat_entity(t)
             if real_ent:
                 st_real = self._ha_api_request("GET", f"/states/{real_ent}")
                 if isinstance(st_real, dict):
                     attrs_real = st_real.get("attributes") if isinstance(st_real.get("attributes"), dict) else {}
                     real_hvac = str(st_real.get("state") or "").strip().lower()
+                    real_hvac_action = str(attrs_real.get("hvac_action") or "").strip().lower()
                     real_target = _as_float(attrs_real.get("temperature"))
                     if real_target is None:
                         if real_hvac == "cool":
@@ -1255,6 +1257,15 @@ class ThermEngine:
                 thr = th.get("TEMP_THR") if isinstance(th.get("TEMP_THR"), dict) else None
                 mode_hold = self._ha_bridge_mode_hold.get(str(tid))
                 mode_hold_until = float(mode_hold.get("until", 0.0) if isinstance(mode_hold, dict) else 0.0)
+                if real_hvac:
+                    th["REAL_HVAC"] = str(real_hvac).upper()
+                    th["REAL_HVAC_STATE"] = str(real_hvac).upper()
+                if real_hvac_action:
+                    th["REAL_HVAC_ACTION"] = str(real_hvac_action).upper()
+                    if real_hvac_action in ("heating", "cooling"):
+                        th["OUT_STATUS"] = "ON"
+                    elif real_hvac_action in ("idle", "off"):
+                        th["OUT_STATUS"] = "OFF"
                 if real_hvac in ("heat", "cool", "off") and time.time() > mode_hold_until:
                     if real_hvac == "heat":
                         th["ACT_SEA"] = "WIN"
