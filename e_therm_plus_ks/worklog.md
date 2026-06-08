@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-08 - v2.6.148 - Autore: Codex
+- Sistemazione definitiva renderer `/thermostats`: rinominato il vecchio renderer legacy e resa esplicita la funzione attiva `render_thermostats_page`.
+- La route `/thermostats` ora punta direttamente al renderer attivo, evitando patch applicate per errore alla funzione shadowed.
+- Verifica smoke locale aggiunta/eseguita manualmente importando `debug_server.py` e chiamando `render_thermostats_page` con piano e stato HEAT ON.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-08 - v2.6.147 - Autore: Codex
 - Fix crash pagina `/thermostats`: dichiarata la mappa `cfg_by_id` anche nel renderer attivo dell'elenco.
 - File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md.

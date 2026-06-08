@@ -3467,7 +3467,7 @@ def render_index(snapshot):
     return html.encode("utf-8")
 
 
-def render_thermostats(snapshot):
+def _render_thermostats_legacy_unused(snapshot):
     entities = snapshot.get("entities") or []
     therms = [e for e in entities if str(e.get("type") or "").lower() == "thermostats"]
     cfg = (snapshot.get("meta") or {}).get("vtherm_config") or {}
@@ -13662,7 +13662,7 @@ class _Handler(BaseHTTPRequestHandler):
 
         if path in ("/thermostats", "/thermostats/", "/t", "/t/"):
             snap = self.state.snapshot()
-            self._send(200, "text/html; charset=utf-8", render_thermostats(snap))
+            self._send(200, "text/html; charset=utf-8", render_thermostats_page(snap))
             return
         if path.startswith("/t/"):
             token = path.split("/", 2)[2] if len(path.split("/")) >= 3 else ""
@@ -13819,7 +13819,7 @@ def set_command_handler(command_fn):
 # Clean Thermostats UI (replaces older experimental versions)
 # -----------------------------------------------------------------------------
 
-def render_thermostats(snapshot):
+def render_thermostats_page(snapshot):
     entities = snapshot.get("entities") or []
     therms = [e for e in entities if str(e.get("type") or "").lower() == "thermostats"]
     cfg = (snapshot.get("meta") or {}).get("vtherm_config") or {}
