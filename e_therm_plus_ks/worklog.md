@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-08 - v2.6.139 - Autore: Codex
+- Config vTherm: aggiunti pulsanti `Su`/`Giu` per cambiare l'ordine dei termostati nell'array `thermostats`.
+- UI elenco termostati: ordinamento secondo `vtherm_config.thermostats`, cosi l'ordine scelto resta persistente dopo il salvataggio.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-08 - v2.6.138 - Autore: Codex
 - UI dettaglio termostato: valori principali pre-renderizzati lato server nello HTML iniziale.
 - Temperatura, setpoint, RH, stato relay e colore anello non aspettano piu il completamento del JavaScript client.

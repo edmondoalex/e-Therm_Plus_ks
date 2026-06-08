@@ -3470,6 +3470,15 @@ def render_index(snapshot):
 def render_thermostats(snapshot):
     entities = snapshot.get("entities") or []
     therms = [e for e in entities if str(e.get("type") or "").lower() == "thermostats"]
+    cfg = (snapshot.get("meta") or {}).get("vtherm_config") or {}
+    cfg_therms = cfg.get("thermostats") if isinstance(cfg, dict) else []
+    order = {}
+    if isinstance(cfg_therms, list):
+        for idx, t in enumerate(cfg_therms):
+            if isinstance(t, dict) and t.get("id") is not None:
+                order[str(t.get("id"))] = int(idx)
+    original_pos = {id(e): idx for idx, e in enumerate(therms)}
+    therms.sort(key=lambda e: (order.get(str(e.get("id")), 999999), original_pos.get(id(e), 999999)))
     # Note: this is the thermostat list page (no single thermostat selected).
     # These locals are referenced by the HTML template; keep them defined to avoid NameError.
     title = "Termostati"
@@ -13811,6 +13820,15 @@ def set_command_handler(command_fn):
 def render_thermostats(snapshot):
     entities = snapshot.get("entities") or []
     therms = [e for e in entities if str(e.get("type") or "").lower() == "thermostats"]
+    cfg = (snapshot.get("meta") or {}).get("vtherm_config") or {}
+    cfg_therms = cfg.get("thermostats") if isinstance(cfg, dict) else []
+    order = {}
+    if isinstance(cfg_therms, list):
+        for idx, t in enumerate(cfg_therms):
+            if isinstance(t, dict) and t.get("id") is not None:
+                order[str(t.get("id"))] = int(idx)
+    original_pos = {id(e): idx for idx, e in enumerate(therms)}
+    therms.sort(key=lambda e: (order.get(str(e.get("id")), 999999), original_pos.get(id(e), 999999)))
 
     rows = []
     for e in therms:
@@ -15958,9 +15976,13 @@ function renderList() {
     const right = document.createElement('div');
     right.className = 'row';
     right.innerHTML =
+      '<button class="btn" data-a="up" title="Sposta su" ' + (idx === 0 ? 'disabled' : '') + '>Su</button>' +
+      '<button class="btn" data-a="down" title="Sposta giu" ' + (idx === items.length - 1 ? 'disabled' : '') + '>Giu</button>' +
       '<button class="btn" data-a="edit">Modifica</button>' +
       '<button class="btn" data-a="dup">Duplica</button>' +
       '<button class="btn danger" data-a="del">Elimina</button>';
+    right.querySelector('[data-a="up"]').onclick = () => moveItem(idx, -1);
+    right.querySelector('[data-a="down"]').onclick = () => moveItem(idx, 1);
     right.querySelector('[data-a="edit"]').onclick = () => editItem(idx);
     right.querySelector('[data-a="dup"]').onclick = () => dupItem(idx);
     right.querySelector('[data-a="del"]').onclick = () => delItem(idx);
@@ -16432,6 +16454,18 @@ function dupItem(idx) {
   const c = { ...t, id: id, name: (t.name || 'Termostato') + ' (copia)' };
   cfg.thermostats.push(c);
   renderList();
+}
+
+function moveItem(idx, delta) {
+  const items = cfg.thermostats || [];
+  const next = idx + delta;
+  if (idx < 0 || next < 0 || idx >= items.length || next >= items.length) return;
+  const tmp = items[idx];
+  items[idx] = items[next];
+  items[next] = tmp;
+  cfg.thermostats = items;
+  renderList();
+  setMsg('Ordine modificato. Premi Salva per applicarlo all elenco termostati.');
 }
 
 function clearAll() {
