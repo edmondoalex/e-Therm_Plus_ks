@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.142"
+APP_VERSION = "2.6.143"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -3688,6 +3688,7 @@ class ThermEngine:
         return f"{self.out_prefix}/thermostats/{tid}"
 
     def _ha_publish_clone_state(self, tid: str) -> None:
+        t = self._find_by_id(str(tid)) or {}
         with self.lock:
             rt = self.rt.get(str(tid)) or {}
             th = rt.get("THERM") if isinstance(rt.get("THERM"), dict) else {}
@@ -4495,15 +4496,21 @@ class ThermEngine:
         self.state.apply_realtime_update("thermostats", rt_items)
         self.state.apply_static_update("thermostats", st_items)
 
-        try:
-            for t in self.therm_list():
-                tid = str(t.get("id"))
+        for t in self.therm_list():
+            tid = str(t.get("id"))
+            try:
+                self._ha_publish_clone_state(tid)
+            except Exception:
+                pass
+            try:
                 if self._is_split_outputs(t):
                     self._publish_outputs_state(t, "heat")
                     self._publish_outputs_state(t, "cool")
                 else:
                     self._publish_outputs_state(t)
-                self._ha_publish_clone_state(tid)
+            except Exception:
+                pass
+        try:
             self._publish_pdc_consensus()
         except Exception:
             pass

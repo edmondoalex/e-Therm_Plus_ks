@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-08 - v2.6.143 - Autore: Codex
+- Fix clone MQTT climate: `_ha_publish_clone_state()` ora risolve correttamente il termostato config prima di controllare i modi consentiti.
+- Risolto disallineamento UI e-Therm -> Hassio dove il clone poteva restare `off` anche con runtime `WIN/MAN`.
+- `_sync_ui()` ora pubblica lo stato clone per ogni termostato in modo indipendente dagli output/relay, evitando che un errore blocchi gli altri clone.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-08 - v2.6.142 - Autore: Codex
 - Comandi clone UI: dopo setpoint/modalita/preset viene pubblicato subito lo stato MQTT del climate clone verso Home Assistant.
 - Evita che un errore o ritardo nella sincronizzazione output/real switch ritardi l'aggiornamento del setpoint visibile in Hassio.
