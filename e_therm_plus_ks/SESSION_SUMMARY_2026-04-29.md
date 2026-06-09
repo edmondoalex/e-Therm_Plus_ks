@@ -40,3 +40,8 @@
 
 Nota: i parametri PWM in `options` sono globali e valgono per tutti i termostati/profili (incluso `WINE_CELLAR`).
 
+## TODO prossimo step
+- Implementare override PWM per-term (per zona), con fallback ai valori globali:
+  - campi attesi per termostato: `pwm_kp`, `pwm_ki`, `pwm_windup`, `pwm_min_to_med`, `pwm_med_to_max` (eventualmente anche `pwm_deadband_on/off`).
+  - precedenza: valore per-term se presente, altrimenti `options` globali.
+  - obiettivo: poter rendere zone come ORANGERIE piu aggressive e zone come WINE_CELLAR piu conservative.

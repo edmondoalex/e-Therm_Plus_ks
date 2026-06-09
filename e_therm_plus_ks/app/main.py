@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.148"
+APP_VERSION = "2.6.149"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -222,6 +222,7 @@ class ThermEngine:
         self._last_ha_plain_sensor_poll_ts = 0.0
         self._last_ha_warn_ts = 0.0
         self._last_discovery_publish_ts = 0.0
+        self._last_control_runtime_save_ts = 0.0
 
         # realtime cache per vtherm id
         self.rt: Dict[str, Dict[str, Any]] = {}
@@ -287,6 +288,13 @@ class ThermEngine:
         self.log_rh_max_sec = int(opts.get("log_rh_max_sec", 600) or 600)
         self.log_ack_timeout_sec = int(opts.get("log_ack_timeout_sec", 20) or 20)
         self.log_file_max_kb = int(opts.get("log_file_max_kb", 2048) or 2048)
+
+    def _opt_seconds(self, key: str, default: float, minimum: float = 1.0) -> float:
+        try:
+            value = float(self.opts.get(key, default) or default)
+        except Exception:
+            value = float(default)
+        return max(float(minimum), float(value))
 
     def _persist_rt_cache(self) -> None:
         try:
@@ -912,7 +920,8 @@ class ThermEngine:
         if not terms:
             return
         now = time.time()
-        if not force and (now - float(self._last_ha_poll_ts or 0.0)) < 5.0:
+        poll_interval = self._opt_seconds("ha_poll_interval_sec", 15.0, 5.0)
+        if not force and (now - float(self._last_ha_poll_ts or 0.0)) < poll_interval:
             return
         self._last_ha_poll_ts = now
 
@@ -1054,7 +1063,8 @@ class ThermEngine:
         if not terms:
             return
         now = time.time()
-        if not force and (now - float(self._last_ha_plain_sensor_poll_ts or 0.0)) < 5.0:
+        poll_interval = self._opt_seconds("ha_poll_interval_sec", 15.0, 5.0)
+        if not force and (now - float(self._last_ha_plain_sensor_poll_ts or 0.0)) < poll_interval:
             return
         self._last_ha_plain_sensor_poll_ts = now
 
@@ -1166,7 +1176,8 @@ class ThermEngine:
         if not terms:
             return
         now = time.time()
-        if not force and (now - float(self._last_ha_sensor_poll_ts or 0.0)) < 5.0:
+        poll_interval = self._opt_seconds("ha_poll_interval_sec", 15.0, 5.0)
+        if not force and (now - float(self._last_ha_sensor_poll_ts or 0.0)) < poll_interval:
             return
         self._last_ha_sensor_poll_ts = now
 
@@ -2543,7 +2554,7 @@ class ThermEngine:
                 self._watchdog_step()
             except Exception:
                 pass
-            time.sleep(5)
+            time.sleep(self._opt_seconds("watchdog_interval_sec", 10.0, 5.0))
 
     def _watchdog_step(self) -> None:
         enabled = bool(self.opts.get("watchdog_enabled", True))
@@ -2683,7 +2694,7 @@ class ThermEngine:
         now = time.time()
         # run every control interval
         last = float(self.runtime.get("_last_control_ts", 0.0) or 0.0)
-        if (now - last) < float(self.opts.get("control_interval_sec", 5) or 5):
+        if (now - last) < self._opt_seconds("control_interval_sec", 10.0, 5.0):
             return
         self.runtime["_last_control_ts"] = now
 
@@ -2727,10 +2738,13 @@ class ThermEngine:
         except Exception:
             pass
 
-        try:
-            save_runtime(self.runtime)
-        except Exception:
-            pass
+        save_interval = self._opt_seconds("runtime_save_min_sec", 30.0, 5.0)
+        if (now - float(self._last_control_runtime_save_ts or 0.0)) >= save_interval:
+            try:
+                save_runtime(self.runtime)
+                self._last_control_runtime_save_ts = now
+            except Exception:
+                pass
 
     def _control_one(self, t: Dict[str, Any], now: float) -> None:
         tid = str(t.get("id"))

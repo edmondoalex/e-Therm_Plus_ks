@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-09 - v2.6.149 - Autore: Codex
+- Ridotto il carico CPU dell'addon rendendo piu conservativi gli intervalli periodici.
+- Aggiunte opzioni `ha_poll_interval_sec`, `watchdog_interval_sec` e `runtime_save_min_sec`.
+- `control_interval_sec` default portato a 10s; salvataggio runtime ora limitato da intervallo minimo.
+- File modificati: app/main.py, config.yaml, README_ADDON.md, SESSION_SUMMARY_2026-04-29.md, worklog.md.
+
+---
+
 2026-06-08 - v2.6.148 - Autore: Codex
 - Sistemazione definitiva renderer `/thermostats`: rinominato il vecchio renderer legacy e resa esplicita la funzione attiva `render_thermostats_page`.
 - La route `/thermostats` ora punta direttamente al renderer attivo, evitando patch applicate per errore alla funzione shadowed.

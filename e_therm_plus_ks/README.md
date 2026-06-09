@@ -13,6 +13,10 @@ Add-on per E-Manager/Home Assistant: crea **termostati virtuali** partendo dai d
 - `web_auth_mode`: `none` | `basic` | `token`
   - `basic`: `web_basic_user`, `web_basic_pass`
   - `token`: `web_token`
+- `control_interval_sec`: ogni quanti secondi ricalcolare il controllo automatico (default `10`)
+- `ha_poll_interval_sec`: ogni quanti secondi leggere sensori/climate da Home Assistant quando usati come sorgente (default `15`)
+- `watchdog_interval_sec`: ogni quanti secondi eseguire il watchdog interno (default `10`)
+- `runtime_save_min_sec`: intervallo minimo tra salvataggi periodici di runtime (default `30`)
 - `default_profile` (default `WINE_CELLAR`)
   - Cos'e: e' il **profilo predefinito** proposto quando crei un nuovo vTherm dalla pagina `/vtherm`.
   - Cosa fa: **non cambia da solo** come lavora il termostato; e' un preset/etichetta comoda per partire piu veloce e mantenere ordine.
