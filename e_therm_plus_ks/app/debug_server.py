@@ -14,7 +14,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-01-25.D"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.6"
+CODE_VERSION = "2.6.150"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -13173,6 +13173,53 @@ class _Handler(BaseHTTPRequestHandler):
         }
 
     @staticmethod
+    def _filtered_snapshot(snap: dict, query: str) -> dict:
+        try:
+            qs = parse_qs(query or "")
+            raw_types = []
+            for key in ("type", "types"):
+                for val in qs.get(key, []):
+                    raw_types.extend([x.strip().lower() for x in str(val or "").split(",") if x.strip()])
+            wanted_types = set(raw_types)
+            raw_ids = []
+            for key in ("id", "ids"):
+                for val in qs.get(key, []):
+                    raw_ids.extend([x.strip() for x in str(val or "").split(",") if x.strip()])
+            wanted_ids = set(raw_ids)
+            if not wanted_types and not wanted_ids:
+                return snap
+
+            entities = []
+            for ent in snap.get("entities") or []:
+                if not isinstance(ent, dict):
+                    continue
+                etype = str(ent.get("type") or "").lower()
+                eid = str(ent.get("id") or "")
+                if wanted_types and etype not in wanted_types:
+                    continue
+                if wanted_ids and eid not in wanted_ids:
+                    continue
+                entities.append(ent)
+
+            meta = dict((snap.get("meta") or {}) if isinstance(snap.get("meta"), dict) else {})
+            if "thermostats" in wanted_types and isinstance(meta.get("vtherm_config"), dict):
+                cfg = dict(meta.get("vtherm_config") or {})
+                therms = cfg.get("thermostats") if isinstance(cfg.get("thermostats"), list) else []
+                if wanted_ids:
+                    cfg["thermostats"] = [
+                        t for t in therms
+                        if isinstance(t, dict) and str(t.get("id") or "") in wanted_ids
+                    ]
+                meta["vtherm_config"] = cfg
+
+            out = {"entities": entities, "meta": meta}
+            if "ui_rev" in snap:
+                out["ui_rev"] = snap.get("ui_rev")
+            return out
+        except Exception:
+            return snap
+
+    @staticmethod
     def _cookie_dict(h: str) -> dict:
         out = {}
         try:
@@ -13686,6 +13733,7 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/entities":
             snap = self.state.snapshot()
             snap["ui_rev"] = UI_REV
+            snap = self._filtered_snapshot(snap, urlparse(self.path).query)
             body = json.dumps(snap, ensure_ascii=False).encode("utf-8")
             self._send(200, "application/json; charset=utf-8", body)
             return
@@ -13713,8 +13761,11 @@ class _Handler(BaseHTTPRequestHandler):
             try:
                 snap = self.state.snapshot()
                 snap["ui_rev"] = UI_REV
+                query = urlparse(self.path).query
+                snap = self._filtered_snapshot(snap, query)
+                snap["type"] = "snapshot"
                 self.wfile.write(
-                    ("data: " + json.dumps(snap, ensure_ascii=False) + "").encode("utf-8")
+                    ("data: " + json.dumps(snap, ensure_ascii=False) + "\n\n").encode("utf-8")
                 )
                 self.wfile.flush()
 
@@ -13723,11 +13774,17 @@ class _Handler(BaseHTTPRequestHandler):
                         ev = q.get(timeout=15)
                     except queue.Empty:
                         # keep-alive
-                        self.wfile.write(b": ping")
+                        self.wfile.write(b": ping\n\n")
                         self.wfile.flush()
                         continue
+                    ev = self._filtered_snapshot(ev, query)
+                    if query and not ev.get("entities"):
+                        continue
+                    ev["type"] = "update"
+                    if not ev.get("entities") and not ev.get("meta"):
+                        continue
                     self.wfile.write(
-                        ("data: " + json.dumps(ev, ensure_ascii=False) + "").encode("utf-8")
+                        ("data: " + json.dumps(ev, ensure_ascii=False) + "\n\n").encode("utf-8")
                     )
                     self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError):
@@ -14144,7 +14201,7 @@ def render_thermostats_page(snapshot):
         if (structureChanged) window.location.reload();
       }
       async function fetchEntities() {
-        const res = await fetch(apiUrl("/api/entities"), { cache: "no-store" });
+        const res = await fetch(apiUrl("/api/entities?type=thermostats"), { cache: "no-store" });
         if (!res.ok) throw new Error(String(res.status));
         const data = await res.json();
         applyEntities(Array.isArray(data) ? data : (data.entities || []));
@@ -14152,7 +14209,7 @@ def render_thermostats_page(snapshot):
       function startSSE() {
         if (typeof EventSource === "undefined") return false;
         try {
-          const es = new EventSource(apiUrl("/api/stream"));
+          const es = new EventSource(apiUrl("/api/stream?type=thermostats"));
           es.onmessage = (ev) => {
             try {
               const msg = JSON.parse(ev.data);
@@ -14169,7 +14226,7 @@ def render_thermostats_page(snapshot):
         }
       }
       startSSE();
-      setInterval(() => { fetchEntities().catch(() => {}); }, 2000);
+      setInterval(() => { fetchEntities().catch(() => {}); }, 5000);
       document.getElementById("refreshBtn")?.addEventListener("click", () => fetchEntities().catch(() => window.location.reload()));
     </script>
   </body>
@@ -14270,7 +14327,14 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
     circ0 = 527.79
     dash0 = f"{(pct0 * circ0):.2f} {((1 - pct0) * circ0):.2f}"
 
-    init = json.dumps(snapshot, ensure_ascii=False)
+    init_meta = {
+        "last_update": (snapshot.get("meta") or {}).get("last_update"),
+        "vtherm_config": {
+            "thermostats": [therm_cfg0] if isinstance(therm_cfg0, dict) else [],
+            "consensus_groups": (cfg0.get("consensus_groups") if isinstance(cfg0, dict) and isinstance(cfg0.get("consensus_groups"), list) else []),
+        },
+    }
+    init = json.dumps({"entities": [ent0] if isinstance(ent0, dict) else [], "meta": init_meta}, ensure_ascii=False)
     tid_esc = _html_escape(str(thermostat_id))
 
     tpl = """<!doctype html>
@@ -14826,7 +14890,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
 
       async function fetchSnap() {
         try {
-          const res = await fetch(apiUrl("/api/entities"), { cache: "no-store" });
+          const res = await fetch(apiUrl("/api/entities?type=thermostats&id=" + encodeURIComponent(TH_ID)), { cache: "no-store" });
           if (!res.ok) return;
           snap = await res.json();
           render();
@@ -15116,7 +15180,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
       function startSSE() {
         try {
           if (typeof EventSource === "undefined") return false;
-          const es = new EventSource(apiUrl("/api/stream"));
+          const es = new EventSource(apiUrl("/api/stream?type=thermostats&id=" + encodeURIComponent(TH_ID)));
           sse = es;
           es.onmessage = (ev) => {
             try {

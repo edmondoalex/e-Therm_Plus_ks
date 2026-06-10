@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-10 - v2.6.150 - Autore: Codex
+- Velocizzata apertura dettaglio termostato da `/thermostats`: la pagina iniziale include solo il termostato selezionato invece dell'intero snapshot.
+- Aggiunti filtri `type`/`id` per `/api/entities` e `/api/stream`, usati da lista e dettaglio termostati.
+- Corretto framing SSE con separatore `\n\n` per aggiornamenti piu affidabili lato browser.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-09 - v2.6.149 - Autore: Codex
 - Ridotto il carico CPU dell'addon rendendo piu conservativi gli intervalli periodici.
 - Aggiunte opzioni `ha_poll_interval_sec`, `watchdog_interval_sec` e `runtime_save_min_sec`.
