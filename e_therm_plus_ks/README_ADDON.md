@@ -6,7 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.150`
+- `config.yaml` -> `version`: `2.6.151`
+
+Ultima modifica
+- Lista `/thermostats`: aggiunta icona capacita per ogni termostato (`solo caldo`, `solo freddo`, `caldo e freddo`) calcolata dai gruppi di consenso configurati.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.

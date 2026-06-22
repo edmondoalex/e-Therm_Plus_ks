@@ -11,10 +11,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-01-25.D"
+UI_REV = "2026-06-22.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.150"
+CODE_VERSION = "2.6.151"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -13896,6 +13896,24 @@ def render_thermostats_page(snapshot):
     for e in therms:
         tid = e.get("id")
         cfg_t = cfg_by_id.get(str(tid), {}) if isinstance(cfg_by_id, dict) else {}
+        heat_group = str((cfg_t or {}).get("consensus_group_heat") or (cfg_t or {}).get("consensus_group") or "").strip()
+        cool_group = str((cfg_t or {}).get("consensus_group_cool") or (cfg_t or {}).get("consensus_group") or "").strip()
+        if heat_group and cool_group:
+            mode_kind = "both"
+            capability_label = "Caldo e freddo"
+            mode_icon = "🌡️❄️"
+        elif heat_group:
+            mode_kind = "heatonly"
+            capability_label = "Solo caldo"
+            mode_icon = "🌡️"
+        elif cool_group:
+            mode_kind = "coolonly"
+            capability_label = "Solo freddo"
+            mode_icon = "❄️🌡️"
+        else:
+            mode_kind = "unknown"
+            capability_label = "Modalita non indicata"
+            mode_icon = "?"
         floor = str((cfg_t or {}).get("floor") or (cfg_t or {}).get("piano") or "").strip() or "Senza piano"
         if floor != last_floor:
             rows.append(
@@ -13946,7 +13964,7 @@ def render_thermostats_page(snapshot):
             f'<a class="thermRow {status_class}" data-tid="{_html_escape(str(tid))}" href="./thermostats/{_html_escape(str(tid))}">'
             f'  <span class="statusOrb"><span>{_html_escape(status_icon)}</span></span>'
             f'  <span class="thermMain">'
-            f'    <span class="thermName">{_html_escape(str(name))}</span>'
+            f'    <span class="thermName"><span class="modeBadge mode-{mode_kind}" title="{_html_escape(capability_label)}" aria-label="{_html_escape(capability_label)}">{_html_escape(mode_icon)}</span><span class="thermNameText">{_html_escape(str(name))}</span></span>'
             f'    <span class="thermMeta">ID {_html_escape(str(tid))} · {temp}°C · Set {target}°C · {_html_escape(mode_label)}</span>'
             f'  </span>'
             f'  <span class="statusPill"><span class="statusDot"></span>{_html_escape(status_label)}</span>'
@@ -14078,7 +14096,26 @@ def render_thermostats_page(snapshot):
       }
       .thermRow.heat .statusOrb, .thermRow.cool .statusOrb { box-shadow: 0 0 26px color-mix(in srgb, var(--rowColor) 42%, transparent), inset 0 0 18px rgba(255,255,255,0.04); }
       .thermMain { position:relative; display:flex; flex-direction:column; gap: 4px; min-width:0; }
-      .thermName { font-size: 15px; font-weight: 800; color: rgba(255,255,255,0.92); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .thermName { display:flex; align-items:center; gap: 8px; min-width:0; font-size: 15px; font-weight: 800; color: rgba(255,255,255,0.92); }
+      .thermNameText { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .modeBadge {
+        flex: 0 0 auto;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        width: 30px;
+        height: 24px;
+        border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(0,0,0,0.22);
+        font-size: 16px;
+        line-height: 1;
+        box-shadow: inset 0 0 14px rgba(255,255,255,0.04);
+      }
+      .mode-heatonly { background: rgba(229,57,53,0.16); border-color: rgba(255,111,97,0.34); }
+      .mode-coolonly { background: rgba(30,136,229,0.16); border-color: rgba(100,181,246,0.36); }
+      .mode-both { width: 42px; background: linear-gradient(90deg, rgba(229,57,53,0.17), rgba(30,136,229,0.17)); border-color: rgba(255,255,255,0.20); font-size: 15px; }
+      .mode-unknown { color: rgba(255,255,255,0.5); font-size: 13px; }
       .thermMeta { font-size: 12px; color: rgba(255,255,255,0.58); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
       .statusPill {
         position:relative;
@@ -14234,7 +14271,7 @@ def render_thermostats_page(snapshot):
 
     html = (
         tpl.replace("__ADDON_VERSION__", _html_escape(ADDON_VERSION))
-        .replace("__UI_REV__", _html_escape(_addon_version_display()))
+        .replace("__UI_REV__", _html_escape(UI_REV))
         .replace("__ITEMS__", items)
     )
     return html.encode("utf-8")
