@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-22 - v2.6.158 - Autore: Codex
+- Fix rename gruppi consenso in `/vtherm`: quando cambia il nome del gruppo, vengono aggiornati anche `consensus_group`, `consensus_group_heat` e `consensus_group_cool` dei termostati che lo usano.
+- Questo evita che `ensureGroupsFromTherms()` ricrei il vecchio gruppo e permette alla cleanup MQTT Discovery di rimuovere le entity vecchie.
+- Aggiornata UI_REV a `2026-06-22.H`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-22 - v2.6.157 - Autore: Codex
 - Pagina `/vtherm`: aggiunto riordino drag & drop per i gruppi consenso.
 - Aggiunto pulsante `Duplica` per i gruppi consenso con nome copia univoco.

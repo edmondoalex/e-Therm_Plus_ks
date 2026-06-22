@@ -11,10 +11,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-22.G"
+UI_REV = "2026-06-22.H"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.157"
+CODE_VERSION = "2.6.158"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -16422,11 +16422,25 @@ function saveGroup() {
   // Switch reali opzionali: si possono impostare anche in un secondo momento.
 
   const item = sanitizeGroup({ name, switch: sw, switch_heat: swHeat, switch_cool: swCool });
-  if (editGroupIndex >= 0) cfg.consensus_groups[editGroupIndex] = item;
-  else cfg.consensus_groups.push(item);
+  if (editGroupIndex >= 0) {
+    const oldGroup = sanitizeGroup(cfg.consensus_groups[editGroupIndex] || {});
+    const oldName = String(oldGroup.name || '').trim();
+    cfg.consensus_groups[editGroupIndex] = item;
+    if (oldName && oldName !== name) {
+      for (const t of (cfg.thermostats || [])) {
+        if (!t || typeof t !== 'object') continue;
+        if (String(t.consensus_group || '').trim() === oldName) t.consensus_group = name;
+        if (String(t.consensus_group_heat || '').trim() === oldName) t.consensus_group_heat = name;
+        if (String(t.consensus_group_cool || '').trim() === oldName) t.consensus_group_cool = name;
+      }
+    }
+  } else {
+    cfg.consensus_groups.push(item);
+  }
 
   closeGroupDlg();
   renderGroups();
+  renderList();
 }
 
 function delGroup(idx) {

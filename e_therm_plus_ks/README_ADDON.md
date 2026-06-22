@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.157`
+- `config.yaml` -> `version`: `2.6.158`
 
 Ultima modifica
-- Pagina `/vtherm`: aggiunti riordino drag & drop e duplicazione per i gruppi consenso.
+- Pagina `/vtherm`: il rename di un gruppo consenso aggiorna anche i riferimenti dei termostati, cosi MQTT Discovery passa al nuovo nome.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.
