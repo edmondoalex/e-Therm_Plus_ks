@@ -11,10 +11,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-22.C"
+UI_REV = "2026-06-22.D"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.153"
+CODE_VERSION = "2.6.154"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -13901,15 +13901,34 @@ def render_thermostats_page(snapshot):
         if heat_group and cool_group:
             mode_kind = "both"
             capability_label = "Caldo e freddo"
-            mode_icon_html = '<span class="capIcon capThermo capHeat"></span><span class="capIcon capSnow"></span>'
+            mode_icon_html = (
+                '<svg class="capSvg capHeatSvg" viewBox="0 0 24 24" aria-hidden="true">'
+                '<path d="M14 14.76V5a4 4 0 0 0-8 0v9.76a6 6 0 1 0 8 0Z"/>'
+                '<path d="M10 5v11"/><path d="M10 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/>'
+                '</svg>'
+                '<svg class="capSvg capCoolSvg" viewBox="0 0 24 24" aria-hidden="true">'
+                '<path d="M12 3v18"/><path d="m4.93 4.93 14.14 14.14"/><path d="M21 12H3"/>'
+                '<path d="m19.07 4.93-14.14 14.14"/><path d="m8 3 4 4 4-4"/><path d="m8 21 4-4 4 4"/>'
+                '</svg>'
+            )
         elif heat_group:
             mode_kind = "heatonly"
             capability_label = "Solo caldo"
-            mode_icon_html = '<span class="capIcon capThermo capHeat"></span>'
+            mode_icon_html = (
+                '<svg class="capSvg capHeatSvg" viewBox="0 0 24 24" aria-hidden="true">'
+                '<path d="M14 14.76V5a4 4 0 0 0-8 0v9.76a6 6 0 1 0 8 0Z"/>'
+                '<path d="M10 5v11"/><path d="M10 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/>'
+                '</svg>'
+            )
         elif cool_group:
             mode_kind = "coolonly"
             capability_label = "Solo freddo"
-            mode_icon_html = '<span class="capIcon capSnow"></span>'
+            mode_icon_html = (
+                '<svg class="capSvg capCoolSvg" viewBox="0 0 24 24" aria-hidden="true">'
+                '<path d="M12 3v18"/><path d="m4.93 4.93 14.14 14.14"/><path d="M21 12H3"/>'
+                '<path d="m19.07 4.93-14.14 14.14"/><path d="m8 3 4 4 4-4"/><path d="m8 21 4-4 4 4"/>'
+                '</svg>'
+            )
         else:
             mode_kind = "unknown"
             capability_label = "Modalita non indicata"
@@ -14114,53 +14133,23 @@ def render_thermostats_page(snapshot):
       .mode-heatonly { background: rgba(229,57,53,0.16); border-color: rgba(255,111,97,0.34); }
       .mode-coolonly { background: rgba(30,136,229,0.16); border-color: rgba(100,181,246,0.36); }
       .mode-both { width: 46px; background: linear-gradient(90deg, rgba(229,57,53,0.17), rgba(30,136,229,0.17)); border-color: rgba(255,255,255,0.20); }
-      .capIcon {
-        position: relative;
-        display: inline-block;
+      .capSvg {
         flex: 0 0 auto;
-        width: 18px;
-        height: 18px;
-      }
-      .capThermo:before {
-        content: "";
-        position: absolute;
-        left: 8px;
-        top: 2px;
-        width: 4px;
-        height: 10px;
-        border-radius: 5px;
-        background: var(--capColor);
-        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.55);
-      }
-      .capThermo:after {
-        content: "";
-        position: absolute;
-        left: 5px;
-        bottom: 2px;
-        width: 9px;
-        height: 9px;
-        border-radius: 50%;
-        background: var(--capColor);
-        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.55), 0 0 8px color-mix(in srgb, var(--capColor) 55%, transparent);
-      }
-      .capHeat { --capColor: #ff5b57; }
-      .capSnow {
         width: 17px;
         height: 17px;
-        color: #66c7ff;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
       }
-      .capSnow:before {
-        content: "*";
-        position:absolute;
-        inset: -4px 0 0 0;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        color: currentColor;
-        font-size: 28px;
-        line-height: 17px;
-        font-weight: 500;
-        text-shadow: 0 0 8px rgba(102,199,255,0.55);
+      .capHeatSvg {
+        color: #ff6b64;
+        filter: drop-shadow(0 0 5px rgba(255,91,87,0.42));
+      }
+      .capCoolSvg {
+        color: #66c7ff;
+        filter: drop-shadow(0 0 5px rgba(102,199,255,0.42));
       }
       .capUnknown { color: rgba(255,255,255,0.5); font-size: 13px; line-height: 1; }
       .thermMeta { font-size: 12px; color: rgba(255,255,255,0.58); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
