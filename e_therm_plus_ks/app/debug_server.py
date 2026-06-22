@@ -11,10 +11,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-22.A"
+UI_REV = "2026-06-22.B"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.151"
+CODE_VERSION = "2.6.152"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -13901,19 +13901,19 @@ def render_thermostats_page(snapshot):
         if heat_group and cool_group:
             mode_kind = "both"
             capability_label = "Caldo e freddo"
-            mode_icon = "🌡️❄️"
+            mode_icon_html = '<span class="capIcon capThermo capHeat"></span><span class="capIcon capSnow"></span>'
         elif heat_group:
             mode_kind = "heatonly"
             capability_label = "Solo caldo"
-            mode_icon = "🌡️"
+            mode_icon_html = '<span class="capIcon capThermo capHeat"></span>'
         elif cool_group:
             mode_kind = "coolonly"
             capability_label = "Solo freddo"
-            mode_icon = "❄️🌡️"
+            mode_icon_html = '<span class="capIcon capSnow"></span>'
         else:
             mode_kind = "unknown"
             capability_label = "Modalita non indicata"
-            mode_icon = "?"
+            mode_icon_html = '<span class="capUnknown">?</span>'
         floor = str((cfg_t or {}).get("floor") or (cfg_t or {}).get("piano") or "").strip() or "Senza piano"
         if floor != last_floor:
             rows.append(
@@ -13964,7 +13964,7 @@ def render_thermostats_page(snapshot):
             f'<a class="thermRow {status_class}" data-tid="{_html_escape(str(tid))}" href="./thermostats/{_html_escape(str(tid))}">'
             f'  <span class="statusOrb"><span>{_html_escape(status_icon)}</span></span>'
             f'  <span class="thermMain">'
-            f'    <span class="thermName"><span class="modeBadge mode-{mode_kind}" title="{_html_escape(capability_label)}" aria-label="{_html_escape(capability_label)}">{_html_escape(mode_icon)}</span><span class="thermNameText">{_html_escape(str(name))}</span></span>'
+            f'    <span class="thermName"><span class="modeBadge mode-{mode_kind}" title="{_html_escape(capability_label)}" aria-label="{_html_escape(capability_label)}">{mode_icon_html}</span><span class="thermNameText">{_html_escape(str(name))}</span></span>'
             f'    <span class="thermMeta">ID {_html_escape(str(tid))} · {temp}°C · Set {target}°C · {_html_escape(mode_label)}</span>'
             f'  </span>'
             f'  <span class="statusPill"><span class="statusDot"></span>{_html_escape(status_label)}</span>'
@@ -14103,19 +14103,66 @@ def render_thermostats_page(snapshot):
         display:inline-flex;
         align-items:center;
         justify-content:center;
+        gap: 4px;
         width: 30px;
         height: 24px;
         border-radius: 8px;
         border: 1px solid rgba(255,255,255,0.12);
         background: rgba(0,0,0,0.22);
-        font-size: 16px;
-        line-height: 1;
         box-shadow: inset 0 0 14px rgba(255,255,255,0.04);
       }
       .mode-heatonly { background: rgba(229,57,53,0.16); border-color: rgba(255,111,97,0.34); }
       .mode-coolonly { background: rgba(30,136,229,0.16); border-color: rgba(100,181,246,0.36); }
-      .mode-both { width: 42px; background: linear-gradient(90deg, rgba(229,57,53,0.17), rgba(30,136,229,0.17)); border-color: rgba(255,255,255,0.20); font-size: 15px; }
-      .mode-unknown { color: rgba(255,255,255,0.5); font-size: 13px; }
+      .mode-both { width: 44px; background: linear-gradient(90deg, rgba(229,57,53,0.17), rgba(30,136,229,0.17)); border-color: rgba(255,255,255,0.20); }
+      .capIcon {
+        position: relative;
+        display: inline-block;
+        flex: 0 0 auto;
+        width: 15px;
+        height: 18px;
+      }
+      .capThermo:before {
+        content: "";
+        position: absolute;
+        left: 7px;
+        top: 1px;
+        width: 4px;
+        height: 12px;
+        border-radius: 5px;
+        background: var(--capColor);
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.55);
+      }
+      .capThermo:after {
+        content: "";
+        position: absolute;
+        left: 4px;
+        bottom: 1px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--capColor);
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.55), 0 0 8px color-mix(in srgb, var(--capColor) 55%, transparent);
+      }
+      .capHeat { --capColor: #ff5b57; }
+      .capSnow {
+        width: 17px;
+        height: 17px;
+        color: #66c7ff;
+      }
+      .capSnow:before {
+        content: "*";
+        position:absolute;
+        inset: -3px 0 0 0;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        color: currentColor;
+        font-size: 24px;
+        line-height: 17px;
+        font-weight: 400;
+        text-shadow: 0 0 8px rgba(102,199,255,0.55);
+      }
+      .capUnknown { color: rgba(255,255,255,0.5); font-size: 13px; line-height: 1; }
       .thermMeta { font-size: 12px; color: rgba(255,255,255,0.58); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
       .statusPill {
         position:relative;
