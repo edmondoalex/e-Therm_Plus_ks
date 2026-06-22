@@ -11,10 +11,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-22.F"
+UI_REV = "2026-06-22.G"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.156"
+CODE_VERSION = "2.6.157"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -16342,6 +16342,14 @@ function renderGroups() {
     const g = sanitizeGroup(raw);
     const el = document.createElement('div');
     el.className = 'item';
+    el.setAttribute('draggable', 'false');
+    el.dataset.idx = String(idx);
+    const handle = document.createElement('div');
+    handle.className = 'dragHandle';
+    handle.title = 'Trascina per cambiare ordine';
+    handle.setAttribute('role', 'button');
+    handle.setAttribute('aria-label', 'Trascina per cambiare ordine');
+    handle.setAttribute('draggable', 'true');
     const left = document.createElement('div');
     left.className = 'left';
     left.innerHTML =
@@ -16355,9 +16363,13 @@ function renderGroups() {
     right.className = 'row';
     right.innerHTML =
       '<button class="btn" data-a="edit">Modifica</button>' +
+      '<button class="btn" data-a="dup">Duplica</button>' +
       '<button class="btn danger" data-a="del">Elimina</button>';
     right.querySelector('[data-a="edit"]').onclick = () => editGroup(idx);
+    right.querySelector('[data-a="dup"]').onclick = () => dupGroup(idx);
     right.querySelector('[data-a="del"]').onclick = () => delGroup(idx);
+    wireGroupDragHandle(handle, el, idx);
+    el.appendChild(handle);
     el.appendChild(left);
     el.appendChild(right);
     list.appendChild(el);
@@ -16441,6 +16453,26 @@ function delGroup(idx) {
   renderList();
   // Auto-save to clear MQTT discovery for removed group
   saveCfg(true);
+}
+
+function nextGroupCopyName(baseName) {
+  const base = String(baseName || 'Gruppo').trim() || 'Gruppo';
+  const existing = new Set((cfg.consensus_groups || []).map(g => String((g || {}).name || '').trim()).filter(Boolean));
+  let name = base + ' (copia)';
+  if (!existing.has(name)) return name;
+  for (let i = 2; i < 1000; i++) {
+    name = base + ' (copia ' + i + ')';
+    if (!existing.has(name)) return name;
+  }
+  return base + ' (copia ' + Date.now() + ')';
+}
+
+function dupGroup(idx) {
+  const g = sanitizeGroup(cfg.consensus_groups[idx] || {});
+  const copy = sanitizeGroup({ ...g, name: nextGroupCopyName(g.name) });
+  cfg.consensus_groups.push(copy);
+  renderGroups();
+  setMsg('Gruppo duplicato. Premi Salva per applicare la configurazione.');
 }
 
 function clearGroups() {
@@ -16807,8 +16839,16 @@ function moveItem(idx, delta) {
 
 let dragThermIndex = null;
 let pointerDrag = null;
+let dragGroupIndex = null;
+let pointerGroupDrag = null;
 function clearDragMarks() {
   document.querySelectorAll('#list .item').forEach(el => {
+    el.classList.remove('dragging', 'dropBefore');
+  });
+}
+
+function clearGroupDragMarks() {
+  document.querySelectorAll('#group_list .item').forEach(el => {
     el.classList.remove('dragging', 'dropBefore');
   });
 }
@@ -16894,6 +16934,89 @@ function wireDragHandle(handle, row, idx) {
     })();
     const from = raw !== '' ? Number(raw) : dragThermIndex;
     moveItemTo(from, idx);
+  });
+}
+
+function moveGroupTo(from, to) {
+  const items = cfg.consensus_groups || [];
+  if (from === null || from === undefined) return;
+  from = Number(from);
+  to = Number(to);
+  if (!Number.isInteger(from) || !Number.isInteger(to)) return;
+  if (from < 0 || to < 0 || from >= items.length || to >= items.length || from === to) return;
+  const item = items.splice(from, 1)[0];
+  items.splice(to, 0, item);
+  cfg.consensus_groups = items;
+  dragGroupIndex = null;
+  clearGroupDragMarks();
+  renderGroups();
+  setMsg('Ordine gruppi modificato. Premi Salva per applicarlo.');
+}
+
+function wireGroupDragHandle(handle, row, idx) {
+  if (!handle || !row) return;
+  const rowFromPoint = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    return el ? el.closest('#group_list .item[data-idx]') : null;
+  };
+  handle.addEventListener('pointerdown', (ev) => {
+    if (ev.pointerType === 'mouse') return;
+    pointerGroupDrag = { from: idx, to: idx, started: false };
+    try { handle.setPointerCapture(ev.pointerId); } catch (_e) {}
+  });
+  handle.addEventListener('pointermove', (ev) => {
+    if (!pointerGroupDrag || ev.pointerType === 'mouse') return;
+    ev.preventDefault();
+    pointerGroupDrag.started = true;
+    dragGroupIndex = pointerGroupDrag.from;
+    document.body.style.userSelect = 'none';
+    clearGroupDragMarks();
+    row.classList.add('dragging');
+    const target = rowFromPoint(ev.clientX, ev.clientY);
+    if (!target) return;
+    const to = Number(target.dataset.idx);
+    if (!Number.isInteger(to) || to === pointerGroupDrag.from) return;
+    pointerGroupDrag.to = to;
+    target.classList.add('dropBefore');
+  });
+  const finishPointer = (ev) => {
+    if (!pointerGroupDrag || ev.pointerType === 'mouse') return;
+    const from = pointerGroupDrag.from;
+    const to = pointerGroupDrag.to;
+    pointerGroupDrag = null;
+    dragGroupIndex = null;
+    document.body.style.userSelect = '';
+    clearGroupDragMarks();
+    if (from !== to) moveGroupTo(from, to);
+  };
+  handle.addEventListener('pointerup', finishPointer);
+  handle.addEventListener('pointercancel', finishPointer);
+  handle.addEventListener('dragstart', (ev) => {
+    dragGroupIndex = idx;
+    row.classList.add('dragging');
+    try {
+      ev.dataTransfer.effectAllowed = 'move';
+      ev.dataTransfer.setData('text/plain', String(idx));
+    } catch (_e) {}
+  });
+  handle.addEventListener('dragend', () => {
+    dragGroupIndex = null;
+    clearGroupDragMarks();
+  });
+  row.addEventListener('dragover', (ev) => {
+    if (dragGroupIndex === null || dragGroupIndex === idx) return;
+    ev.preventDefault();
+    row.classList.add('dropBefore');
+    try { ev.dataTransfer.dropEffect = 'move'; } catch (_e) {}
+  });
+  row.addEventListener('dragleave', () => row.classList.remove('dropBefore'));
+  row.addEventListener('drop', (ev) => {
+    ev.preventDefault();
+    const raw = (() => {
+      try { return ev.dataTransfer.getData('text/plain'); } catch (_e) { return ''; }
+    })();
+    const from = raw !== '' ? Number(raw) : dragGroupIndex;
+    moveGroupTo(from, idx);
   });
 }
 

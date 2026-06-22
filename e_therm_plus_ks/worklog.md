@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-22 - v2.6.157 - Autore: Codex
+- Pagina `/vtherm`: aggiunto riordino drag & drop per i gruppi consenso.
+- Aggiunto pulsante `Duplica` per i gruppi consenso con nome copia univoco.
+- Aggiornata UI_REV a `2026-06-22.G`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-22 - v2.6.156 - Autore: Codex
 - Aggiunte opzioni add-on per configurare gli intervalli poller Lares:
   `lares_logs_poll_interval_sec`, `lares_zones_poll_interval_sec`,

@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.156`
+- `config.yaml` -> `version`: `2.6.157`
 
 Ultima modifica
-- Aggiunte opzioni add-on per configurare gli intervalli poller Lares: logs, zone, configurazione termostati e scheduler.
+- Pagina `/vtherm`: aggiunti riordino drag & drop e duplicazione per i gruppi consenso.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.
