@@ -11,10 +11,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-22.I"
+UI_REV = "2026-06-22.J"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.159"
+CODE_VERSION = "2.6.160"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14350,7 +14350,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
             break
     clim0 = therm_cfg0.get("climate") if isinstance(therm_cfg0, dict) and isinstance(therm_cfg0.get("climate"), dict) else {}
     name0_l = str((therm_cfg0 or {}).get("name") or title or "").strip().lower()
-    if "kappa forno" in name0_l or str(thermostat_id) == "15":
+    if "kappa forno" in name0_l:
         _tmp = {"modes": ["off", "cool"], "min_temp": 0, "max_temp": 50}
         _tmp.update(clim0)
         clim0 = _tmp
@@ -14861,7 +14861,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const t = getThermConfig();
         const c = (t && t.climate && typeof t.climate === "object") ? t.climate : {};
         const name = String((t && t.name) || "").trim().toLowerCase();
-        if (name.includes("kappa forno") || String(TH_ID) === "15") {
+        if (name.includes("kappa forno")) {
           return { modes: ["off", "cool"], min_temp: 0, max_temp: 50, ...c };
         }
         return c || {};
@@ -16175,7 +16175,7 @@ function sanitizeTherm(t) {
     ...(realTherm ? { real_thermostat: realTherm } : {}),
     ...(climate ? { climate } : {}),
   };
-  if (String(name || '').trim().toLowerCase().includes('kappa forno') || String(id) === '15') {
+  if (String(name || '').trim().toLowerCase().includes('kappa forno')) {
     base.climate = { modes: ['off', 'cool'], min_temp: 0, max_temp: 50, ...(base.climate || {}) };
   }
   if (outHeat || outCool) {
@@ -16796,7 +16796,7 @@ function saveItem() {
     real_thermostat: realThermostat,
     auto_control_enabled: autoCtl,
   };
-  if (String(name || '').trim().toLowerCase().includes('kappa forno') || String(id) === '15') {
+  if (String(name || '').trim().toLowerCase().includes('kappa forno')) {
     itemBase.climate = { modes: ['off', 'cool'], min_temp: 0, max_temp: 50 };
   }
   let item = null;

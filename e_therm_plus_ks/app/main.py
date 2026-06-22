@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.159"
+APP_VERSION = "2.6.160"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -691,10 +691,9 @@ class ThermEngine:
         cfg = t.get("climate") if isinstance(t, dict) else None
         out = cfg if isinstance(cfg, dict) else {}
         name = str((t or {}).get("name") or "").strip().lower()
-        tid = str((t or {}).get("id") or "").strip()
         # Backward-compatible special case requested for KAPPA FORNO:
         # cool-only clone with wider 0..50C range unless explicitly configured.
-        if "kappa forno" in name or tid == "15":
+        if "kappa forno" in name:
             merged = {"modes": ["off", "cool"], "min_temp": 0, "max_temp": 50}
             merged.update(out)
             return merged

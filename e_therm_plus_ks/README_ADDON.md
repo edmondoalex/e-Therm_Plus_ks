@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.159`
+- `config.yaml` -> `version`: `2.6.160`
 
 Ultima modifica
-- Consenso gruppi: gli switch reali condivisi tra piu gruppi vengono comandati una sola volta con logica OR, evitando accendi/spegni tra gruppi diversi.
+- Rimosso il caso speciale basato su ID 15: il modo solo freddo 0..50 resta valido solo per termostati chiamati `kappa forno`.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.

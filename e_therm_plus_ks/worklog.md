@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-22 - v2.6.160 - Autore: Codex
+- Rimosso il caso speciale basato su ID `15` per il clone climate solo freddo.
+- La forzatura `off/cool` con range 0..50 resta attiva solo quando il nome del termostato contiene `kappa forno`, evitando effetti su altre installazioni.
+- Aggiornata UI_REV a `2026-06-22.J`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-22 - v2.6.159 - Autore: Codex
 - Fix consenso gruppi: gli switch reali condivisi tra piu gruppi vengono aggregati con logica OR prima di essere comandati.
 - Evita ON/OFF alternati quando la stessa entita `switch`, `switch_heat` o `switch_cool` e usata da piu gruppi consenso.
