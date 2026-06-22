@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-22 - v2.6.155 - Autore: Codex
+- Pagina `/vtherm`: aggiunto tasto per ridurre/espandere ogni card termostato.
+- Le card ridotte si riaprono cliccando sulla card; aggiunti anche `Riduci tutto` ed `Espandi tutto`.
+- Aggiornata UI_REV a `2026-06-22.E`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-22 - v2.6.154 - Autore: Codex
 - Lista `/thermostats`: sostituite le icone capacita CSS con SVG lineari uniformi.
 - Termometro e fiocco neve ora hanno stessa dimensione, tratto e baseline nei badge solo caldo, solo freddo e caldo+freddo.

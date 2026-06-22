@@ -11,10 +11,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-22.D"
+UI_REV = "2026-06-22.E"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.154"
+CODE_VERSION = "2.6.155"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -15602,11 +15602,19 @@ def render_vtherm_config_page(snapshot):
     .btn.ghost { background: transparent; }
     .list { display:flex; flex-direction:column; gap:10px; margin-top: 10px; }
     .item { border:1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.25); border-radius:12px; padding:12px; display:flex; gap:12px; align-items:center; justify-content:space-between; transition: border-color .14s ease, background .14s ease, transform .14s ease; }
+    .item.collapsed { cursor:pointer; align-items:center; }
+    .item.collapsed .chips { display:none; }
+    .item.collapsed .sub { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width: 100%; }
+    .item.collapsed .dragHandle { height:34px; }
+    .item.collapsed .btn[data-a="edit"],
+    .item.collapsed .btn[data-a="dup"],
+    .item.collapsed .btn[data-a="del"] { display:none; }
     .item.dragging { opacity:.58; border-color: rgba(46,125,246,0.58); background: rgba(46,125,246,0.12); }
     .item.dropBefore { border-top-color: rgba(46,125,246,0.95); box-shadow: inset 0 3px 0 rgba(46,125,246,0.8); }
     .dragHandle { flex:0 0 auto; width:32px; height:42px; border-radius:10px; border:1px solid rgba(255,255,255,0.10); background:rgba(255,255,255,0.035); color:rgba(255,255,255,0.48); cursor:grab; display:grid; place-items:center; touch-action:none; }
     .dragHandle:active { cursor:grabbing; }
     .dragHandle::before { content:'::'; font-weight:900; letter-spacing:2px; transform:rotate(90deg); }
+    .collapseBtn { min-width:38px; padding:8px 10px; font-weight:900; }
     .left { min-width:0; flex:1; }
     .name { font-weight: 800; }
     .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
@@ -15653,6 +15661,8 @@ def render_vtherm_config_page(snapshot):
           <div style="font-weight:800;">Termostati virtuali</div>
           <div class="row">
             <button class="btn" onclick="addNew()">+ Aggiungi</button>
+            <button class="btn ghost" onclick="collapseAllTherms()">Riduci tutto</button>
+            <button class="btn ghost" onclick="expandAllTherms()">Espandi tutto</button>
             <button class="btn danger" onclick="clearAll()">Svuota</button>
           </div>
         </div>
@@ -15928,6 +15938,7 @@ const init = __INIT_JSON__;
 let cfg = (init && typeof init === 'object') ? init : {};
 if (!cfg.thermostats || !Array.isArray(cfg.thermostats)) cfg.thermostats = [];
 if (!cfg.consensus_groups || !Array.isArray(cfg.consensus_groups)) cfg.consensus_groups = [];
+const collapsedTherms = new Set();
 let editIndex = -1;
 let editGroupIndex = -1;
 
@@ -16203,10 +16214,13 @@ function renderList() {
   items.forEach((raw, idx) => {
     const t = sanitizeTherm(raw);
     const split = !!(t.outputs_heat || t.outputs_cool);
+    const tidKey = String(t.id || idx);
+    const isCollapsed = collapsedTherms.has(tidKey);
     const el = document.createElement('div');
-    el.className = 'item';
+    el.className = 'item' + (isCollapsed ? ' collapsed' : '');
     el.setAttribute('draggable', 'false');
     el.dataset.idx = String(idx);
+    el.dataset.tid = tidKey;
     const handle = document.createElement('div');
     handle.className = 'dragHandle';
     handle.title = 'Trascina per cambiare ordine';
@@ -16261,12 +16275,23 @@ function renderList() {
     const right = document.createElement('div');
     right.className = 'row';
     right.innerHTML =
+      '<button class="btn ghost collapseBtn" data-a="collapse" title="' + (isCollapsed ? 'Espandi' : 'Riduci') + '" aria-label="' + (isCollapsed ? 'Espandi' : 'Riduci') + '">' + (isCollapsed ? '+' : '−') + '</button>' +
       '<button class="btn" data-a="edit">Modifica</button>' +
       '<button class="btn" data-a="dup">Duplica</button>' +
       '<button class="btn danger" data-a="del">Elimina</button>';
+    right.querySelector('[data-a="collapse"]').onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      toggleThermCollapsed(tidKey);
+    };
     right.querySelector('[data-a="edit"]').onclick = () => editItem(idx);
     right.querySelector('[data-a="dup"]').onclick = () => dupItem(idx);
     right.querySelector('[data-a="del"]').onclick = () => delItem(idx);
+    el.addEventListener('click', (ev) => {
+      if (!collapsedTherms.has(tidKey)) return;
+      if (ev.target && ev.target.closest && ev.target.closest('button, .dragHandle')) return;
+      toggleThermCollapsed(tidKey);
+    });
 
     wireDragHandle(handle, el, idx);
     el.appendChild(handle);
@@ -16275,6 +16300,28 @@ function renderList() {
     list.appendChild(el);
   });
   syncTextarea();
+}
+
+function toggleThermCollapsed(id) {
+  const key = String(id || '');
+  if (!key) return;
+  if (collapsedTherms.has(key)) collapsedTherms.delete(key);
+  else collapsedTherms.add(key);
+  renderList();
+}
+
+function collapseAllTherms() {
+  for (const t of (cfg.thermostats || [])) {
+    const st = sanitizeTherm(t || {});
+    collapsedTherms.add(String(st.id || ''));
+  }
+  collapsedTherms.delete('');
+  renderList();
+}
+
+function expandAllTherms() {
+  collapsedTherms.clear();
+  renderList();
 }
 
 function renderGroups() {

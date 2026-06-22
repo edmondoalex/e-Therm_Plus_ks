@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.154`
+- `config.yaml` -> `version`: `2.6.155`
 
 Ultima modifica
-- Lista `/thermostats`: sostituite le icone capacita con SVG lineari uniformi per caldo, freddo e caldo+freddo.
+- Pagina `/vtherm`: aggiunti riduzione/espansione delle card termostato e comandi globali `Riduci tutto` / `Espandi tutto`.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.
