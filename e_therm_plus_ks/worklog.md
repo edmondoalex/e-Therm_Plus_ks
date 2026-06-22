@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-22 - v2.6.153 - Autore: Codex
+- Lista `/thermostats`: riequilibrate le proporzioni delle icone capacita.
+- Ridotto il termometro e aumentato il fiocco neve nei badge caldo+freddo per una lettura piu uniforme.
+- Aggiornata UI_REV a `2026-06-22.C`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-22 - v2.6.152 - Autore: Codex
 - Lista `/thermostats`: sostituite le emoji capacita con icone CSS a dimensione fissa.
 - Corretto l'allineamento visivo tra badge solo caldo, solo freddo e caldo+freddo.

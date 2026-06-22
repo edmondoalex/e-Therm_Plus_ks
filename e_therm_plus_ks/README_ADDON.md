@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.152`
+- `config.yaml` -> `version`: `2.6.153`
 
 Ultima modifica
-- Lista `/thermostats`: le icone capacita sono ora disegnate in CSS a dimensione fissa, cosi restano allineate tra solo caldo, solo freddo e caldo+freddo.
+- Lista `/thermostats`: riequilibrate le proporzioni delle icone capacita, con termometro piu compatto e fiocco neve piu leggibile.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.

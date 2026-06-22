@@ -11,10 +11,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-22.B"
+UI_REV = "2026-06-22.C"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.152"
+CODE_VERSION = "2.6.153"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14103,7 +14103,7 @@ def render_thermostats_page(snapshot):
         display:inline-flex;
         align-items:center;
         justify-content:center;
-        gap: 4px;
+        gap: 3px;
         width: 30px;
         height: 24px;
         border-radius: 8px;
@@ -14113,21 +14113,21 @@ def render_thermostats_page(snapshot):
       }
       .mode-heatonly { background: rgba(229,57,53,0.16); border-color: rgba(255,111,97,0.34); }
       .mode-coolonly { background: rgba(30,136,229,0.16); border-color: rgba(100,181,246,0.36); }
-      .mode-both { width: 44px; background: linear-gradient(90deg, rgba(229,57,53,0.17), rgba(30,136,229,0.17)); border-color: rgba(255,255,255,0.20); }
+      .mode-both { width: 46px; background: linear-gradient(90deg, rgba(229,57,53,0.17), rgba(30,136,229,0.17)); border-color: rgba(255,255,255,0.20); }
       .capIcon {
         position: relative;
         display: inline-block;
         flex: 0 0 auto;
-        width: 15px;
+        width: 18px;
         height: 18px;
       }
       .capThermo:before {
         content: "";
         position: absolute;
-        left: 7px;
-        top: 1px;
+        left: 8px;
+        top: 2px;
         width: 4px;
-        height: 12px;
+        height: 10px;
         border-radius: 5px;
         background: var(--capColor);
         box-shadow: inset 0 0 0 1px rgba(255,255,255,0.55);
@@ -14135,10 +14135,10 @@ def render_thermostats_page(snapshot):
       .capThermo:after {
         content: "";
         position: absolute;
-        left: 4px;
-        bottom: 1px;
-        width: 10px;
-        height: 10px;
+        left: 5px;
+        bottom: 2px;
+        width: 9px;
+        height: 9px;
         border-radius: 50%;
         background: var(--capColor);
         box-shadow: inset 0 0 0 1px rgba(255,255,255,0.55), 0 0 8px color-mix(in srgb, var(--capColor) 55%, transparent);
@@ -14152,14 +14152,14 @@ def render_thermostats_page(snapshot):
       .capSnow:before {
         content: "*";
         position:absolute;
-        inset: -3px 0 0 0;
+        inset: -4px 0 0 0;
         display:flex;
         align-items:center;
         justify-content:center;
         color: currentColor;
-        font-size: 24px;
+        font-size: 28px;
         line-height: 17px;
-        font-weight: 400;
+        font-weight: 500;
         text-shadow: 0 0 8px rgba(102,199,255,0.55);
       }
       .capUnknown { color: rgba(255,255,255,0.5); font-size: 13px; line-height: 1; }
