@@ -3,6 +3,16 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-22 - v2.6.161 - Autore: Codex
+- Pagina `/vtherm`: aggiunti controlli espliciti per i modi del climate clone (`off`, `heat`, `cool`) con default tutti selezionati.
+- Aggiunti campi `min_temp` e `max_temp` modificabili per ogni termostato, utili per casi come kappa forno con setpoint massimo piu alto.
+- Rimossa la forzatura automatica per nome `kappa forno`: ora il comportamento solo heat/solo cool/heat+cool dipende solo dal config del termostato.
+- Le icone capacita nella lista termostati usano `climate.modes` quando presente, cosi restano coerenti con i flag configurati.
+- Aggiornata UI_REV a `2026-06-22.K`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-22 - v2.6.160 - Autore: Codex
 - Rimosso il caso speciale basato su ID `15` per il clone climate solo freddo.
 - La forzatura `off/cool` con range 0..50 resta attiva solo quando il nome del termostato contiene `kappa forno`, evitando effetti su altre installazioni.

@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.160`
+- `config.yaml` -> `version`: `2.6.161`
 
 Ultima modifica
-- Rimosso il caso speciale basato su ID 15: il modo solo freddo 0..50 resta valido solo per termostati chiamati `kappa forno`.
+- Pagina `/vtherm`: aggiunti flag configurabili Off/Heat/Cool e setpoint min/max per il climate clone di ogni termostato.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.

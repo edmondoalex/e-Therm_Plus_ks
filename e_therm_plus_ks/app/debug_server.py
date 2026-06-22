@@ -11,10 +11,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-22.J"
+UI_REV = "2026-06-22.K"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.160"
+CODE_VERSION = "2.6.161"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -13898,7 +13898,16 @@ def render_thermostats_page(snapshot):
         cfg_t = cfg_by_id.get(str(tid), {}) if isinstance(cfg_by_id, dict) else {}
         heat_group = str((cfg_t or {}).get("consensus_group_heat") or (cfg_t or {}).get("consensus_group") or "").strip()
         cool_group = str((cfg_t or {}).get("consensus_group_cool") or (cfg_t or {}).get("consensus_group") or "").strip()
-        if heat_group and cool_group:
+        clim_cfg = (cfg_t or {}).get("climate") if isinstance(cfg_t, dict) else {}
+        clim_modes_raw = clim_cfg.get("modes") if isinstance(clim_cfg, dict) else None
+        if isinstance(clim_modes_raw, list) and clim_modes_raw:
+            clim_modes = {str(m or "").strip().lower() for m in clim_modes_raw}
+            has_heat = "heat" in clim_modes
+            has_cool = "cool" in clim_modes
+        else:
+            has_heat = bool(heat_group)
+            has_cool = bool(cool_group)
+        if has_heat and has_cool:
             mode_kind = "both"
             capability_label = "Caldo e freddo"
             mode_icon_html = (
@@ -13911,7 +13920,7 @@ def render_thermostats_page(snapshot):
                 '<path d="m19.07 4.93-14.14 14.14"/><path d="m8 3 4 4 4-4"/><path d="m8 21 4-4 4 4"/>'
                 '</svg>'
             )
-        elif heat_group:
+        elif has_heat:
             mode_kind = "heatonly"
             capability_label = "Solo caldo"
             mode_icon_html = (
@@ -13920,7 +13929,7 @@ def render_thermostats_page(snapshot):
                 '<path d="M10 5v11"/><path d="M10 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/>'
                 '</svg>'
             )
-        elif cool_group:
+        elif has_cool:
             mode_kind = "coolonly"
             capability_label = "Solo freddo"
             mode_icon_html = (
@@ -14349,11 +14358,6 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
             therm_cfg0 = _t0
             break
     clim0 = therm_cfg0.get("climate") if isinstance(therm_cfg0, dict) and isinstance(therm_cfg0.get("climate"), dict) else {}
-    name0_l = str((therm_cfg0 or {}).get("name") or title or "").strip().lower()
-    if "kappa forno" in name0_l:
-        _tmp = {"modes": ["off", "cool"], "min_temp": 0, "max_temp": 50}
-        _tmp.update(clim0)
-        clim0 = _tmp
     modes0 = [str(x or "").strip().lower() for x in (clim0.get("modes") if isinstance(clim0.get("modes"), list) else [])]
     if not modes0:
         modes0 = ["off", "heat", "cool"]
@@ -14860,10 +14864,6 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
       function climateCfg() {
         const t = getThermConfig();
         const c = (t && t.climate && typeof t.climate === "object") ? t.climate : {};
-        const name = String((t && t.name) || "").trim().toLowerCase();
-        if (name.includes("kappa forno")) {
-          return { modes: ["off", "cool"], min_temp: 0, max_temp: 50, ...c };
-        }
         return c || {};
       }
 
@@ -14887,7 +14887,6 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
           }
         }
         if (!out.length) return ["off", "heat", "cool"];
-        if (!out.includes("off")) out.unshift("off");
         return out;
       }
 
@@ -15826,6 +15825,18 @@ def render_vtherm_config_page(snapshot):
             <div class="chk"><input id="f_rt_vmc_off_idle" type="checkbox" /> <span>Spegni VMC quando non c'è richiesta</span></div>
           </div>
         </div>
+        <div style="grid-column: 1 / -1;">
+          <label>Climate clone: modi e setpoint</label>
+          <div class="chkRow">
+            <div class="chk"><input id="f_clim_mode_off" type="checkbox" /> <span>Off</span></div>
+            <div class="chk"><input id="f_clim_mode_heat" type="checkbox" /> <span>Heat</span></div>
+            <div class="chk"><input id="f_clim_mode_cool" type="checkbox" /> <span>Cool</span></div>
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top:8px;">
+            <div><label>Setpoint min (°C)</label><input id="f_clim_min_temp" placeholder="Es: 5" inputmode="decimal" /></div>
+            <div><label>Setpoint max (°C)</label><input id="f_clim_max_temp" placeholder="Es: 35" inputmode="decimal" /></div>
+          </div>
+        </div>
         <div>
           <label>Profilo (opzionale)</label>
           <select id="f_profile">
@@ -16175,9 +16186,6 @@ function sanitizeTherm(t) {
     ...(realTherm ? { real_thermostat: realTherm } : {}),
     ...(climate ? { climate } : {}),
   };
-  if (String(name || '').trim().toLowerCase().includes('kappa forno')) {
-    base.climate = { modes: ['off', 'cool'], min_temp: 0, max_temp: 50, ...(base.climate || {}) };
-  }
   if (outHeat || outCool) {
     // Split outputs by season
     const h = outHeat || {};
@@ -16550,6 +16558,13 @@ function editItem(idx) {
   document.getElementById('f_rt_vmc_entity').value = String(rth.vmc_entity_id || '');
   document.getElementById('f_rt_vmc_speed').value = String((rth.vmc_speed_pct ?? ''));
   document.getElementById('f_rt_vmc_off_idle').checked = (rth.vmc_off_on_no_demand !== false);
+  const clim = (t.climate && typeof t.climate === 'object') ? t.climate : {};
+  const climModes = Array.isArray(clim.modes) ? clim.modes.map(m => String(m || '').toLowerCase()) : ['off', 'heat', 'cool'];
+  document.getElementById('f_clim_mode_off').checked = climModes.includes('off');
+  document.getElementById('f_clim_mode_heat').checked = climModes.includes('heat');
+  document.getElementById('f_clim_mode_cool').checked = climModes.includes('cool');
+  document.getElementById('f_clim_min_temp').value = String((clim.min_temp ?? 5));
+  document.getElementById('f_clim_max_temp').value = String((clim.max_temp ?? 35));
   toggleSourceFields();
   document.getElementById('f_profile').value = String(t.profile || '');
   renderConsensusSelect('f_consensus_group_heat', String(t.consensus_group_heat || ''));
@@ -16617,6 +16632,11 @@ function addNew() {
   document.getElementById('f_rt_vmc_entity').value = '';
   document.getElementById('f_rt_vmc_speed').value = '';
   document.getElementById('f_rt_vmc_off_idle').checked = true;
+  document.getElementById('f_clim_mode_off').checked = true;
+  document.getElementById('f_clim_mode_heat').checked = true;
+  document.getElementById('f_clim_mode_cool').checked = true;
+  document.getElementById('f_clim_min_temp').value = '5';
+  document.getElementById('f_clim_max_temp').value = '35';
   toggleSourceFields();
   document.getElementById('f_profile').value = '';
   renderConsensusSelect('f_consensus_group_heat', '');
@@ -16678,6 +16698,11 @@ function saveItem() {
   const rtVmcEntity = String(document.getElementById('f_rt_vmc_entity').value || '').trim();
   const rtVmcSpeed = Number(String(document.getElementById('f_rt_vmc_speed').value || '').trim());
   const rtVmcOffIdle = !!document.getElementById('f_rt_vmc_off_idle').checked;
+  const climModeOff = !!document.getElementById('f_clim_mode_off').checked;
+  const climModeHeat = !!document.getElementById('f_clim_mode_heat').checked;
+  const climModeCool = !!document.getElementById('f_clim_mode_cool').checked;
+  const climMinTemp = Number(String(document.getElementById('f_clim_min_temp').value || '').replace(',', '.').trim());
+  const climMaxTemp = Number(String(document.getElementById('f_clim_max_temp').value || '').replace(',', '.').trim());
   const profile = String(document.getElementById('f_profile').value || '').trim();
   const consensusGroupHeat = String(document.getElementById('f_consensus_group_heat').value || '').trim();
   const consensusGroupCool = String(document.getElementById('f_consensus_group_cool').value || '').trim();
@@ -16722,6 +16747,14 @@ function saveItem() {
       if (!hPower && !hFan3 && !cPower && !cFan3) { if (msg) msg.textContent = 'Seleziona almeno una uscita (Heat o Cool).'; return; }
     }
   }
+  const climateModes = [];
+  if (climModeOff) climateModes.push('off');
+  if (climModeHeat) climateModes.push('heat');
+  if (climModeCool) climateModes.push('cool');
+  if (!climateModes.length) { if (msg) msg.textContent = 'Seleziona almeno un modo climate: Off, Heat o Cool.'; return; }
+  const climateMin = Number.isFinite(climMinTemp) ? climMinTemp : 5;
+  const climateMax = Number.isFinite(climMaxTemp) ? climMaxTemp : 35;
+  if (climateMax <= climateMin) { if (msg) msg.textContent = 'Setpoint max deve essere maggiore del setpoint min.'; return; }
   let realTargets = null;
   if (rtPowerLight || rtValveLow || rtValveHot || rtHeatPowerSwitch || rtCoolPowerSwitch || rtFanMin || rtFanMed || rtFanMax) {
     realTargets = {};
@@ -16795,10 +16828,8 @@ function saveItem() {
     real_targets: realTargets,
     real_thermostat: realThermostat,
     auto_control_enabled: autoCtl,
+    climate: { modes: climateModes, min_temp: climateMin, max_temp: climateMax },
   };
-  if (String(name || '').trim().toLowerCase().includes('kappa forno')) {
-    itemBase.climate = { modes: ['off', 'cool'], min_temp: 0, max_temp: 50 };
-  }
   let item = null;
   if (!split) {
     item = sanitizeTherm({
