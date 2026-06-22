@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-22 - v2.6.159 - Autore: Codex
+- Fix consenso gruppi: gli switch reali condivisi tra piu gruppi vengono aggregati con logica OR prima di essere comandati.
+- Evita ON/OFF alternati quando la stessa entita `switch`, `switch_heat` o `switch_cool` e usata da piu gruppi consenso.
+- Aggiornata UI_REV a `2026-06-22.I`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-22 - v2.6.158 - Autore: Codex
 - Fix rename gruppi consenso in `/vtherm`: quando cambia il nome del gruppo, vengono aggiornati anche `consensus_group`, `consensus_group_heat` e `consensus_group_cool` dei termostati che lo usano.
 - Questo evita che `ensureGroupsFromTherms()` ricrei il vecchio gruppo e permette alla cleanup MQTT Discovery di rimuovere le entity vecchie.
