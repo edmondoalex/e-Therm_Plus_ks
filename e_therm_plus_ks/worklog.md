@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-22 - v2.6.162 - Autore: Codex
+- Dettaglio termostato: il drag del setpoint mantiene un offset di presa sul pomello, evitando salti immediati quando si preme sulla bolla valore.
+- Evitata la doppia gestione del pointerdown tra pomello e ring contenitore.
+- Aggiornata UI_REV a `2026-06-22.L`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-22 - v2.6.161 - Autore: Codex
 - Pagina `/vtherm`: aggiunti controlli espliciti per i modi del climate clone (`off`, `heat`, `cool`) con default tutti selezionati.
 - Aggiunti campi `min_temp` e `max_temp` modificabili per ogni termostato, utili per casi come kappa forno con setpoint massimo piu alto.

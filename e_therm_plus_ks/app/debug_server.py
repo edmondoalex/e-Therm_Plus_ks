@@ -11,10 +11,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-22.K"
+UI_REV = "2026-06-22.L"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.161"
+CODE_VERSION = "2.6.162"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -15077,6 +15077,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         if (pendingTarget && (now - pendingTarget.ts) > 30000) pendingTarget = null;
         if (pendingTarget && Number.isFinite(targetNum) && Math.abs(targetNum - pendingTarget.val) < 0.05) pendingTarget = null;
         const effTarget = pendingTarget ? pendingTarget.val : (Number.isFinite(targetNum) ? targetNum : NaN);
+        if (!dialDragging && Number.isFinite(effTarget)) lastTargetValue = effTarget;
         const setDisp = Number.isFinite(effTarget) ? String(effTarget.toFixed(1)).replace(".", ",") : "--,-";
         const modeDisp = mode || "-";
         const seaLabel = (seaKey === "SUM") ? "Freddo" : "Caldo";
@@ -15297,14 +15298,17 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
       const ringTick = document.getElementById("ringTick");
       let dialDragging = false;
       let dialValue = null;
+      let dialGrabOffsetDeg = 0;
+      let lastTargetValue = Number(String("__INIT_TARGET__").replace(",", "."));
       let pendingTarget = null; // { val: number, ts: ms }
       const pendingProfiles = {}; // key: "WIN:T1" -> {val:number, ts:number}
 
       function clamp01(x) { return Math.max(0, Math.min(1, x)); }
       function round05(x) { return Math.round(x * 2) / 2; }
+      function normDeg(x) { return (Number(x || 0) % 360 + 360) % 360; }
 
-      function dialValueFromEvent(ev) {
-        if (!ringWrap) return 20;
+      function pointerDegFromEvent(ev) {
+        if (!ringWrap) return 0;
         const r = ringWrap.getBoundingClientRect();
         const cx = r.left + r.width / 2;
         const cy = r.top + r.height / 2;
@@ -15314,7 +15318,22 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const dy = y - cy;
         const ang = Math.atan2(dy, dx); // -PI..PI, 0 on +x
         // Convert to 0..360 where 0 is top, clockwise
-        const degFromTop = (ang * 180 / Math.PI + 90 + 360) % 360;
+        return normDeg(ang * 180 / Math.PI + 90);
+      }
+
+      function valueToDeg(val) {
+        const b = tempBounds();
+        return clamp01((Number(val) - b.min) / b.span) * 360;
+      }
+
+      function valueFromDeg(degFromTop) {
+        const pct = clamp01(normDeg(degFromTop) / 360);
+        const b = tempBounds();
+        return round05(b.min + pct * b.span);
+      }
+
+      function dialValueFromEvent(ev) {
+        const degFromTop = normDeg(pointerDegFromEvent(ev) - dialGrabOffsetDeg);
         const pct = clamp01(degFromTop / 360);
         const b = tempBounds();
         const val = b.min + pct * b.span;
@@ -15382,9 +15401,17 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
 
       function dialPointerDown(ev) {
         if (!ringWrap || !knob) return;
+        if (ev.currentTarget === knob && ev.stopPropagation) ev.stopPropagation();
         dialDragging = true;
         knob.classList.add("dragging");
-        dialValue = dialValueFromEvent(ev);
+        if (ev.target && ev.target.closest && ev.target.closest("#knob")) {
+          const base = Number.isFinite(lastTargetValue) ? lastTargetValue : 20;
+          dialGrabOffsetDeg = normDeg(pointerDegFromEvent(ev) - valueToDeg(base));
+          dialValue = round05(base);
+        } else {
+          dialGrabOffsetDeg = 0;
+          dialValue = dialValueFromEvent(ev);
+        }
         dialPreview(dialValue);
         try { ringWrap.setPointerCapture(ev.pointerId); } catch (_e) {}
       }

@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.161`
+- `config.yaml` -> `version`: `2.6.162`
 
 Ultima modifica
-- Pagina `/vtherm`: aggiunti flag configurabili Off/Heat/Cool e setpoint min/max per il climate clone di ogni termostato.
+- Dettaglio termostato: stabilizzato il drag del setpoint sul ring evitando salti quando si preme sulla bolla del pomello.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.
