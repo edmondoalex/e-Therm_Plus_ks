@@ -40,7 +40,18 @@ class WebSocketManager:
     :param logger: Logger instance
     """
 
-    def __init__(self, ip, pin, port, logger, debug_thermostats: bool = False):
+    def __init__(
+        self,
+        ip,
+        pin,
+        port,
+        logger,
+        debug_thermostats: bool = False,
+        logs_poll_interval_sec: float = 5.0,
+        zones_poll_interval_sec: float = 5.0,
+        thermostats_cfg_poll_interval_sec: float = 15.0,
+        schedulers_poll_interval_sec: float = 30.0,
+    ):
         self._ip = ip
         self._port = port
         self._pin = pin
@@ -62,6 +73,10 @@ class WebSocketManager:
         }
         self._logger = logger
         self._debug_thermostats = bool(debug_thermostats)
+        self._logs_poll_interval_sec = self._poll_interval(logs_poll_interval_sec, 5.0, 2.0)
+        self._zones_poll_interval_sec = self._poll_interval(zones_poll_interval_sec, 5.0, 2.0)
+        self._thermostats_cfg_poll_interval_sec = self._poll_interval(thermostats_cfg_poll_interval_sec, 15.0, 5.0)
+        self._schedulers_poll_interval_sec = self._poll_interval(schedulers_poll_interval_sec, 30.0, 10.0)
         self._running = False  # Flag to keep process alive
         self._loginId = None
         self._realtimeInitialData = None  # Initial realtime data
@@ -89,6 +104,15 @@ class WebSocketManager:
         self._max_retry_delay = 60
         self._connSecure = 0  # 0: no SSL, 1: SSL
         self._last_thermo_cfg_by_id = {}
+
+    def _poll_interval(self, value, default: float, minimum: float) -> float:
+        try:
+            v = float(value)
+        except Exception:
+            v = float(default)
+        if v <= 0:
+            v = float(default)
+        return max(float(minimum), v)
 
     async def _notify_listeners(self, entity_type: str, payload):
         callbacks = self.listeners.get(entity_type, [])
@@ -184,7 +208,7 @@ class WebSocketManager:
     async def logs_poller(self):
         # Periodically fetch logs; emit only new entries.
         items = 500
-        poll_s = 5.0
+        poll_s = self._logs_poll_interval_sec
         while True:
             if not self._running:
                 await asyncio.sleep(1.0)
@@ -251,7 +275,7 @@ class WebSocketManager:
 
     async def schedulers_poller(self):
         # Periodically refresh scheduler configuration (it may change from web UI).
-        poll_s = 30.0
+        poll_s = self._schedulers_poll_interval_sec
         while True:
             if not self._running:
                 await asyncio.sleep(2.0)
@@ -282,7 +306,7 @@ class WebSocketManager:
 
     async def thermostats_cfg_poller(self):
         # Periodically refresh full thermostat configuration (it changes outside our add-on, and isn't pushed in realtime).
-        poll_s = 15.0
+        poll_s = self._thermostats_cfg_poll_interval_sec
         while True:
             if not self._running:
                 await asyncio.sleep(2.0)
@@ -322,7 +346,7 @@ class WebSocketManager:
     async def zones_poller(self):
         # Periodically refresh zones snapshot because some panels don't push all fields
         # (e.g. BYP/tamper/mask) via realtime STATUS_ZONES.
-        poll_s = 5.0
+        poll_s = self._zones_poll_interval_sec
         while True:
             if not self._running:
                 await asyncio.sleep(2.0)

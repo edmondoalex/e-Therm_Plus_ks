@@ -3,6 +3,16 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-22 - v2.6.156 - Autore: Codex
+- Aggiunte opzioni add-on per configurare gli intervalli poller Lares:
+  `lares_logs_poll_interval_sec`, `lares_zones_poll_interval_sec`,
+  `lares_thermostats_cfg_poll_interval_sec`, `lares_schedulers_poll_interval_sec`.
+- `WebSocketManager` usa ora intervalli configurabili al posto dei valori fissi 5s/15s/30s.
+- Aggiornata UI_REV a `2026-06-22.F`.
+- File modificati: app/websocketmanager.py, app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-22 - v2.6.155 - Autore: Codex
 - Pagina `/vtherm`: aggiunto tasto per ridurre/espandere ogni card termostato.
 - Le card ridotte si riaprono cliccando sulla card; aggiunti anche `Riduci tutto` ed `Espandi tutto`.

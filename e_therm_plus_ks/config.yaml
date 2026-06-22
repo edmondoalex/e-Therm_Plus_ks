@@ -1,6 +1,6 @@
 name: e-Therm Plus KS
 slug: e_therm_plus_ks
-version: "2.6.155"
+version: "2.6.156"
 description: Termostati virtuali manuali (fonte e-safe) con UI dedicata + MQTT Discovery; PWM/3-rel? in sviluppo
 startup: services
 boot: auto
@@ -39,6 +39,10 @@ options:
   ha_poll_interval_sec: 15
   watchdog_interval_sec: 10
   runtime_save_min_sec: 30
+  lares_logs_poll_interval_sec: 15
+  lares_zones_poll_interval_sec: 15
+  lares_thermostats_cfg_poll_interval_sec: 60
+  lares_schedulers_poll_interval_sec: 120
   default_profile: WINE_CELLAR
 
   auto_control_enabled: false
@@ -85,6 +89,10 @@ schema:
   ha_poll_interval_sec: int
   watchdog_interval_sec: int
   runtime_save_min_sec: int
+  lares_logs_poll_interval_sec: int
+  lares_zones_poll_interval_sec: int
+  lares_thermostats_cfg_poll_interval_sec: int
+  lares_schedulers_poll_interval_sec: int
   default_profile: list(WINE_CELLAR|HOUSE_ECO|HOUSE_COMFORT)
 
   auto_control_enabled: bool

@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.155`
+- `config.yaml` -> `version`: `2.6.156`
 
 Ultima modifica
-- Pagina `/vtherm`: aggiunti riduzione/espansione delle card termostato e comandi globali `Riduci tutto` / `Espandi tutto`.
+- Aggiunte opzioni add-on per configurare gli intervalli poller Lares: logs, zone, configurazione termostati e scheduler.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.
