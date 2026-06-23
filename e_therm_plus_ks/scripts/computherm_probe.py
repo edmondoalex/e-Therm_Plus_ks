@@ -36,8 +36,13 @@ class HttpClient:
         self.cookies = CookieJar()
         self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.cookies))
         self.headers = {
-            "User-Agent": "e-Therm Computherm diagnostic/1.0",
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/149.0.0.0 Safari/537.36"
+            ),
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
         }
 
     def get(self, url: str, timeout: int = 30) -> HttpResponse:
@@ -175,12 +180,41 @@ def login(session: HttpClient, cfg: dict[str, Any]) -> None:
         print(f"Login tentato. URL finale: {result.url}")
 
 
-def extract_csprobes(html: str) -> list[dict[str, Any]]:
-    match = re.search(r"var\s+CSProbes\s*=\s*new\s+Array\s*\((\[.*?\])\);", html, flags=re.S)
+def extract_js_array(html: str, name: str) -> list[Any]:
+    match = re.search(rf"var\s+{re.escape(name)}\s*=\s*new\s+Array\s*\((.*?)\);", html, flags=re.S)
     if not match:
         return []
-    raw = match.group(1)
+    raw = match.group(1).strip()
+    if raw == "null":
+        return []
     return json.loads(raw)
+
+
+def extract_csprobes(html: str) -> list[dict[str, Any]]:
+    for name in ("CSSensors", "CSProbes"):
+        items = extract_js_array(html, name)
+        if items:
+            return [x for x in items if isinstance(x, dict)]
+    return []
+
+
+def page_title(html: str) -> str:
+    match = re.search(r"<title[^>]*>(.*?)</title>", html, flags=re.I | re.S)
+    if not match:
+        return ""
+    return re.sub(r"\s+", " ", match.group(1)).strip()
+
+
+def print_no_probe_diagnostics(name: str, stage: str, response: HttpResponse) -> None:
+    html = response.text
+    markers = []
+    for marker in ("CSSensors", "CSProbes", "SinId", "Login", "Accesso", "UserServices", "Synoptic", "Non autorizzato", "Errore"):
+        if marker.lower() in html.lower():
+            markers.append(marker)
+    print(
+        f"[{name}] diagnostica {stage}: url_finale={response.url} "
+        f"title={page_title(html)!r} len={len(html)} markers={','.join(markers) or '-'}"
+    )
 
 
 def refresh_synoptic(session: HttpClient, url: str, html: str, button_name: str) -> str:
@@ -203,20 +237,35 @@ def probe_dashboard(session: HttpClient, dashboard: dict[str, Any], refresh_butt
 
     probes = extract_csprobes(html)
     print(f"[{name}] GET: {len(probes)} sonde trovate.")
+    if not probes:
+        print_no_probe_diagnostics(name, "GET", response)
 
     try:
-        refreshed = refresh_synoptic(session, url, html, refresh_button_name)
+        refreshed_response = session.post(
+            url,
+            {
+                **form_payload_from_html(html),
+                f"{refresh_button_name}.x": "32",
+                f"{refresh_button_name}.y": "32",
+            },
+            timeout=45,
+        )
+        refreshed = refreshed_response.text
         refreshed_probes = extract_csprobes(refreshed)
         if refreshed_probes:
             probes = refreshed_probes
         print(f"[{name}] refresh I/O: {len(refreshed_probes)} sonde trovate.")
+        if not refreshed_probes:
+            print_no_probe_diagnostics(name, "refresh", refreshed_response)
     except Exception as exc:
         print(f"[{name}] refresh I/O fallito: {exc}")
 
     for probe in probes:
         label = str(probe.get("Label") or "").replace("\r", " ").replace("\n", " ").strip()
         value = probe.get("Value")
-        udm = str(probe.get("UDM") or "").replace("Â°", "°")
+        udm = str(probe.get("UDM") or "").replace("Â°", "°").replace("�", "°")
+        if udm == "°":
+            udm = "deg"
         sin_id = probe.get("SinId")
         if label:
             print(f"  {sin_id}: {label} = {value} {udm}".rstrip())
