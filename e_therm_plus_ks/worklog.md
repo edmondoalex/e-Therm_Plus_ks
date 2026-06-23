@@ -3,6 +3,15 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-23 - v2.6.168 - Autore: Codex
+- Computherm: aggiunta lettura `CSSelectors`, `CSValves`, `CSFans` e `CSDials`.
+- Pubblicazione MQTT Discovery per selector/fan come `binary_sensor` e valvole/manopole come `sensor`.
+- Le nuove entità sono disponibili nel runtime per la futura replica grafica del sinottico.
+- Aggiornata UI_REV a `2026-06-23.F`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-23 - v2.6.167 - Autore: Codex
 - Computherm: aggiunta lettura array `CSLeds`.
 - I led Computherm vengono pubblicati come entità runtime `computherm_led` e MQTT Discovery `binary_sensor`.

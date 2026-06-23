@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.167`
+- `config.yaml` -> `version`: `2.6.168`
 
 Ultima modifica
-- Computherm: aggiunta lettura led `CSLeds` come stati binari in pagina e MQTT Discovery.
+- Computherm: aggiunta lettura selector, valvole, fan e manopole oltre a sensori e led.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.

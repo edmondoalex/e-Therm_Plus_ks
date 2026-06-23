@@ -19,7 +19,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.167"
+APP_VERSION = "2.6.168"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -400,6 +400,10 @@ class ThermEngine:
         arr = self._computherm_js_array(html, "CSLeds")
         return [x for x in arr if isinstance(x, dict)]
 
+    def _computherm_items(self, html: str, name: str) -> List[Dict[str, Any]]:
+        arr = self._computherm_js_array(html, name)
+        return [x for x in arr if isinstance(x, dict)]
+
     def _computherm_login(self, opener, headers: Dict[str, str], cfg: Dict[str, Any]) -> None:
         login_url = str(cfg.get("login_url") or "").strip()
         login_html = self._computherm_get(opener, headers, login_url)
@@ -482,6 +486,62 @@ class ThermEngine:
         except Exception:
             pass
 
+    def _computherm_publish_number(self, dash_id: str, dash_name: str, kind: str, sid: str, label: str, value: Any, unit: str = "") -> None:
+        try:
+            if not self._mqtt_connected:
+                return
+            kind_slug = self._computherm_slug(kind)
+            uid = f"e_therm_computherm_{self._computherm_slug(dash_id)}_{kind_slug}_{sid}"
+            state_topic = f"{self.out_prefix}/computherm/{self._computherm_slug(dash_id)}/{kind_slug}/{sid}/state"
+            cfg_topic = f"homeassistant/sensor/{uid}/config"
+            payload = {
+                "name": f"Computherm {dash_name} {label}",
+                "unique_id": uid,
+                "state_topic": state_topic,
+                "availability_topic": f"{self.out_prefix}/status",
+                "payload_available": "online",
+                "payload_not_available": "offline",
+                "device": {
+                    "identifiers": [f"e_therm_computherm_{self._computherm_slug(dash_id)}"],
+                    "name": f"Computherm {dash_name}",
+                    "manufacturer": "Computherm",
+                },
+            }
+            if unit:
+                payload["unit_of_measurement"] = unit
+            self.mqtt.publish(cfg_topic, json.dumps(payload, ensure_ascii=False), retain=True)
+            self.mqtt.publish(state_topic, str(value), retain=True)
+        except Exception:
+            pass
+
+    def _computherm_publish_bool(self, dash_id: str, dash_name: str, kind: str, sid: str, label: str, on: bool) -> None:
+        try:
+            if not self._mqtt_connected:
+                return
+            kind_slug = self._computherm_slug(kind)
+            uid = f"e_therm_computherm_{self._computherm_slug(dash_id)}_{kind_slug}_{sid}"
+            state_topic = f"{self.out_prefix}/computherm/{self._computherm_slug(dash_id)}/{kind_slug}/{sid}/state"
+            cfg_topic = f"homeassistant/binary_sensor/{uid}/config"
+            payload = {
+                "name": f"Computherm {dash_name} {label}",
+                "unique_id": uid,
+                "state_topic": state_topic,
+                "payload_on": "ON",
+                "payload_off": "OFF",
+                "availability_topic": f"{self.out_prefix}/status",
+                "payload_available": "online",
+                "payload_not_available": "offline",
+                "device": {
+                    "identifiers": [f"e_therm_computherm_{self._computherm_slug(dash_id)}"],
+                    "name": f"Computherm {dash_name}",
+                    "manufacturer": "Computherm",
+                },
+            }
+            self.mqtt.publish(cfg_topic, json.dumps(payload, ensure_ascii=False), retain=True)
+            self.mqtt.publish(state_topic, "ON" if bool(on) else "OFF", retain=True)
+        except Exception:
+            pass
+
     def _computherm_poll_once(self) -> None:
         cfg = self._computherm_options()
         if not cfg.get("enabled"):
@@ -508,6 +568,10 @@ class ThermEngine:
             html = self._computherm_post_form(opener, headers, url, payload)
             sensors = self._computherm_sensors(html)
             leds = self._computherm_leds(html)
+            selectors = self._computherm_items(html, "CSSelectors")
+            valves = self._computherm_items(html, "CSValves")
+            fans = self._computherm_items(html, "CSFans")
+            dials = self._computherm_items(html, "CSDials")
             total += len(sensors)
             for p in sensors:
                 label = str(p.get("Label") or "").replace("\r", " ").replace("\n", " ").strip()
@@ -557,6 +621,58 @@ class ThermEngine:
                 if ent:
                     changed.append(ent)
                 self._computherm_publish_binary(did, dname, led)
+            for item in selectors:
+                label = str(item.get("Label") or "").replace("\r", " ").replace("\n", " ").strip()
+                sid = str(item.get("SinId") or self._computherm_slug(label))
+                state_on = bool(item.get("State"))
+                total += 1
+                ent = self.state._upsert("computherm_selector", f"{self._computherm_slug(did)}_selector_{sid}", {
+                    "name": f"{dname} {label}",
+                    "static": {"dashboard_id": did, "dashboard_name": dname, "sin_id": sid, "label": label, "read_only": bool(item.get("ReadOnly"))},
+                    "realtime": {"state": "ON" if state_on else "OFF", "value": 1 if state_on else 0, "last_poll_ts": now},
+                }, now)
+                if ent:
+                    changed.append(ent)
+                self._computherm_publish_bool(did, dname, "selector", sid, label, state_on)
+            for item in fans:
+                label = str(item.get("Label") or "").replace("\r", " ").replace("\n", " ").strip()
+                sid = str(item.get("SinId") or self._computherm_slug(label))
+                state_on = bool(item.get("C1")) or bool(item.get("F1"))
+                total += 1
+                ent = self.state._upsert("computherm_fan", f"{self._computherm_slug(did)}_fan_{sid}", {
+                    "name": f"{dname} {label}",
+                    "static": {"dashboard_id": did, "dashboard_name": dname, "sin_id": sid, "label": label},
+                    "realtime": {"state": "ON" if state_on else "OFF", "C1": bool(item.get("C1")), "F1": bool(item.get("F1")), "B1": bool(item.get("B1")), "last_poll_ts": now},
+                }, now)
+                if ent:
+                    changed.append(ent)
+                self._computherm_publish_bool(did, dname, "fan", sid, label, state_on)
+            for item in valves:
+                label = str(item.get("Label") or "").replace("\r", " ").replace("\n", " ").strip()
+                sid = str(item.get("SinId") or self._computherm_slug(label))
+                val = item.get("Value")
+                total += 1
+                ent = self.state._upsert("computherm_valve", f"{self._computherm_slug(did)}_valve_{sid}", {
+                    "name": f"{dname} {label}",
+                    "static": {"dashboard_id": did, "dashboard_name": dname, "sin_id": sid, "label": label},
+                    "realtime": {"value": val, "open": item.get("Open"), "close": item.get("Close"), "last_poll_ts": now},
+                }, now)
+                if ent:
+                    changed.append(ent)
+                self._computherm_publish_number(did, dname, "valve", sid, label, val)
+            for item in dials:
+                label = str(item.get("Name") or item.get("Label") or "").replace("\r", " ").replace("\n", " ").strip()
+                sid = str(item.get("SinId") or self._computherm_slug(label))
+                val = item.get("Value")
+                total += 1
+                ent = self.state._upsert("computherm_dial", f"{self._computherm_slug(did)}_dial_{sid}", {
+                    "name": f"{dname} {label}",
+                    "static": {"dashboard_id": did, "dashboard_name": dname, "sin_id": sid, "label": label, "min": item.get("Min"), "max": item.get("Max"), "read_only": bool(item.get("ReadOnly"))},
+                    "realtime": {"value": val, "last_poll_ts": now},
+                }, now)
+                if ent:
+                    changed.append(ent)
+                self._computherm_publish_number(did, dname, "dial", sid, label, val)
         self._computherm_last_poll_ts = now
         self._computherm_last_error = ""
         self._computherm_state_meta("ok", sensor_count=total)
