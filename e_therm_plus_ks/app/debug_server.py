@@ -12,10 +12,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-23.F"
+UI_REV = "2026-06-23.G"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.168"
+CODE_VERSION = "2.6.169"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -10825,13 +10825,24 @@ def render_computherm(snapshot):
       }}
       document.getElementById('refreshBtn').addEventListener('click', async function() {{
         this.disabled = true;
+        this.textContent = 'Aggiorno...';
+        var msg = '';
         try {{
-          await fetch(basePath() + '/api/cmd', {{
+          var res = await fetch(basePath() + '/api/cmd', {{
             method:'POST',
             headers:{{'Content-Type':'application/json'}},
             body:JSON.stringify({{type:'computherm', action:'refresh'}})
           }});
-        }} catch(e) {{}}
+          var data = await res.json().catch(function() {{ return {{ok:false, error:'risposta non valida'}}; }});
+          if (data && data.ok) {{
+            msg = 'Computherm aggiornato: ' + String(data.sensor_count || 0) + ' elementi letti.';
+          }} else {{
+            msg = 'Aggiornamento non riuscito: ' + String((data && data.error) || 'errore sconosciuto');
+          }}
+        }} catch(e) {{
+          msg = 'Aggiornamento non riuscito: ' + String(e && e.message ? e.message : e);
+        }}
+        if (msg) alert(msg);
         location.reload();
       }});
       setTimeout(function() {{ location.reload(); }}, 30000);

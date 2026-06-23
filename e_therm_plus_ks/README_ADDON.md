@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.168`
+- `config.yaml` -> `version`: `2.6.169`
 
 Ultima modifica
-- Computherm: aggiunta lettura selector, valvole, fan e manopole oltre a sensori e led.
+- Computherm: il refresh manuale restituisce stato/conteggio e la UI mostra errore o successo invece di ricaricare in silenzio.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.

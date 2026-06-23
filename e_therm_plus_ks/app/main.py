@@ -19,7 +19,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.168"
+APP_VERSION = "2.6.169"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -542,15 +542,15 @@ class ThermEngine:
         except Exception:
             pass
 
-    def _computherm_poll_once(self) -> None:
+    def _computherm_poll_once(self) -> Dict[str, Any]:
         cfg = self._computherm_options()
         if not cfg.get("enabled"):
             self._computherm_state_meta("disabled")
-            return
+            return {"ok": False, "status": "disabled", "error": "computherm_disabled", "sensor_count": 0}
         if not cfg.get("login_url") or not cfg.get("username") or not cfg.get("password") or not cfg.get("dashboards"):
             self._computherm_last_error = "missing_config"
             self._computherm_state_meta("missing_config")
-            return
+            return {"ok": False, "status": "missing_config", "error": "missing_config", "sensor_count": 0}
         opener, headers = self._computherm_http_client()
         self._computherm_login(opener, headers, cfg)
         total = 0
@@ -681,6 +681,7 @@ class ThermEngine:
                 self.state._publish_event({"type": "update", "meta": {"last_update": now}, "entities": changed})
             except Exception:
                 pass
+        return {"ok": True, "status": "ok", "sensor_count": total, "changed_count": len(changed)}
 
     def start_computherm(self) -> None:
         if self._computherm_thread and self._computherm_thread.is_alive():
@@ -5464,8 +5465,7 @@ class ThermEngine:
             action = str(cmd.get("action") or "").strip().lower()
             if action == "refresh":
                 try:
-                    self._computherm_poll_once()
-                    return {"ok": True}
+                    return self._computherm_poll_once()
                 except Exception as e:
                     self._computherm_last_error = str(e)
                     self._computherm_state_meta("error")

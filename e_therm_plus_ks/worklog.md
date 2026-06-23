@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-23 - v2.6.169 - Autore: Codex
+- Computherm: il comando refresh ritorna `status`, `sensor_count` e `changed_count`.
+- Pagina `/computherm`: il pulsante Aggiorna mostra feedback di successo/errore invece di sembrare inattivo.
+- Aggiornata UI_REV a `2026-06-23.G`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-23 - v2.6.168 - Autore: Codex
 - Computherm: aggiunta lettura `CSSelectors`, `CSValves`, `CSFans` e `CSDials`.
 - Pubblicazione MQTT Discovery per selector/fan come `binary_sensor` e valvole/manopole come `sensor`.
