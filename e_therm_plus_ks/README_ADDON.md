@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.170`
+- `config.yaml` -> `version`: `2.6.171`
 
 Ultima modifica
-- Termostati solo visualizzazione: il dettaglio mostra solo la temperatura, senza setpoint, modalita, extra o stato.
+- Termostati solo visualizzazione: corretto errore upstream nel dettaglio solo temperatura.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.

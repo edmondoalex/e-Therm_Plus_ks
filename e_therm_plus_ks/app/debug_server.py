@@ -12,10 +12,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-23.H"
+UI_REV = "2026-06-23.I"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.170"
+CODE_VERSION = "2.6.171"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14548,7 +14548,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         temp_only = _fmt_init_temp(rt0.get("TEMP"))
         title_esc = _html_escape(str(title or f"Termostato {thermostat_id}"))
         temp_esc = _html_escape(str(temp_only))
-        return f"""<!doctype html>
+        html = f"""<!doctype html>
 <html lang="it">
   <head>
     <meta charset="utf-8"/>
@@ -14639,6 +14639,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
     </main>
   </body>
 </html>"""
+        return html.encode("utf-8")
     clim0 = therm_cfg0.get("climate") if isinstance(therm_cfg0, dict) and isinstance(therm_cfg0.get("climate"), dict) else {}
     modes0 = [str(x or "").strip().lower() for x in (clim0.get("modes") if isinstance(clim0.get("modes"), list) else [])]
     if not modes0:

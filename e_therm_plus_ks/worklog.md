@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-23 - v2.6.171 - Autore: Codex
+- Fix dettaglio termostati `display_only`: la vista solo temperatura ora restituisce HTML encoded in UTF-8 bytes, evitando errore upstream nell'ingress.
+- Aggiornata UI_REV a `2026-06-23.I`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-23 - v2.6.170 - Autore: Codex
 - Termostati `display_only`: il dettaglio usa una vista solo temperatura.
 - Nascosti setpoint, modalita, extra, umidita e stato ON/OFF per i termostati di sola visualizzazione.
