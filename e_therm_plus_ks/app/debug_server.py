@@ -12,10 +12,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-23.G"
+UI_REV = "2026-06-23.H"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.169"
+CODE_VERSION = "2.6.170"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14544,6 +14544,101 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         if isinstance(_t0, dict) and str(_t0.get("id")) == str(thermostat_id):
             therm_cfg0 = _t0
             break
+    if isinstance(therm_cfg0, dict) and bool(therm_cfg0.get("display_only") or therm_cfg0.get("view_only") or therm_cfg0.get("read_only")):
+        temp_only = _fmt_init_temp(rt0.get("TEMP"))
+        title_esc = _html_escape(str(title or f"Termostato {thermostat_id}"))
+        temp_esc = _html_escape(str(temp_only))
+        return f"""<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <meta http-equiv="Cache-Control" content="no-store, max-age=0"/>
+    <meta http-equiv="Pragma" content="no-cache"/>
+    <meta http-equiv="Expires" content="0"/>
+    <title>{title_esc} - Temperatura</title>
+    <style>
+      :root {{
+        --bg0: #05070b;
+        --fg: #e7eaf0;
+        --muted: rgba(255,255,255,0.62);
+        --bd: rgba(255,255,255,0.10);
+      }}
+      *, *:before, *:after {{ box-sizing: border-box; }}
+      html, body {{ height: 100%; min-height: 100%; }}
+      body {{
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+        color: var(--fg);
+        background: radial-gradient(1000px 720px at 50% 48%, #1a2230 0%, var(--bg0) 62%, #000 100%);
+        overflow: hidden;
+      }}
+      .back {{
+        position: fixed;
+        left: 18px;
+        top: 16px;
+        z-index: 2;
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 14px;
+        border: 1px solid var(--bd);
+        border-radius: 999px;
+        padding: 9px 13px;
+        background: rgba(255,255,255,0.04);
+      }}
+      .stage {{
+        min-height: 100%;
+        display: grid;
+        place-items: center;
+        padding: 44px 18px;
+      }}
+      .readout {{
+        width: min(82vw, 620px);
+        aspect-ratio: 1 / 1;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at 50% 42%, rgba(255,255,255,0.10), rgba(8,11,17,0.96) 66%);
+        border: 1px solid rgba(255,255,255,0.12);
+        box-shadow: inset 0 0 80px rgba(255,255,255,0.05), 0 30px 120px rgba(0,0,0,0.45);
+      }}
+      .name {{
+        text-align: center;
+        color: var(--muted);
+        font-weight: 700;
+        font-size: clamp(16px, 2.4vw, 24px);
+        margin-bottom: 18px;
+      }}
+      .temp {{
+        text-align: center;
+        font-weight: 300;
+        line-height: 0.94;
+        letter-spacing: 0;
+        font-size: clamp(88px, 18vw, 190px);
+      }}
+      .unit {{
+        font-size: clamp(24px, 5vw, 52px);
+        color: var(--muted);
+        margin-left: 8px;
+      }}
+      @media (max-width: 620px) {{
+        .back {{ left: 12px; top: 12px; }}
+        .readout {{ width: min(90vw, 420px); }}
+      }}
+    </style>
+  </head>
+  <body>
+    <a class="back" href="/thermostats">&larr; Termostati</a>
+    <main class="stage">
+      <section class="readout" aria-label="Temperatura">
+        <div>
+          <div class="name">{title_esc}</div>
+          <div class="temp">{temp_esc}<span class="unit">°C</span></div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>"""
     clim0 = therm_cfg0.get("climate") if isinstance(therm_cfg0, dict) and isinstance(therm_cfg0.get("climate"), dict) else {}
     modes0 = [str(x or "").strip().lower() for x in (clim0.get("modes") if isinstance(clim0.get("modes"), list) else [])]
     if not modes0:

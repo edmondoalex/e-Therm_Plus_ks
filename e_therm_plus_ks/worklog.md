@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-23 - v2.6.170 - Autore: Codex
+- Termostati `display_only`: il dettaglio usa una vista solo temperatura.
+- Nascosti setpoint, modalita, extra, umidita e stato ON/OFF per i termostati di sola visualizzazione.
+- Aggiornata UI_REV a `2026-06-23.H`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-23 - v2.6.169 - Autore: Codex
 - Computherm: il comando refresh ritorna `status`, `sensor_count` e `changed_count`.
 - Pagina `/computherm`: il pulsante Aggiorna mostra feedback di successo/errore invece di sembrare inattivo.
