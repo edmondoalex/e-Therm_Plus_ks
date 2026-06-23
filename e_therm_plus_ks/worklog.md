@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-23 - v2.6.166 - Autore: Codex
+- Computherm MQTT Discovery: normalizzata l'unità dei sensori temperatura da `°` a `°C`.
+- Risolve il caso in cui Home Assistant poteva accettare SUBCT con sensori Vcc ma scartare CT composto solo da temperature.
+- Aggiornata UI_REV a `2026-06-23.D`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-23 - v2.6.165 - Autore: Codex
 - Computherm: aggiunti campi add-on `computherm_enabled`, login, polling e URL dashboard CT/SUBCT.
 - Computherm resta spento di default: con `computherm_enabled: false` non effettua login, polling o pubblicazioni MQTT.

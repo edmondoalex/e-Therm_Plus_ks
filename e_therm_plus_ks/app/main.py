@@ -19,7 +19,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.165"
+APP_VERSION = "2.6.166"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -423,7 +423,9 @@ class ThermEngine:
             state_topic = f"{self.out_prefix}/computherm/{self._computherm_slug(dash_id)}/{sid}/state"
             cfg_topic = f"homeassistant/sensor/{uid}/config"
             unit = str(probe.get("UDM") or "").replace("Â°", "°").replace("�", "°")
-            dev_class = "temperature" if unit == "°" else None
+            if unit == "°":
+                unit = "°C"
+            dev_class = "temperature" if unit == "°C" else None
             payload = {
                 "name": f"Computherm {dash_name} {label}",
                 "unique_id": uid,

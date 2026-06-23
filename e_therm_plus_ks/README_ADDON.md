@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.165`
+- `config.yaml` -> `version`: `2.6.166`
 
 Ultima modifica
-- Computherm: aggiunta voce menu, pagina `/computherm`, flag add-on `computherm_enabled` default OFF e polling leggero dei sensori CT/SUBCT.
+- Computherm MQTT Discovery: unità temperatura normalizzata a `°C` per far accettare anche i sensori CT da Home Assistant.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.
