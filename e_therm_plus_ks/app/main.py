@@ -19,7 +19,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.172"
+APP_VERSION = "2.6.173"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -569,6 +569,7 @@ class ThermEngine:
             sensors = self._computherm_sensors(html)
             leds = self._computherm_leds(html)
             selectors = self._computherm_items(html, "CSSelectors")
+            pumps = self._computherm_items(html, "CSPumps")
             valves = self._computherm_items(html, "CSValves")
             fans = self._computherm_items(html, "CSFans")
             dials = self._computherm_items(html, "CSDials")
@@ -634,8 +635,31 @@ class ThermEngine:
                 if ent:
                     changed.append(ent)
                 self._computherm_publish_bool(did, dname, "selector", sid, label, state_on)
+            for item in pumps:
+                label = str(item.get("Label") or item.get("Name") or item.get("Text") or "").replace("\r", " ").replace("\n", " ").strip()
+                sid = str(item.get("SinId") or self._computherm_slug(label))
+                state_on = any(bool(item.get(k)) for k in ("C1", "F1", "B1", "C2", "F2", "B2"))
+                total += 1
+                ent = self.state._upsert("computherm_pump", f"{self._computherm_slug(did)}_pump_{sid}", {
+                    "name": f"{dname} {label}",
+                    "static": {"dashboard_id": did, "dashboard_name": dname, "sin_id": sid, "label": label, "type": item.get("Type"), "direction": item.get("Direction")},
+                    "realtime": {
+                        "state": "ON" if state_on else "OFF",
+                        "value": 1 if state_on else 0,
+                        "C1": bool(item.get("C1")),
+                        "F1": bool(item.get("F1")),
+                        "B1": bool(item.get("B1")),
+                        "C2": bool(item.get("C2")),
+                        "F2": bool(item.get("F2")),
+                        "B2": bool(item.get("B2")),
+                        "last_poll_ts": now,
+                    },
+                }, now)
+                if ent:
+                    changed.append(ent)
+                self._computherm_publish_bool(did, dname, "pump", sid, label, state_on)
             for item in fans:
-                label = str(item.get("Label") or "").replace("\r", " ").replace("\n", " ").strip()
+                label = str(item.get("Label") or item.get("Name") or item.get("Text") or "").replace("\r", " ").replace("\n", " ").strip()
                 sid = str(item.get("SinId") or self._computherm_slug(label))
                 state_on = bool(item.get("C1")) or bool(item.get("F1"))
                 total += 1
@@ -648,7 +672,7 @@ class ThermEngine:
                     changed.append(ent)
                 self._computherm_publish_bool(did, dname, "fan", sid, label, state_on)
             for item in valves:
-                label = str(item.get("Label") or "").replace("\r", " ").replace("\n", " ").strip()
+                label = str(item.get("Label") or item.get("Name") or item.get("Text") or "").replace("\r", " ").replace("\n", " ").strip()
                 sid = str(item.get("SinId") or self._computherm_slug(label))
                 val = item.get("Value")
                 total += 1

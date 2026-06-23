@@ -12,10 +12,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-23.J"
+UI_REV = "2026-06-23.K"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.172"
+CODE_VERSION = "2.6.173"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -10703,12 +10703,28 @@ def render_computherm(snapshot):
         e for e in (snapshot.get("entities") or [])
         if str(e.get("type") or "").lower() == "computherm_led"
     ]
+    actuator_types = {
+        "computherm_pump": "Pompa",
+        "computherm_fan": "Ventilatore",
+        "computherm_valve": "Valvola",
+        "computherm_selector": "Selettore",
+        "computherm_dial": "Manopola",
+    }
+    actuators = [
+        e for e in (snapshot.get("entities") or [])
+        if str(e.get("type") or "").lower() in actuator_types
+    ]
     entities.sort(key=lambda e: (
         str(((e.get("static") or {}).get("dashboard_name") or "")),
         str(((e.get("static") or {}).get("label") or e.get("name") or "")),
     ))
     leds.sort(key=lambda e: (
         str(((e.get("static") or {}).get("dashboard_name") or "")),
+        str(((e.get("static") or {}).get("label") or e.get("name") or "")),
+    ))
+    actuators.sort(key=lambda e: (
+        str(((e.get("static") or {}).get("dashboard_name") or "")),
+        str(e.get("type") or ""),
         str(((e.get("static") or {}).get("label") or e.get("name") or "")),
     ))
     rows = []
@@ -10750,10 +10766,42 @@ def render_computherm(snapshot):
             "</tr>"
         )
     led_body_rows = "\n".join(led_rows) if led_rows else '<tr><td colspan="3" class="empty">Nessun led Computherm disponibile.</td></tr>'
+    actuator_rows = []
+    current = None
+    for e in actuators:
+        st = e.get("static") if isinstance(e.get("static"), dict) else {}
+        rt = e.get("realtime") if isinstance(e.get("realtime"), dict) else {}
+        dash = str(st.get("dashboard_name") or "Dashboard")
+        if dash != current:
+            current = dash
+            actuator_rows.append(f'<tr class="group"><td colspan="5">{_html_escape(dash)}</td></tr>')
+        typ = str(e.get("type") or "").lower()
+        kind = actuator_types.get(typ, typ.replace("computherm_", "").title())
+        label = str(st.get("label") or e.get("name") or "")
+        state = str(rt.get("state") or "").upper()
+        value = rt.get("value")
+        if state in ("ON", "OFF"):
+            value_html = f'<span class="led {"ledOn" if state == "ON" else "ledOff"}"></span><b class="{"ok" if state == "ON" else "off"}">{_html_escape(state)}</b>'
+        else:
+            value_html = f'<b>{_html_escape(str(value if value not in (None, "") else "-"))}</b>'
+        flags = []
+        for k in ("C1", "F1", "B1", "C2", "F2", "B2", "open", "close"):
+            if k in rt and rt.get(k) not in (None, ""):
+                flags.append(f"{k}:{'ON' if bool(rt.get(k)) else 'OFF'}")
+        actuator_rows.append(
+            "<tr>"
+            f"<td>{_html_escape(kind)}</td>"
+            f"<td>{_html_escape(label)}</td>"
+            f"<td>{value_html}</td>"
+            f"<td>{_html_escape(', '.join(flags))}</td>"
+            f"<td>{_html_escape(str(st.get('sin_id') or e.get('id') or ''))}</td>"
+            "</tr>"
+        )
+    actuator_body_rows = "\n".join(actuator_rows) if actuator_rows else '<tr><td colspan="5" class="empty">Nessun attuatore Computherm disponibile.</td></tr>'
     status = str(comp.get("status") or "unknown")
     enabled = bool(comp.get("enabled"))
     last_poll = comp.get("last_poll_ts")
-    sensor_count = comp.get("sensor_count", len(entities) + len(leds))
+    sensor_count = comp.get("sensor_count", len(entities) + len(leds) + len(actuators))
     last_poll_txt = "-"
     try:
         if last_poll:
@@ -10815,6 +10863,11 @@ def render_computherm(snapshot):
       <table>
         <thead><tr><th>Led</th><th>Stato</th><th>SinId</th></tr></thead>
         <tbody>{led_body_rows}</tbody>
+      </table>
+      <h2>Attuatori</h2>
+      <table>
+        <thead><tr><th>Tipo</th><th>Nome</th><th>Stato/valore</th><th>Dettagli</th><th>SinId</th></tr></thead>
+        <tbody>{actuator_body_rows}</tbody>
       </table>
     </div>
     <script>

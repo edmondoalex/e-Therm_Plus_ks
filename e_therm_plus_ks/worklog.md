@@ -3,6 +3,15 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-23 - v2.6.173 - Autore: Codex
+- Computherm: aggiunta lettura `CSPumps` per visualizzare/pubblicare le pompe reali del sinottico.
+- Pagina `/computherm`: aggiunta tabella `Attuatori` con pompe, ventilatori, valvole, selettori e manopole.
+- Pubblicazione MQTT Discovery delle pompe come `binary_sensor` con topic `pump`.
+- Aggiornata UI_REV a `2026-06-23.K`.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-23 - v2.6.172 - Autore: Codex
 - Elenco termostati: le righe `display_only` mostrano solo ID e temperatura.
 - Rimosse dalla lista `display_only` le indicazioni setpoint, stagione e stato OFF, anche durante refresh live.

@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.172`
+- `config.yaml` -> `version`: `2.6.173`
 
 Ultima modifica
-- Termostati solo visualizzazione: anche l'elenco mostra solo ID e temperatura, senza setpoint, stagione o OFF.
+- Computherm: aggiunta lettura `CSPumps` e tabella attuatori per pompe, fan, valvole, selettori e manopole.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.
