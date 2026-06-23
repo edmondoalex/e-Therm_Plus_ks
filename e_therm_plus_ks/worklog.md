@@ -3,6 +3,16 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-23 - v2.6.165 - Autore: Codex
+- Computherm: aggiunti campi add-on `computherm_enabled`, login, polling e URL dashboard CT/SUBCT.
+- Computherm resta spento di default: con `computherm_enabled: false` non effettua login, polling o pubblicazioni MQTT.
+- Aggiunta pagina `/computherm` e nuova voce nel menu principale.
+- Runtime: lettura sensori `CSSensors`, refresh I/O, snapshot UI e pubblicazione MQTT Discovery sensori.
+- Aggiornata UI_REV a `2026-06-23.C`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-23 - v2.6.164 - Autore: Codex
 - Script `computherm_probe.py`: usati header browser/lingua italiana per ottenere il rendering completo del sinottico Computherm.
 - Parser aggiornato da `CSProbes` a `CSSensors`, con fallback per entrambi i nomi array.

@@ -1,6 +1,6 @@
 name: e-Therm Plus KS
 slug: e_therm_plus_ks
-version: "2.6.164"
+version: "2.6.165"
 description: Termostati virtuali manuali (fonte e-safe) con UI dedicata + MQTT Discovery; PWM/3-rel? in sviluppo
 startup: services
 boot: auto
@@ -43,6 +43,14 @@ options:
   lares_zones_poll_interval_sec: 15
   lares_thermostats_cfg_poll_interval_sec: 60
   lares_schedulers_poll_interval_sec: 120
+  computherm_enabled: false
+  computherm_login_url: ""
+  computherm_username: ""
+  computherm_password: ""
+  computherm_poll_interval_sec: 300
+  computherm_dashboard_ct_url: ""
+  computherm_dashboard_subct_1_url: ""
+  computherm_dashboard_subct_2_url: ""
   default_profile: WINE_CELLAR
 
   auto_control_enabled: false
@@ -93,6 +101,14 @@ schema:
   lares_zones_poll_interval_sec: int
   lares_thermostats_cfg_poll_interval_sec: int
   lares_schedulers_poll_interval_sec: int
+  computherm_enabled: bool
+  computherm_login_url: str?
+  computherm_username: str?
+  computherm_password: password?
+  computherm_poll_interval_sec: int
+  computherm_dashboard_ct_url: str?
+  computherm_dashboard_subct_1_url: str?
+  computherm_dashboard_subct_2_url: str?
   default_profile: list(WINE_CELLAR|HOUSE_ECO|HOUSE_COMFORT)
 
   auto_control_enabled: bool

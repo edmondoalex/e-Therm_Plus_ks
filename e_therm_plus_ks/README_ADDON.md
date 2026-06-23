@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.164`
+- `config.yaml` -> `version`: `2.6.165`
 
 Ultima modifica
-- Script diagnostica Computherm: login testato, parsing sensori da `CSSensors` su CT/SUBCT e refresh lettura I/O.
+- Computherm: aggiunta voce menu, pagina `/computherm`, flag add-on `computherm_enabled` default OFF e polling leggero dei sensori CT/SUBCT.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.

@@ -7,14 +7,15 @@ import json
 import threading
 import time
 import queue
+import datetime
 from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-23.B"
+UI_REV = "2026-06-23.C"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.164"
+CODE_VERSION = "2.6.165"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -10691,6 +10692,120 @@ def render_security_functions_outputs(snapshot):
     return html.encode("utf-8")
 
 
+def render_computherm(snapshot):
+    meta = snapshot.get("meta") or {}
+    comp = meta.get("computherm") if isinstance(meta.get("computherm"), dict) else {}
+    entities = [
+        e for e in (snapshot.get("entities") or [])
+        if str(e.get("type") or "").lower() == "computherm_sensor"
+    ]
+    entities.sort(key=lambda e: (
+        str(((e.get("static") or {}).get("dashboard_name") or "")),
+        str(((e.get("static") or {}).get("label") or e.get("name") or "")),
+    ))
+    rows = []
+    current = None
+    for e in entities:
+        st = e.get("static") if isinstance(e.get("static"), dict) else {}
+        rt = e.get("realtime") if isinstance(e.get("realtime"), dict) else {}
+        dash = str(st.get("dashboard_name") or "Dashboard")
+        if dash != current:
+            current = dash
+            rows.append(f'<tr class="group"><td colspan="4">{_html_escape(dash)}</td></tr>')
+        unit = str(rt.get("unit") or st.get("unit") or "")
+        if unit == "°":
+            unit = "°C"
+        rows.append(
+            "<tr>"
+            f"<td>{_html_escape(str(st.get('label') or e.get('name') or ''))}</td>"
+            f"<td class=\"num\">{_html_escape(str(rt.get('value', '-')))}</td>"
+            f"<td>{_html_escape(unit)}</td>"
+            f"<td>{_html_escape(str(st.get('sin_id') or e.get('id') or ''))}</td>"
+            "</tr>"
+        )
+    body_rows = "\n".join(rows) if rows else '<tr><td colspan="4" class="empty">Nessun dato Computherm disponibile.</td></tr>'
+    status = str(comp.get("status") or "unknown")
+    enabled = bool(comp.get("enabled"))
+    last_poll = comp.get("last_poll_ts")
+    sensor_count = comp.get("sensor_count", len(entities))
+    last_poll_txt = "-"
+    try:
+        if last_poll:
+            last_poll_txt = datetime.datetime.fromtimestamp(float(last_poll)).strftime("%d/%m/%Y %H:%M:%S")
+    except Exception:
+        last_poll_txt = "-"
+    html = f"""<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <meta http-equiv="Cache-Control" content="no-store, max-age=0"/>
+    <title>e-Therm - Computherm</title>
+    <style>
+      :root {{ --bg:#070a0f; --panel:rgba(255,255,255,.06); --border:rgba(255,255,255,.12); --fg:#eef2f7; --muted:rgba(255,255,255,.62); --accent:#2f8cff; }}
+      body {{ margin:0; font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Arial; color:var(--fg); background:radial-gradient(900px 600px at 50% 20%,#1a2432,#05070b 70%); }}
+      .wrap {{ max-width:980px; margin:0 auto; padding:18px 16px 42px; }}
+      .top {{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; }}
+      a {{ color:var(--fg); text-decoration:none; }}
+      h1 {{ margin:0; font-size:22px; }}
+      .muted {{ color:var(--muted); font-size:13px; }}
+      .chips {{ display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 16px; }}
+      .chip {{ border:1px solid var(--border); background:rgba(0,0,0,.22); border-radius:999px; padding:7px 10px; font-size:13px; }}
+      .ok {{ color:#6ee7a8; }} .off {{ color:#f7c873; }} .err {{ color:#ff8a8a; }}
+      button {{ border:1px solid rgba(255,255,255,.18); background:#1f3b66; color:#fff; border-radius:10px; padding:10px 13px; font-weight:700; cursor:pointer; }}
+      table {{ width:100%; border-collapse:collapse; background:var(--panel); border:1px solid var(--border); border-radius:12px; overflow:hidden; }}
+      th,td {{ padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.07); text-align:left; }}
+      th {{ color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.4px; }}
+      .group td {{ background:rgba(47,140,255,.14); color:#dceaff; font-weight:800; }}
+      .num {{ font-size:18px; font-weight:800; }}
+      .empty {{ color:var(--muted); text-align:center; padding:28px; }}
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="top">
+        <div>
+          <a class="muted" href="/menu">&larr; Menu</a>
+          <h1>Computherm</h1>
+          <div class="muted">Centrali termiche CT, SUBCT 1, SUBCT 2</div>
+        </div>
+        <button id="refreshBtn" type="button">Aggiorna</button>
+      </div>
+      <div class="chips">
+        <span class="chip">Abilitato: <b class="{'ok' if enabled else 'off'}">{'ON' if enabled else 'OFF'}</b></span>
+        <span class="chip">Stato: <b class="{'ok' if status == 'ok' else ('off' if status == 'disabled' else 'err')}">{_html_escape(status)}</b></span>
+        <span class="chip">Sensori: <b>{_html_escape(str(sensor_count))}</b></span>
+        <span class="chip">Ultimo poll: <b>{_html_escape(last_poll_txt)}</b></span>
+      </div>
+      <table>
+        <thead><tr><th>Sensore</th><th>Valore</th><th>Unità</th><th>SinId</th></tr></thead>
+        <tbody>{body_rows}</tbody>
+      </table>
+    </div>
+    <script>
+      function basePath() {{
+        var p = window.location.pathname || '';
+        var i = p.indexOf('/computherm');
+        return i >= 0 ? p.slice(0, i) : '';
+      }}
+      document.getElementById('refreshBtn').addEventListener('click', async function() {{
+        this.disabled = true;
+        try {{
+          await fetch(basePath() + '/api/cmd', {{
+            method:'POST',
+            headers:{{'Content-Type':'application/json'}},
+            body:JSON.stringify({{type:'computherm', action:'refresh'}})
+          }});
+        }} catch(e) {{}}
+        location.reload();
+      }});
+      setTimeout(function() {{ location.reload(); }}, 30000);
+    </script>
+  </body>
+</html>"""
+    return html.encode("utf-8")
+
+
 def render_menu(snapshot):
     html = f"""<!doctype html>
 <html lang="it">
@@ -10762,6 +10877,24 @@ def render_menu(snapshot):
             <div>
               <div class="name">Configurazione vTherm</div>
               <div class="meta">Crea/edita termostati virtuali</div>
+            </div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none">
+            <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+
+        <a class="item" href="computherm">
+          <div class="left">
+            <div class="icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M7 20V8h10v12" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                <path d="M5 20h14M9 8V4h6v4M9.5 12h5M9.5 16h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div>
+              <div class="name">Computherm</div>
+              <div class="meta">Centrali CT, SUBCT 1, SUBCT 2</div>
             </div>
           </div>
           <svg class="chev" viewBox="0 0 24 24" fill="none">
@@ -13581,6 +13714,10 @@ class _Handler(BaseHTTPRequestHandler):
         if path in ("/menu", "/menu/"):
             snap = self.state.snapshot()
             self._send(200, "text/html; charset=utf-8", render_menu(snap))
+            return
+        if path in ("/computherm", "/computherm/"):
+            snap = self.state.snapshot()
+            self._send(200, "text/html; charset=utf-8", render_computherm(snap))
             return
         if path in ("/security/partitions", "/security/partitions/"):
             try:

@@ -6,6 +6,9 @@ import warnings
 import datetime
 import urllib.request
 import urllib.error
+import urllib.parse
+import http.cookiejar
+import re
 from typing import Any, Dict, Optional, List
 
 import paho.mqtt.client as mqtt
@@ -16,7 +19,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.164"
+APP_VERSION = "2.6.165"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -254,6 +257,10 @@ class ThermEngine:
         self._ha_bridge_setpoint_hold: Dict[str, float] = {}
         self._control_thread: Optional[threading.Thread] = None
         self._watchdog_thread: Optional[threading.Thread] = None
+        self._computherm_thread: Optional[threading.Thread] = None
+        self._computherm_stop = False
+        self._computherm_last_error = ""
+        self._computherm_last_poll_ts = 0.0
 
         # event log (for /logs UI)
         self._events_lock = threading.Lock()
@@ -288,6 +295,238 @@ class ThermEngine:
         self.log_rh_max_sec = int(opts.get("log_rh_max_sec", 600) or 600)
         self.log_ack_timeout_sec = int(opts.get("log_ack_timeout_sec", 20) or 20)
         self.log_file_max_kb = int(opts.get("log_file_max_kb", 2048) or 2048)
+
+    def _computherm_options(self) -> Dict[str, Any]:
+        o = load_options()
+        enabled = bool(o.get("computherm_enabled", False))
+        dashboards = [
+            {"id": "ct", "name": "CT", "url": str(o.get("computherm_dashboard_ct_url") or "").strip()},
+            {"id": "subct_1", "name": "SUBCT 1", "url": str(o.get("computherm_dashboard_subct_1_url") or "").strip()},
+            {"id": "subct_2", "name": "SUBCT 2", "url": str(o.get("computherm_dashboard_subct_2_url") or "").strip()},
+        ]
+        return {
+            "enabled": enabled,
+            "login_url": str(o.get("computherm_login_url") or "").strip(),
+            "username": str(o.get("computherm_username") or "").strip(),
+            "password": str(o.get("computherm_password") or ""),
+            "poll_interval_sec": max(60, int(o.get("computherm_poll_interval_sec", 300) or 300)),
+            "dashboards": [d for d in dashboards if d.get("url")],
+            "username_field": "ctl00$cph_body$txt_login_email",
+            "password_field": "ctl00$cph_body$txt_login_password",
+            "login_button_field": "ctl00$cph_body$btn_login",
+            "login_button_value": "Accedi",
+            "refresh_button_name": "ctl00$cph_body$ibtn_read_io_1",
+        }
+
+    def _computherm_state_meta(self, status: str, **extra: Any) -> None:
+        meta = {
+            "enabled": bool((self._computherm_options() or {}).get("enabled")),
+            "status": status,
+            "last_poll_ts": float(self._computherm_last_poll_ts or 0.0),
+            "last_error": str(self._computherm_last_error or ""),
+        }
+        meta.update(extra)
+        try:
+            self.state.set_meta("computherm", meta)
+        except Exception:
+            pass
+
+    def _computherm_http_client(self):
+        cookies = http.cookiejar.CookieJar()
+        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookies))
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
+        }
+        return opener, headers
+
+    def _computherm_get(self, opener, headers: Dict[str, str], url: str, timeout: int = 30) -> str:
+        req = urllib.request.Request(url, headers=headers, method="GET")
+        with opener.open(req, timeout=timeout) as resp:
+            raw = resp.read()
+            charset = resp.headers.get_content_charset() or "utf-8"
+        return raw.decode(charset, errors="replace")
+
+    def _computherm_post_form(self, opener, headers: Dict[str, str], url: str, data: Dict[str, str], timeout: int = 45) -> str:
+        h = dict(headers)
+        h["Content-Type"] = "application/x-www-form-urlencoded"
+        raw = urllib.parse.urlencode(data).encode("utf-8")
+        req = urllib.request.Request(url, data=raw, headers=h, method="POST")
+        with opener.open(req, timeout=timeout) as resp:
+            body = resp.read()
+            charset = resp.headers.get_content_charset() or "utf-8"
+        return body.decode(charset, errors="replace")
+
+    def _computherm_form_payload(self, html: str) -> Dict[str, str]:
+        out: Dict[str, str] = {}
+        for m in re.finditer(r"<input\b[^>]*>", html, flags=re.I | re.S):
+            tag = m.group(0)
+            nm = re.search(r'\bname=["\']([^"\']+)["\']', tag, flags=re.I)
+            if not nm:
+                continue
+            typ = re.search(r'\btype=["\']([^"\']+)["\']', tag, flags=re.I)
+            t = (typ.group(1).lower() if typ else "")
+            if t in ("submit", "button", "image", "file"):
+                continue
+            val = re.search(r'\bvalue=["\']([^"\']*)["\']', tag, flags=re.I | re.S)
+            out[nm.group(1)] = val.group(1) if val else ""
+        return out
+
+    def _computherm_js_array(self, html: str, name: str) -> List[Any]:
+        m = re.search(rf"var\s+{re.escape(name)}\s*=\s*new\s+Array\s*\((.*?)\);", html, flags=re.S)
+        if not m:
+            return []
+        raw = m.group(1).strip()
+        if raw == "null":
+            return []
+        try:
+            data = json.loads(raw)
+            return data if isinstance(data, list) else []
+        except Exception:
+            return []
+
+    def _computherm_sensors(self, html: str) -> List[Dict[str, Any]]:
+        for name in ("CSSensors", "CSProbes"):
+            arr = self._computherm_js_array(html, name)
+            if arr:
+                return [x for x in arr if isinstance(x, dict)]
+        return []
+
+    def _computherm_login(self, opener, headers: Dict[str, str], cfg: Dict[str, Any]) -> None:
+        login_url = str(cfg.get("login_url") or "").strip()
+        login_html = self._computherm_get(opener, headers, login_url)
+        payload = self._computherm_form_payload(login_html)
+        payload[str(cfg.get("username_field"))] = str(cfg.get("username") or "")
+        payload[str(cfg.get("password_field"))] = str(cfg.get("password") or "")
+        btn = str(cfg.get("login_button_field") or "").strip()
+        if btn:
+            payload[btn] = str(cfg.get("login_button_value") or "Accedi")
+        action = re.search(r"<form\b[^>]*\baction=[\"']([^\"']+)[\"']", login_html, flags=re.I | re.S)
+        post_url = urllib.parse.urljoin(login_url, action.group(1)) if action else login_url
+        self._computherm_post_form(opener, headers, post_url, payload, timeout=30)
+
+    def _computherm_slug(self, value: Any) -> str:
+        s = _entity_safe_name(value, "sensor")
+        return s or "sensor"
+
+    def _computherm_publish_sensor(self, dash_id: str, dash_name: str, probe: Dict[str, Any]) -> None:
+        try:
+            if not self._mqtt_connected:
+                return
+            label = str(probe.get("Label") or "").replace("\r", " ").replace("\n", " ").strip()
+            sid = str(probe.get("SinId") or self._computherm_slug(label))
+            uid = f"e_therm_computherm_{self._computherm_slug(dash_id)}_{sid}"
+            state_topic = f"{self.out_prefix}/computherm/{self._computherm_slug(dash_id)}/{sid}/state"
+            cfg_topic = f"homeassistant/sensor/{uid}/config"
+            unit = str(probe.get("UDM") or "").replace("Â°", "°").replace("�", "°")
+            dev_class = "temperature" if unit == "°" else None
+            payload = {
+                "name": f"Computherm {dash_name} {label}",
+                "unique_id": uid,
+                "state_topic": state_topic,
+                "availability_topic": f"{self.out_prefix}/status",
+                "payload_available": "online",
+                "payload_not_available": "offline",
+                "device": {
+                    "identifiers": [f"e_therm_computherm_{self._computherm_slug(dash_id)}"],
+                    "name": f"Computherm {dash_name}",
+                    "manufacturer": "Computherm",
+                },
+            }
+            if unit:
+                payload["unit_of_measurement"] = unit
+            if dev_class:
+                payload["device_class"] = dev_class
+                payload["state_class"] = "measurement"
+            self.mqtt.publish(cfg_topic, json.dumps(payload, ensure_ascii=False), retain=True)
+            self.mqtt.publish(state_topic, str(probe.get("Value")), retain=True)
+        except Exception:
+            pass
+
+    def _computherm_poll_once(self) -> None:
+        cfg = self._computherm_options()
+        if not cfg.get("enabled"):
+            self._computherm_state_meta("disabled")
+            return
+        if not cfg.get("login_url") or not cfg.get("username") or not cfg.get("password") or not cfg.get("dashboards"):
+            self._computherm_last_error = "missing_config"
+            self._computherm_state_meta("missing_config")
+            return
+        opener, headers = self._computherm_http_client()
+        self._computherm_login(opener, headers, cfg)
+        total = 0
+        changed = []
+        now = time.time()
+        btn = str(cfg.get("refresh_button_name") or "ctl00$cph_body$ibtn_read_io_1")
+        for dash in cfg.get("dashboards") or []:
+            did = str(dash.get("id") or "").strip() or "dashboard"
+            dname = str(dash.get("name") or did).strip()
+            url = str(dash.get("url") or "").strip()
+            html = self._computherm_get(opener, headers, url)
+            payload = self._computherm_form_payload(html)
+            payload[f"{btn}.x"] = "32"
+            payload[f"{btn}.y"] = "32"
+            html = self._computherm_post_form(opener, headers, url, payload)
+            sensors = self._computherm_sensors(html)
+            total += len(sensors)
+            for p in sensors:
+                label = str(p.get("Label") or "").replace("\r", " ").replace("\n", " ").strip()
+                sid = str(p.get("SinId") or self._computherm_slug(label))
+                ent_id = f"{self._computherm_slug(did)}_{sid}"
+                unit = str(p.get("UDM") or "").replace("Â°", "°").replace("�", "°")
+                ent = self.state._upsert("computherm_sensor", ent_id, {
+                    "name": f"{dname} {label}",
+                    "static": {
+                        "dashboard_id": did,
+                        "dashboard_name": dname,
+                        "sin_id": sid,
+                        "label": label,
+                        "unit": unit,
+                        "corr": p.get("Corr"),
+                    },
+                    "realtime": {
+                        "value": p.get("Value"),
+                        "unit": unit,
+                        "last_poll_ts": now,
+                    },
+                }, now)
+                if ent:
+                    changed.append(ent)
+                self._computherm_publish_sensor(did, dname, p)
+        self._computherm_last_poll_ts = now
+        self._computherm_last_error = ""
+        self._computherm_state_meta("ok", sensor_count=total)
+        if changed:
+            try:
+                self.state._publish_event({"type": "update", "meta": {"last_update": now}, "entities": changed})
+            except Exception:
+                pass
+
+    def start_computherm(self) -> None:
+        if self._computherm_thread and self._computherm_thread.is_alive():
+            return
+        self._computherm_thread = threading.Thread(target=self._computherm_loop, name="computherm_loop", daemon=True)
+        self._computherm_thread.start()
+
+    def _computherm_loop(self) -> None:
+        while True:
+            try:
+                cfg = self._computherm_options()
+                interval = float(cfg.get("poll_interval_sec") or 300)
+                if cfg.get("enabled"):
+                    self._computherm_poll_once()
+                else:
+                    self._computherm_state_meta("disabled")
+                    interval = 60.0
+            except Exception as exc:
+                self._computherm_last_error = str(exc)
+                self._computherm_state_meta("error")
+                interval = 120.0
+            time.sleep(max(60.0, float(interval or 300)))
 
     def _opt_seconds(self, key: str, default: float, minimum: float = 1.0) -> float:
         try:
@@ -5045,6 +5284,18 @@ class ThermEngine:
                 return {"ok": True}
             return {"ok": False, "error": "unsupported_mqtt_action"}
 
+        if cmd.get("type") == "computherm":
+            action = str(cmd.get("action") or "").strip().lower()
+            if action == "refresh":
+                try:
+                    self._computherm_poll_once()
+                    return {"ok": True}
+                except Exception as e:
+                    self._computherm_last_error = str(e)
+                    self._computherm_state_meta("error")
+                    return {"ok": False, "error": str(e)}
+            return {"ok": False, "error": "unsupported_computherm_action"}
+
         # test helper for /logs
         if cmd.get("type") == "e_therm" and cmd.get("action") == "log_test":
             try:
@@ -5141,6 +5392,7 @@ def main():
     set_command_handler(lambda cmd: engine.handle_ui_command(cmd))
     engine.connect()
     engine.start_control()
+    engine.start_computherm()
     engine.start_watchdog()
 
     start_debug_server(state, host="0.0.0.0", port=8080, command_fn=engine.handle_ui_command)
