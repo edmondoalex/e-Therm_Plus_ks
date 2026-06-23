@@ -19,7 +19,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.166"
+APP_VERSION = "2.6.167"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -396,6 +396,10 @@ class ThermEngine:
                 return [x for x in arr if isinstance(x, dict)]
         return []
 
+    def _computherm_leds(self, html: str) -> List[Dict[str, Any]]:
+        arr = self._computherm_js_array(html, "CSLeds")
+        return [x for x in arr if isinstance(x, dict)]
+
     def _computherm_login(self, opener, headers: Dict[str, str], cfg: Dict[str, Any]) -> None:
         login_url = str(cfg.get("login_url") or "").strip()
         login_html = self._computherm_get(opener, headers, login_url)
@@ -449,6 +453,35 @@ class ThermEngine:
         except Exception:
             pass
 
+    def _computherm_publish_binary(self, dash_id: str, dash_name: str, led: Dict[str, Any]) -> None:
+        try:
+            if not self._mqtt_connected:
+                return
+            label = str(led.get("Label") or "").replace("\r", " ").replace("\n", " ").strip()
+            sid = str(led.get("SinId") or self._computherm_slug(label))
+            uid = f"e_therm_computherm_{self._computherm_slug(dash_id)}_led_{sid}"
+            state_topic = f"{self.out_prefix}/computherm/{self._computherm_slug(dash_id)}/led/{sid}/state"
+            cfg_topic = f"homeassistant/binary_sensor/{uid}/config"
+            payload = {
+                "name": f"Computherm {dash_name} {label}",
+                "unique_id": uid,
+                "state_topic": state_topic,
+                "payload_on": "ON",
+                "payload_off": "OFF",
+                "availability_topic": f"{self.out_prefix}/status",
+                "payload_available": "online",
+                "payload_not_available": "offline",
+                "device": {
+                    "identifiers": [f"e_therm_computherm_{self._computherm_slug(dash_id)}"],
+                    "name": f"Computherm {dash_name}",
+                    "manufacturer": "Computherm",
+                },
+            }
+            self.mqtt.publish(cfg_topic, json.dumps(payload, ensure_ascii=False), retain=True)
+            self.mqtt.publish(state_topic, "ON" if bool(led.get("State")) else "OFF", retain=True)
+        except Exception:
+            pass
+
     def _computherm_poll_once(self) -> None:
         cfg = self._computherm_options()
         if not cfg.get("enabled"):
@@ -474,6 +507,7 @@ class ThermEngine:
             payload[f"{btn}.y"] = "32"
             html = self._computherm_post_form(opener, headers, url, payload)
             sensors = self._computherm_sensors(html)
+            leds = self._computherm_leds(html)
             total += len(sensors)
             for p in sensors:
                 label = str(p.get("Label") or "").replace("\r", " ").replace("\n", " ").strip()
@@ -499,6 +533,30 @@ class ThermEngine:
                 if ent:
                     changed.append(ent)
                 self._computherm_publish_sensor(did, dname, p)
+            total += len(leds)
+            for led in leds:
+                label = str(led.get("Label") or "").replace("\r", " ").replace("\n", " ").strip()
+                sid = str(led.get("SinId") or self._computherm_slug(label))
+                ent_id = f"{self._computherm_slug(did)}_led_{sid}"
+                ent = self.state._upsert("computherm_led", ent_id, {
+                    "name": f"{dname} {label}",
+                    "static": {
+                        "dashboard_id": did,
+                        "dashboard_name": dname,
+                        "sin_id": sid,
+                        "label": label,
+                        "color_on": led.get("ColorOn"),
+                        "color_off": led.get("ColorOff"),
+                    },
+                    "realtime": {
+                        "state": "ON" if bool(led.get("State")) else "OFF",
+                        "value": 1 if bool(led.get("State")) else 0,
+                        "last_poll_ts": now,
+                    },
+                }, now)
+                if ent:
+                    changed.append(ent)
+                self._computherm_publish_binary(did, dname, led)
         self._computherm_last_poll_ts = now
         self._computherm_last_error = ""
         self._computherm_state_meta("ok", sensor_count=total)

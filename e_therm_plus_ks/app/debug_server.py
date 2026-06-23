@@ -12,10 +12,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-23.D"
+UI_REV = "2026-06-23.E"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.166"
+CODE_VERSION = "2.6.167"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -10699,7 +10699,15 @@ def render_computherm(snapshot):
         e for e in (snapshot.get("entities") or [])
         if str(e.get("type") or "").lower() == "computherm_sensor"
     ]
+    leds = [
+        e for e in (snapshot.get("entities") or [])
+        if str(e.get("type") or "").lower() == "computherm_led"
+    ]
     entities.sort(key=lambda e: (
+        str(((e.get("static") or {}).get("dashboard_name") or "")),
+        str(((e.get("static") or {}).get("label") or e.get("name") or "")),
+    ))
+    leds.sort(key=lambda e: (
         str(((e.get("static") or {}).get("dashboard_name") or "")),
         str(((e.get("static") or {}).get("label") or e.get("name") or "")),
     ))
@@ -10724,10 +10732,28 @@ def render_computherm(snapshot):
             "</tr>"
         )
     body_rows = "\n".join(rows) if rows else '<tr><td colspan="4" class="empty">Nessun dato Computherm disponibile.</td></tr>'
+    led_rows = []
+    current = None
+    for e in leds:
+        st = e.get("static") if isinstance(e.get("static"), dict) else {}
+        rt = e.get("realtime") if isinstance(e.get("realtime"), dict) else {}
+        dash = str(st.get("dashboard_name") or "Dashboard")
+        if dash != current:
+            current = dash
+            led_rows.append(f'<tr class="group"><td colspan="3">{_html_escape(dash)}</td></tr>')
+        state = str(rt.get("state") or "OFF").upper()
+        led_rows.append(
+            "<tr>"
+            f"<td>{_html_escape(str(st.get('label') or e.get('name') or ''))}</td>"
+            f"<td><span class=\"led {'ledOn' if state == 'ON' else 'ledOff'}\"></span><b class=\"{'ok' if state == 'ON' else 'off'}\">{_html_escape(state)}</b></td>"
+            f"<td>{_html_escape(str(st.get('sin_id') or e.get('id') or ''))}</td>"
+            "</tr>"
+        )
+    led_body_rows = "\n".join(led_rows) if led_rows else '<tr><td colspan="3" class="empty">Nessun led Computherm disponibile.</td></tr>'
     status = str(comp.get("status") or "unknown")
     enabled = bool(comp.get("enabled"))
     last_poll = comp.get("last_poll_ts")
-    sensor_count = comp.get("sensor_count", len(entities))
+    sensor_count = comp.get("sensor_count", len(entities) + len(leds))
     last_poll_txt = "-"
     try:
         if last_poll:
@@ -10758,6 +10784,10 @@ def render_computherm(snapshot):
       th {{ color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.4px; }}
       .group td {{ background:rgba(47,140,255,.14); color:#dceaff; font-weight:800; }}
       .num {{ font-size:18px; font-weight:800; }}
+      h2 {{ margin:18px 0 10px; font-size:17px; }}
+      .led {{ display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:8px; border:1px solid rgba(255,255,255,.22); vertical-align:middle; }}
+      .ledOn {{ background:#28e36b; box-shadow:0 0 10px rgba(40,227,107,.45); }}
+      .ledOff {{ background:#777; opacity:.55; }}
       .empty {{ color:var(--muted); text-align:center; padding:28px; }}
     </style>
   </head>
@@ -10780,6 +10810,11 @@ def render_computherm(snapshot):
       <table>
         <thead><tr><th>Sensore</th><th>Valore</th><th>Unità</th><th>SinId</th></tr></thead>
         <tbody>{body_rows}</tbody>
+      </table>
+      <h2>Led</h2>
+      <table>
+        <thead><tr><th>Led</th><th>Stato</th><th>SinId</th></tr></thead>
+        <tbody>{led_body_rows}</tbody>
       </table>
     </div>
     <script>

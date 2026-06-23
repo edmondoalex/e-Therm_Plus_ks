@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.166`
+- `config.yaml` -> `version`: `2.6.167`
 
 Ultima modifica
-- Computherm MQTT Discovery: unità temperatura normalizzata a `°C` per far accettare anche i sensori CT da Home Assistant.
+- Computherm: aggiunta lettura led `CSLeds` come stati binari in pagina e MQTT Discovery.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.

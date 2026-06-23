@@ -3,6 +3,15 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-23 - v2.6.167 - Autore: Codex
+- Computherm: aggiunta lettura array `CSLeds`.
+- I led Computherm vengono pubblicati come entità runtime `computherm_led` e MQTT Discovery `binary_sensor`.
+- La pagina `/computherm` considera anche i led nel conteggio sensori/stati.
+- Aggiornata UI_REV a `2026-06-23.E`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-23 - v2.6.166 - Autore: Codex
 - Computherm MQTT Discovery: normalizzata l'unità dei sensori temperatura da `°` a `°C`.
 - Risolve il caso in cui Home Assistant poteva accettare SUBCT con sensori Vcc ma scartare CT composto solo da temperature.
