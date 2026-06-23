@@ -12,10 +12,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-23.I"
+UI_REV = "2026-06-23.J"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.171"
+CODE_VERSION = "2.6.172"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14079,6 +14079,7 @@ def render_thermostats_page(snapshot):
     for e in therms:
         tid = e.get("id")
         cfg_t = cfg_by_id.get(str(tid), {}) if isinstance(cfg_by_id, dict) else {}
+        display_only = bool((cfg_t or {}).get("display_only") or (cfg_t or {}).get("view_only") or (cfg_t or {}).get("read_only"))
         heat_group = str((cfg_t or {}).get("consensus_group_heat") or (cfg_t or {}).get("consensus_group") or "").strip()
         cool_group = str((cfg_t or {}).get("consensus_group_cool") or (cfg_t or {}).get("consensus_group") or "").strip()
         clim_cfg = (cfg_t or {}).get("climate") if isinstance(cfg_t, dict) else {}
@@ -14090,7 +14091,7 @@ def render_thermostats_page(snapshot):
         else:
             has_heat = bool(heat_group)
             has_cool = bool(cool_group)
-        if bool((cfg_t or {}).get("display_only")):
+        if display_only:
             mode_kind = "displayonly"
             capability_label = "Solo visualizzazione"
             mode_icon_html = '<span class="capUnknown">i</span>'
@@ -14175,14 +14176,22 @@ def render_thermostats_page(snapshot):
         mode_label = "Estate" if is_cool else "Inverno"
         if season == "OFF" or mode == "OFF":
             mode_label = "Off"
+        if display_only:
+            status_class = "displayonly"
+            status_icon = "i"
+            meta_html = f'ID {_html_escape(str(tid))} · {temp}°C'
+            pill_html = ""
+        else:
+            meta_html = f'ID {_html_escape(str(tid))} · {temp}°C · Set {target}°C · {_html_escape(mode_label)}'
+            pill_html = f'<span class="statusPill"><span class="statusDot"></span>{_html_escape(status_label)}</span>'
         rows.append(
             f'<a class="thermRow {status_class}" data-tid="{_html_escape(str(tid))}" href="./thermostats/{_html_escape(str(tid))}">'
             f'  <span class="statusOrb"><span>{_html_escape(status_icon)}</span></span>'
             f'  <span class="thermMain">'
             f'    <span class="thermName"><span class="modeBadge mode-{mode_kind}" title="{_html_escape(capability_label)}" aria-label="{_html_escape(capability_label)}">{mode_icon_html}</span><span class="thermNameText">{_html_escape(str(name))}</span></span>'
-            f'    <span class="thermMeta">ID {_html_escape(str(tid))} · {temp}°C · Set {target}°C · {_html_escape(mode_label)}</span>'
+            f'    <span class="thermMeta">{meta_html}</span>'
             f'  </span>'
-            f'  <span class="statusPill"><span class="statusDot"></span>{_html_escape(status_label)}</span>'
+            f'  {pill_html}'
             f'</a>'
         )
 
@@ -14294,6 +14303,7 @@ def render_thermostats_page(snapshot):
       .thermRow.heat { --rowGlow: rgba(255,159,28,0.30); --rowBorder: rgba(255,159,28,0.38); --rowColor: #ff9f1c; }
       .thermRow.cool { --rowGlow: rgba(102,199,255,0.26); --rowBorder: rgba(102,199,255,0.38); --rowColor: #66c7ff; }
       .thermRow.off { --rowColor: rgba(255,255,255,0.42); }
+      .thermRow.displayonly { --rowColor: rgba(255,255,255,0.54); }
       .statusOrb {
         position:relative;
         width: 38px;
@@ -14417,8 +14427,16 @@ def render_thermostats_page(snapshot):
           return "--,-";
         }
       }
-      function calcThermState(e) {
+      function calcThermState(e, displayOnly) {
         const rt = e && typeof e.realtime === "object" ? e.realtime : {};
+        if (displayOnly) {
+          return {
+            cls: "displayonly",
+            label: "",
+            icon: "i",
+            meta: "ID " + String(e.id) + " · " + fmtTemp(rt.TEMP) + "°C"
+          };
+        }
         const therm = rt && typeof rt.THERM === "object" ? rt.THERM : {};
         const season = String(therm.ACT_SEA || "").toUpperCase();
         const mode = String(therm.ACT_MODEL || therm.ACT_MODE || "").toUpperCase();
@@ -14454,15 +14472,16 @@ def render_thermostats_page(snapshot):
           seen.add(id);
           const row = Array.from(document.querySelectorAll(".thermRow[data-tid]")).find(el => String(el.getAttribute("data-tid")) === id);
           if (!row) { structureChanged = true; continue; }
-          const st = calcThermState(e);
-          row.classList.remove("heat", "cool", "off");
+          const displayOnly = row.classList.contains("displayonly");
+          const st = calcThermState(e, displayOnly);
+          row.classList.remove("heat", "cool", "off", "displayonly");
           row.classList.add(st.cls);
           const orb = row.querySelector(".statusOrb span");
           const meta = row.querySelector(".thermMeta");
           const pill = row.querySelector(".statusPill");
           if (orb) orb.textContent = st.icon;
           if (meta) meta.textContent = st.meta;
-          if (pill) pill.innerHTML = '<span class="statusDot"></span>' + st.label;
+          if (pill && !displayOnly) pill.innerHTML = '<span class="statusDot"></span>' + st.label;
         }
         for (const row of document.querySelectorAll(".thermRow[data-tid]")) {
           if (!seen.has(String(row.getAttribute("data-tid")))) structureChanged = true;

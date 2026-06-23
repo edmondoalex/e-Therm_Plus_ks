@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-23 - v2.6.172 - Autore: Codex
+- Elenco termostati: le righe `display_only` mostrano solo ID e temperatura.
+- Rimosse dalla lista `display_only` le indicazioni setpoint, stagione e stato OFF, anche durante refresh live.
+- Aggiornata UI_REV a `2026-06-23.J`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-23 - v2.6.171 - Autore: Codex
 - Fix dettaglio termostati `display_only`: la vista solo temperatura ora restituisce HTML encoded in UTF-8 bytes, evitando errore upstream nell'ingress.
 - Aggiornata UI_REV a `2026-06-23.I`.
