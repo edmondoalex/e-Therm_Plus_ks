@@ -11,10 +11,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-22.L"
+UI_REV = "2026-06-23.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.162"
+CODE_VERSION = "2.6.163"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -13907,7 +13907,11 @@ def render_thermostats_page(snapshot):
         else:
             has_heat = bool(heat_group)
             has_cool = bool(cool_group)
-        if has_heat and has_cool:
+        if bool((cfg_t or {}).get("display_only")):
+            mode_kind = "displayonly"
+            capability_label = "Solo visualizzazione"
+            mode_icon_html = '<span class="capUnknown">i</span>'
+        elif has_heat and has_cool:
             mode_kind = "both"
             capability_label = "Caldo e freddo"
             mode_icon_html = (
@@ -15853,6 +15857,12 @@ def render_vtherm_config_page(snapshot):
           </div>
         </div>
         <div style="grid-column: 1 / -1;">
+          <label>Modo termostato</label>
+          <div class="chkRow">
+            <div class="chk"><input id="f_display_only" type="checkbox" /> <span>Solo visualizzazione temperatura</span></div>
+          </div>
+        </div>
+        <div style="grid-column: 1 / -1;">
           <label>Climate clone: modi e setpoint</label>
           <div class="chkRow">
             <div class="chk"><input id="f_clim_mode_off" type="checkbox" /> <span>Off</span></div>
@@ -16179,6 +16189,7 @@ function sanitizeTherm(t) {
   const realTherm = (t && t.real_thermostat && typeof t.real_thermostat === 'object') ? t.real_thermostat : null;
   const climate = (t && t.climate && typeof t.climate === 'object') ? t.climate : null;
   const autoCtl = !!(t && t.auto_control_enabled);
+  const displayOnly = !!(t && (t.display_only || t.view_only || t.read_only));
   let sourceObj = { type: 'esafe', num: Number.isFinite(srcNum) ? srcNum : 1 };
   if (srcType === 'ha_climate') {
     sourceObj = { type: 'ha_climate', entity_id: srcEntityId };
@@ -16204,16 +16215,17 @@ function sanitizeTherm(t) {
     name: name || ('e-Therm ' + (id || '?')),
     ...(floor ? { floor } : {}),
     source: sourceObj,
-    outputs: { power: !!outputs.power, fan3: !!outputs.fan3 },
-    auto_control_enabled: autoCtl,
-    ...(profile ? { profile } : {}),
-    ...(consensusGroupHeat ? { consensus_group_heat: consensusGroupHeat } : {}),
-    ...(consensusGroupCool ? { consensus_group_cool: consensusGroupCool } : {}),
-    ...(realTargets ? { real_targets: realTargets } : {}),
-    ...(realTherm ? { real_thermostat: realTherm } : {}),
+    ...(displayOnly ? { display_only: true } : {}),
+    outputs: displayOnly ? { power: false, fan3: false } : { power: !!outputs.power, fan3: !!outputs.fan3 },
+    auto_control_enabled: displayOnly ? false : autoCtl,
+    ...(!displayOnly && profile ? { profile } : {}),
+    ...(!displayOnly && consensusGroupHeat ? { consensus_group_heat: consensusGroupHeat } : {}),
+    ...(!displayOnly && consensusGroupCool ? { consensus_group_cool: consensusGroupCool } : {}),
+    ...(!displayOnly && realTargets ? { real_targets: realTargets } : {}),
+    ...(!displayOnly && realTherm ? { real_thermostat: realTherm } : {}),
     ...(climate ? { climate } : {}),
   };
-  if (outHeat || outCool) {
+  if (!displayOnly && (outHeat || outCool)) {
     // Split outputs by season
     const h = outHeat || {};
     const c = outCool || {};
@@ -16249,6 +16261,7 @@ function renderList() {
   items.forEach((raw, idx) => {
     const t = sanitizeTherm(raw);
     const split = !!(t.outputs_heat || t.outputs_cool);
+    const displayOnly = !!t.display_only;
     const tidKey = String(t.id || idx);
     const isCollapsed = collapsedTherms.has(tidKey);
     const el = document.createElement('div');
@@ -16278,7 +16291,9 @@ function renderList() {
       '<div class="sub">ID ' + escapeHtml(String(t.id)) + ' • piano ' + escapeHtml(t.floor || 'Senza piano') + ' • source ' + escapeHtml(srcInfo) + '</div>';
     const chips = document.createElement('div');
     chips.className = 'chips';
-    if (!split) {
+    if (displayOnly) {
+      chips.innerHTML = '<span class="chip">solo visualizzazione</span>';
+    } else if (!split) {
       chips.innerHTML =
         '<span class="chip">power: ' + (t.outputs.power ? 'ON' : 'OFF') + '</span>' +
         '<span class="chip">fan3: ' + (t.outputs.fan3 ? 'ON' : 'OFF') + '</span>' +
@@ -16550,6 +16565,26 @@ function closeDlg() {
   if (dlg) dlg.close();
 }
 
+function toggleDisplayOnlyFields() {
+  const on = !!((document.getElementById('f_display_only') || {}).checked);
+  const ids = [
+    'f_profile', 'f_consensus_group_heat', 'f_consensus_group_cool',
+    'f_rt_power_light', 'f_rt_valve_low_switch', 'f_rt_valve_hot_switch',
+    'f_rt_heat_power_switch', 'f_rt_cool_power_switch',
+    'f_rt_fan_min_switch', 'f_rt_fan_med_switch', 'f_rt_fan_max_switch',
+    'f_auto', 'f_split', 'f_heat_power', 'f_heat_fan3', 'f_cool_power', 'f_cool_fan3',
+    'f_rt_climate_entity', 'f_rt_sync_setpoint', 'f_rt_sync_mode', 'f_rt_sync_preset',
+    'f_rt_min_cycle', 'f_rt_adaptive', 'f_rt_delta_base_heat', 'f_rt_delta_base_cool',
+    'f_rt_delta_step', 'f_rt_delta_step_sec', 'f_rt_delta_max_heat', 'f_rt_delta_max_cool',
+    'f_rt_keepalive_sec', 'f_rt_tmin_heat', 'f_rt_tmax_heat', 'f_rt_tmin_cool',
+    'f_rt_tmax_cool', 'f_rt_vmc_entity', 'f_rt_vmc_speed', 'f_rt_vmc_off_idle'
+  ];
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el) el.disabled = on;
+  }
+}
+
 function editItem(idx) {
   editIndex = idx;
   const t = sanitizeTherm(cfg.thermostats[idx] || {});
@@ -16585,6 +16620,7 @@ function editItem(idx) {
   document.getElementById('f_rt_vmc_entity').value = String(rth.vmc_entity_id || '');
   document.getElementById('f_rt_vmc_speed').value = String((rth.vmc_speed_pct ?? ''));
   document.getElementById('f_rt_vmc_off_idle').checked = (rth.vmc_off_on_no_demand !== false);
+  document.getElementById('f_display_only').checked = !!t.display_only;
   const clim = (t.climate && typeof t.climate === 'object') ? t.climate : {};
   const climModes = Array.isArray(clim.modes) ? clim.modes.map(m => String(m || '').toLowerCase()) : ['off', 'heat', 'cool'];
   document.getElementById('f_clim_mode_off').checked = climModes.includes('off');
@@ -16623,6 +16659,7 @@ function editItem(idx) {
     document.getElementById('f_cool_power').checked = !!c.power;
     document.getElementById('f_cool_fan3').checked = !!c.fan3;
   }
+  toggleDisplayOnlyFields();
   openDlg('Modifica termostato');
 }
 
@@ -16659,6 +16696,7 @@ function addNew() {
   document.getElementById('f_rt_vmc_entity').value = '';
   document.getElementById('f_rt_vmc_speed').value = '';
   document.getElementById('f_rt_vmc_off_idle').checked = true;
+  document.getElementById('f_display_only').checked = false;
   document.getElementById('f_clim_mode_off').checked = true;
   document.getElementById('f_clim_mode_heat').checked = true;
   document.getElementById('f_clim_mode_cool').checked = true;
@@ -16682,6 +16720,7 @@ function addNew() {
   document.getElementById('f_heat_fan3').checked = true;
   document.getElementById('f_cool_power').checked = true;
   document.getElementById('f_cool_fan3').checked = true;
+  toggleDisplayOnlyFields();
   openDlg('Nuovo termostato');
 }
 
@@ -16725,6 +16764,7 @@ function saveItem() {
   const rtVmcEntity = String(document.getElementById('f_rt_vmc_entity').value || '').trim();
   const rtVmcSpeed = Number(String(document.getElementById('f_rt_vmc_speed').value || '').trim());
   const rtVmcOffIdle = !!document.getElementById('f_rt_vmc_off_idle').checked;
+  const displayOnly = !!document.getElementById('f_display_only').checked;
   const climModeOff = !!document.getElementById('f_clim_mode_off').checked;
   const climModeHeat = !!document.getElementById('f_clim_mode_heat').checked;
   const climModeCool = !!document.getElementById('f_clim_mode_cool').checked;
@@ -16741,12 +16781,12 @@ function saveItem() {
   const rtFanMin = String(document.getElementById('f_rt_fan_min_switch').value || '').trim();
   const rtFanMed = String(document.getElementById('f_rt_fan_med_switch').value || '').trim();
   const rtFanMax = String(document.getElementById('f_rt_fan_max_switch').value || '').trim();
-  const split = (srcType === 'ha_multi_sensor_avg') ? false : (!!document.getElementById('f_split').checked || !!rtHeatPowerSwitch || !!rtCoolPowerSwitch);
-  const autoCtl = !!document.getElementById('f_auto').checked;
-  const hPower = (srcType === 'ha_multi_sensor_avg') ? false : (!!document.getElementById('f_heat_power').checked || !!rtHeatPowerSwitch);
-  const hFan3 = (srcType === 'ha_multi_sensor_avg') ? false : !!document.getElementById('f_heat_fan3').checked;
-  const cPower = (srcType === 'ha_multi_sensor_avg') ? false : (!!document.getElementById('f_cool_power').checked || !!rtCoolPowerSwitch);
-  const cFan3 = (srcType === 'ha_multi_sensor_avg') ? false : !!document.getElementById('f_cool_fan3').checked;
+  const split = displayOnly ? false : ((srcType === 'ha_multi_sensor_avg') ? false : (!!document.getElementById('f_split').checked || !!rtHeatPowerSwitch || !!rtCoolPowerSwitch));
+  const autoCtl = displayOnly ? false : !!document.getElementById('f_auto').checked;
+  const hPower = displayOnly ? false : ((srcType === 'ha_multi_sensor_avg') ? false : (!!document.getElementById('f_heat_power').checked || !!rtHeatPowerSwitch));
+  const hFan3 = displayOnly ? false : ((srcType === 'ha_multi_sensor_avg') ? false : !!document.getElementById('f_heat_fan3').checked);
+  const cPower = displayOnly ? false : ((srcType === 'ha_multi_sensor_avg') ? false : (!!document.getElementById('f_cool_power').checked || !!rtCoolPowerSwitch));
+  const cFan3 = displayOnly ? false : ((srcType === 'ha_multi_sensor_avg') ? false : !!document.getElementById('f_cool_fan3').checked);
   const msg = document.getElementById('dlgMsg');
 
   if (!id) { if (msg) msg.textContent = 'ID obbligatorio.'; return; }
@@ -16757,7 +16797,7 @@ function saveItem() {
     if (!srcEntityId) { if (msg) msg.textContent = 'Source entity_id obbligatorio (es: sensor.temperatura_sala).'; return; }
   } else if (srcType === 'ha_multi_sensor_avg') {
     if (srcSensors.length < 1) { if (msg) msg.textContent = 'Inserisci almeno una sonda HA.'; return; }
-    if (!rtClimateEntity) { if (msg) msg.textContent = 'Termostato reale obbligatorio (climate.xxx).'; return; }
+    if (!displayOnly && !rtClimateEntity) { if (msg) msg.textContent = 'Termostato reale obbligatorio (climate.xxx).'; return; }
     if (Number.isFinite(srcMinValid) && (srcMinValid < 1 || srcMinValid > srcSensors.length)) {
       if (msg) msg.textContent = 'Min sonde valide deve essere tra 1 e numero sonde.'; return;
     }
@@ -16767,7 +16807,7 @@ function saveItem() {
   } else {
     if (!Number.isFinite(srcNum) || srcNum <= 0) { if (msg) msg.textContent = 'Source num non valido (deve essere un numero > 0).'; return; }
   }
-  if (srcType !== 'ha_multi_sensor_avg') {
+  if (!displayOnly && srcType !== 'ha_multi_sensor_avg') {
     if (!split) {
       if (!hPower && !hFan3) { if (msg) msg.textContent = 'Seleziona almeno una uscita (power o fan3).'; return; }
     } else {
@@ -16783,7 +16823,7 @@ function saveItem() {
   const climateMax = Number.isFinite(climMaxTemp) ? climMaxTemp : 35;
   if (climateMax <= climateMin) { if (msg) msg.textContent = 'Setpoint max deve essere maggiore del setpoint min.'; return; }
   let realTargets = null;
-  if (rtPowerLight || rtValveLow || rtValveHot || rtHeatPowerSwitch || rtCoolPowerSwitch || rtFanMin || rtFanMed || rtFanMax) {
+  if (!displayOnly && (rtPowerLight || rtValveLow || rtValveHot || rtHeatPowerSwitch || rtCoolPowerSwitch || rtFanMin || rtFanMed || rtFanMax)) {
     realTargets = {};
     if (rtPowerLight) realTargets.power_light = rtPowerLight;
     if (rtValveLow) realTargets.valve_switch_low = rtValveLow;
@@ -16798,7 +16838,7 @@ function saveItem() {
   }
 
   let realThermostat = null;
-  if (srcType === 'ha_multi_sensor_avg') {
+  if (!displayOnly && srcType === 'ha_multi_sensor_avg') {
     realThermostat = {
       entity_id: rtClimateEntity,
       sync_setpoint: rtSyncSetpoint,
@@ -16849,9 +16889,10 @@ function saveItem() {
     name: name,
     floor: floor,
     source: sourceObj,
-    profile: profile,
-    consensus_group_heat: consensusGroupHeat,
-    consensus_group_cool: consensusGroupCool,
+    ...(displayOnly ? { display_only: true } : {}),
+    profile: displayOnly ? '' : profile,
+    consensus_group_heat: displayOnly ? '' : consensusGroupHeat,
+    consensus_group_cool: displayOnly ? '' : consensusGroupCool,
     real_targets: realTargets,
     real_thermostat: realThermostat,
     auto_control_enabled: autoCtl,
@@ -17163,7 +17204,10 @@ renderList();
 renderGroups();
 const srcSel = document.getElementById('f_src_type');
 if (srcSel) srcSel.addEventListener('change', toggleSourceFields);
+const displayOnlySel = document.getElementById('f_display_only');
+if (displayOnlySel) displayOnlySel.addEventListener('change', toggleDisplayOnlyFields);
 toggleSourceFields();
+toggleDisplayOnlyFields();
 renderConsensusSelect('f_consensus_group_heat', '');
 renderConsensusSelect('f_consensus_group_cool', '');
 </script>

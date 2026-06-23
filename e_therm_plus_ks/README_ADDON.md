@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.162`
+- `config.yaml` -> `version`: `2.6.163`
 
 Ultima modifica
-- Dettaglio termostato: stabilizzato il drag del setpoint sul ring evitando salti quando si preme sulla bolla del pomello.
+- Pagina `/vtherm`: aggiunto flag `Solo visualizzazione temperatura`; aggiunto script locale di diagnostica Computherm per testare login/sinottici senza salvare credenziali nel repository.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.

@@ -16,7 +16,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.162"
+APP_VERSION = "2.6.163"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -644,12 +644,20 @@ class ThermEngine:
                 return None
 
     def _auto_enabled_for(self, t: Dict[str, Any]) -> bool:
+        if self._display_only_for(t):
+            return False
         try:
             if isinstance(t, dict) and t.get("auto_control_enabled") is not None:
                 return bool(t.get("auto_control_enabled"))
         except Exception:
             pass
         return bool(self.auto_control_enabled)
+
+    def _display_only_for(self, t: Dict[str, Any]) -> bool:
+        try:
+            return bool(isinstance(t, dict) and (t.get("display_only") or t.get("view_only") or t.get("read_only")))
+        except Exception:
+            return False
 
     def _override_sec_for(self, t: Dict[str, Any]) -> int:
         try:
@@ -2151,6 +2159,8 @@ class ThermEngine:
         out: set[str] = set()
         try:
             for t in self.therm_list():
+                if self._display_only_for(t):
+                    continue
                 tid = str(t.get("id"))
                 name = t.get("name") or f"e-Therm {tid}"
                 name_slug = _entity_safe_name(name, f"thermostat_{tid}")
@@ -2336,6 +2346,10 @@ class ThermEngine:
                     to_cleanup.extend(self._discovery_topics_for_therm(tid, (old_t.get("outputs") or {})))
                 continue
             new_t = new_by_id.get(tid) or {}
+            if self._display_only_for(new_t):
+                to_cleanup.extend(self._discovery_topics_for_any(old_t))
+                to_cleanup.extend(self._published_discovery_topics_for(tid))
+                continue
             old_split = self._is_split_outputs(old_t)
             new_split = self._is_split_outputs(new_t)
             if old_split or new_split:
@@ -3428,6 +3442,8 @@ class ThermEngine:
         For PDC consensus we prefer explicit demand/output intent and avoid
         keeping group consensus ON because of stale OUT_STATUS fallback.
         """
+        if self._display_only_for(t):
+            return False
         tid = str(t.get("id"))
         try:
             rt = self.rt.get(tid) or {}
@@ -3537,6 +3553,8 @@ class ThermEngine:
         on_ha_cool = False
         try:
             for t in self.therm_list():
+                if self._display_only_for(t):
+                    continue
                 if not self._consensus_demand_for_therm(t):
                     continue
                 src = t.get("source") if isinstance(t.get("source"), dict) else {}
@@ -3585,6 +3603,8 @@ class ThermEngine:
         try:
             all_therms = list(self.therm_list())
             for t in all_therms:
+                if self._display_only_for(t):
+                    continue
                 for g_label in [
                     str(t.get("consensus_group_heat") or t.get("consensus_group") or t.get("pdc_group") or "").strip(),
                     str(t.get("consensus_group_cool") or t.get("consensus_group") or t.get("pdc_group") or "").strip(),
@@ -3609,6 +3629,8 @@ class ThermEngine:
                         groups[g_key] = {"label": g_label, "on": False, "on_heat": False, "on_cool": False}
 
             for t in all_therms:
+                if self._display_only_for(t):
+                    continue
                 if not self._consensus_demand_for_therm(t):
                     continue
                 g_heat = str(t.get("consensus_group_heat") or t.get("consensus_group") or t.get("pdc_group") or "").strip()
@@ -3752,6 +3774,8 @@ class ThermEngine:
     def _handle_ha_clone_command(self, tid: str, kind: str, payload_raw: str, origin: str = "ha_mqtt") -> None:
         t = self._find_by_id(tid)
         if not t:
+            return
+        if self._display_only_for(t):
             return
         src = t.get("source") or {}
         stype = str(src.get("type", "")).lower()
@@ -4026,6 +4050,8 @@ class ThermEngine:
         t = self._find_by_id(tid)
         if not t:
             return
+        if self._display_only_for(t):
+            return
         split = self._is_split_outputs(t)
 
         def _set_override(sk: Optional[str]) -> None:
@@ -4176,6 +4202,8 @@ class ThermEngine:
         tid = parts[1]
         t = self._find_by_id(tid)
         if not t:
+            return True
+        if self._display_only_for(t):
             return True
         on = str(payload_raw or "").strip().upper() in ("ON", "1", "TRUE", "YES")
         low_on, hot_on = self._calc_auto_valves(t)
@@ -4520,10 +4548,13 @@ class ThermEngine:
         for t in self.therm_list():
             tid = str(t.get("id"))
             try:
-                self._ha_publish_clone_state(tid)
+                if not self._display_only_for(t):
+                    self._ha_publish_clone_state(tid)
             except Exception:
                 pass
             try:
+                if self._display_only_for(t):
+                    continue
                 if self._is_split_outputs(t):
                     self._publish_outputs_state(t, "heat")
                     self._publish_outputs_state(t, "cool")
@@ -4744,6 +4775,13 @@ class ThermEngine:
         for t in self.therm_list():
             tid = str(t.get("id"))
             name = t.get("name") or f"e-Therm {tid}"
+            if self._display_only_for(t):
+                for tp in self._discovery_topics_for_any(t):
+                    try:
+                        self.mqtt.publish(tp, "", retain=True)
+                    except Exception:
+                        pass
+                continue
             outputs = t.get("outputs") or {}
             heat_out = t.get("outputs_heat") if isinstance(t.get("outputs_heat"), dict) else None
             cool_out = t.get("outputs_cool") if isinstance(t.get("outputs_cool"), dict) else None

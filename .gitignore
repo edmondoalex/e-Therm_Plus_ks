@@ -2,6 +2,8 @@
 __pycache__/
 *.bak
 *.bak.*
+computherm_secrets.json
+computherm_*.local.json
 
 # Local VS Code/workspace files (keep repo clean across multiple PCs)
 .vscode/

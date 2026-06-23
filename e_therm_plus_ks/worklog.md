@@ -3,6 +3,17 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-23 - v2.6.163 - Autore: Codex
+- Pagina `/vtherm`: aggiunto flag `Solo visualizzazione temperatura` per creare termostati lettura-only.
+- I termostati `display_only` non eseguono auto controllo, non comandano uscite reali, non partecipano ai consensi e non pubblicano il climate clone MQTT comandabile.
+- La UI disabilita campi uscite/consensi/target reali quando il flag e attivo e mostra un chip dedicato nella lista.
+- Aggiunto `scripts/computherm_probe.py` per diagnosticare login Computherm, refresh lettura I/O e parsing `CSProbes` sulle dashboard CT/SUBCT.
+- Aggiunto ignore locale per `computherm_secrets.json` e config Computherm locali.
+- Aggiornata UI_REV a `2026-06-23.A`.
+- File modificati: .gitignore, app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, scripts/computherm_probe.py, worklog.md.
+
+---
+
 2026-06-22 - v2.6.162 - Autore: Codex
 - Dettaglio termostato: il drag del setpoint mantiene un offset di presa sul pomello, evitando salti immediati quando si preme sulla bolla valore.
 - Evitata la doppia gestione del pointerdown tra pomello e ring contenitore.
