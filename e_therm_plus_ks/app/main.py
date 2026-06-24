@@ -19,7 +19,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.173"
+APP_VERSION = "2.6.174"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -240,6 +240,8 @@ class ThermEngine:
         self.pwm_deadband = float(opts.get("pwm_deadband", 0.2) or 0.2)
         self.pwm_deadband_on = float(opts.get("pwm_deadband_on", self.pwm_deadband) or self.pwm_deadband)
         self.pwm_deadband_off = float(opts.get("pwm_deadband_off", self.pwm_deadband) or self.pwm_deadband)
+        pwm_full_error_opt = opts.get("pwm_full_error", 1.5)
+        self.pwm_full_error = float(1.5 if pwm_full_error_opt in (None, "") else pwm_full_error_opt)
         self.pwm_min_to_med = int(opts.get("pwm_min_to_med", 34) or 34)
         self.pwm_med_to_max = int(opts.get("pwm_med_to_max", 67) or 67)
         self.real_fan_min_hold_sec = int(opts.get("real_fan_min_hold_sec", 0) or 0)
@@ -3318,6 +3320,8 @@ class ThermEngine:
         # PWM is now coherent with hysteresis demand state.
         if not demand_on:
             pwm = 0
+        elif float(err) >= float(max(0.0, self.pwm_full_error)):
+            pwm = 100
         else:
             c = self._get_pwm_controller(tid)
             if sea == "SUM":

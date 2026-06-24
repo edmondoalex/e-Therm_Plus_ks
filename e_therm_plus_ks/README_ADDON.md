@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.173`
+- `config.yaml` -> `version`: `2.6.174`
 
 Ultima modifica
-- Computherm: aggiunta lettura `CSPumps` e tabella attuatori per pompe, fan, valvole, selettori e manopole.
+- PWM automatico: sopra `pwm_full_error` gradi di errore forza PWM 100%, poi sotto soglia torna al PID modulante.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.

@@ -3,6 +3,15 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-24 - v2.6.174 - Autore: Codex
+- Auto PWM: aggiunta opzione `pwm_full_error` con default 1.5 gradi.
+- Quando la richiesta e attiva e l'errore termico e almeno `pwm_full_error`, il PWM viene forzato a 100%.
+- Sotto soglia resta il PID esistente, cosi il PWM scala quando la temperatura si avvicina al setpoint.
+- Aggiornata UI_REV a `2026-06-24.A`.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-23 - v2.6.173 - Autore: Codex
 - Computherm: aggiunta lettura `CSPumps` per visualizzare/pubblicare le pompe reali del sinottico.
 - Pagina `/computherm`: aggiunta tabella `Attuatori` con pompe, ventilatori, valvole, selettori e manopole.
