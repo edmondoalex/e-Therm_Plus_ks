@@ -3,15 +3,6 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
-2026-06-24 - v2.6.175 - Autore: Codex
-- Real switch: se la cache interna indica gia lo stato desiderato, ora viene letto lo stato reale HA dello switch prima di saltare il comando.
-- Se HA risulta disallineato dalla cache, e-Therm rimanda `switch.turn_on` / `switch.turn_off`.
-- Evita casi in cui un rele BusPro resta OFF mentre e-Therm crede di averlo gia acceso.
-- Aggiornata UI_REV a `2026-06-24.B`.
-- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md.
-
----
-
 2026-06-24 - v2.6.174 - Autore: Codex
 - Auto PWM: aggiunta opzione `pwm_full_error` con default 1.5 gradi.
 - Quando la richiesta e attiva e l'errore termico e almeno `pwm_full_error`, il PWM viene forzato a 100%.
