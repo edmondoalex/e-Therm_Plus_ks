@@ -19,7 +19,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.177"
+APP_VERSION = "2.6.178"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -3638,7 +3638,6 @@ class ThermEngine:
         client.subscribe(f"{self.out_prefix}/thermostats/+/target_temperature/set", qos=0)
         client.subscribe(f"{self.out_prefix}/thermostats/+/mode/set", qos=0)
         client.subscribe(f"{self.out_prefix}/thermostats/+/preset_mode/set", qos=0)
-        client.subscribe("homeassistant/climate/+/config", qos=0)
         client.subscribe(f"{self.out_prefix}/valv/+/set", qos=0)
         client.subscribe(f"{self.out_prefix}/valv_hot/+/set", qos=0)
         client.subscribe(f"{self.out_prefix}/valv_low/+/set", qos=0)
@@ -4786,10 +4785,6 @@ class ThermEngine:
             pass
         topic = msg.topic
         payload_raw = msg.payload.decode("utf-8", errors="ignore").strip()
-
-        if topic.startswith("homeassistant/climate/") and topic.endswith("/config"):
-            if self._handle_discovery_config_message(topic, payload_raw):
-                return
 
         if topic.startswith(f"{self.out_prefix}/thermostats/"):
             # Stability: ignore retained "command" messages (*/set) that might be left on the broker.
