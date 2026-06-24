@@ -3,6 +3,15 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-24 - v2.6.177 - Autore: Codex
+- Auto control: quando un termostato non ha temperatura o non ha setpoint, forza subito power/fan OFF invece di lasciare uscite reali nello stato precedente.
+- Applica il forced OFF anche ai target reali HA e alle uscite split heat/cool, evitando relay rimasti ON dopo stati sorgente non validi.
+- MQTT climate: dopo la discovery ripubblica subito lo stato clone retained del termostato.
+- Aggiornata UI_REV a `2026-06-24.D`.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-24 - v2.6.176 - Autore: Codex
 - MQTT availability: pubblica `e-therm/status = online` subito al connect, prima di discovery/sync pesanti.
 - Aggiunto heartbeat `online` periodico mentre MQTT risulta connesso, per ripulire retained `offline`.

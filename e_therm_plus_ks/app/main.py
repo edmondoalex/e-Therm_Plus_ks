@@ -19,7 +19,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.176"
+APP_VERSION = "2.6.177"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -3201,6 +3201,42 @@ class ThermEngine:
             except Exception:
                 pass
 
+    def _force_control_outputs_off(self, t: Dict[str, Any], reason: str) -> None:
+        tid = str(t.get("id"))
+        try:
+            with self.lock:
+                rt = self.rt.setdefault(tid, {})
+                th = rt.setdefault("THERM", {})
+                th["DEMAND_ON"] = "OFF"
+                th["DEMAND_REASON"] = str(reason or "FORCED_OFF").upper()
+                sea = str(th.get("ACT_SEA") or "WIN").upper()
+        except Exception:
+            sea = "WIN"
+
+        try:
+            if bool(self._real_thermostat_entity(t)):
+                self._apply_real_thermostat_demand(t, False, sea)
+        except Exception:
+            pass
+
+        fan_off = {"min": "OFF", "med": "OFF", "max": "OFF"}
+        try:
+            if self._is_split_outputs(t):
+                for sk in ("heat", "cool"):
+                    desired = self._get_desired_season(tid, sk)
+                    desired["power"] = 0
+                    desired["fan"] = dict(fan_off)
+                    self._set_desired_season(tid, sk, desired)
+                    self._publish_outputs_state(t, sk)
+            else:
+                desired = self._get_desired(tid)
+                desired["power"] = 0
+                desired["fan"] = dict(fan_off)
+                self._set_desired(tid, desired)
+                self._publish_outputs_state(t)
+        except Exception:
+            pass
+
     def _control_one(self, t: Dict[str, Any], now: float) -> None:
         tid = str(t.get("id"))
         def _set_real_debug(demand: str, reason: str, adapt_target: Any = None) -> None:
@@ -3242,7 +3278,7 @@ class ThermEngine:
 
         cur = rt.get("TEMP")
         if cur is None:
-            _set_real_debug("OFF", "NO_CURRENT_TEMP")
+            self._force_control_outputs_off(t, "NO_CURRENT_TEMP")
             return
         cur_f = float(cur)
 
@@ -3278,7 +3314,7 @@ class ThermEngine:
                             setp = _as_float(sea_st.get(key))
 
         if setp is None:
-            _set_real_debug("OFF", "NO_SETPOINT")
+            self._force_control_outputs_off(t, "NO_SETPOINT")
             return
 
         # Thermal error sign normalized as "positive means request active for current season".
@@ -5307,6 +5343,10 @@ class ThermEngine:
             }
             self.mqtt.publish(climate_topic, json.dumps(climate_cfg, ensure_ascii=False), retain=True)
             self._remember_discovery_topic(tid, climate_topic)
+            try:
+                self._ha_publish_clone_state(tid)
+            except Exception:
+                pass
             # Cleanup legacy discovery topics so HA does not keep reviving old aliases.
             try:
                 for legacy_uid in (
