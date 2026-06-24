@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.174`
+- `config.yaml` -> `version`: `2.6.179`
 
 Ultima modifica
-- PWM automatico: sopra `pwm_full_error` gradi di errore forza PWM 100%, poi sotto soglia torna al PID modulante.
+- Ripubblicata la logica stabile della 2.6.174 come 2.6.179 per forzare l'aggiornamento add-on.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.

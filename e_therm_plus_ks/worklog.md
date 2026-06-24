@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-24 - v2.6.179 - Autore: Codex
+- Ripubblicata la logica stabile della v2.6.174 come nuova versione installabile.
+- Nessuna modifica funzionale rispetto alla v2.6.174: bump necessario per far vedere l'aggiornamento a Home Assistant.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-24 - v2.6.174 - Autore: Codex
 - Auto PWM: aggiunta opzione `pwm_full_error` con default 1.5 gradi.
 - Quando la richiesta e attiva e l'errore termico e almeno `pwm_full_error`, il PWM viene forzato a 100%.
