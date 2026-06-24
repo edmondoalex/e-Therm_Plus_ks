@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.178`
+- `config.yaml` -> `version`: `2.6.177`
 
 Ultima modifica
-- MQTT discovery: rimosso l'ascolto delle proprie config `homeassistant/climate/+/config` per evitare cleanup/reazioni su retained discovery pubblicate da e-Therm.
+- Auto control: forza power/fan OFF quando mancano temperatura o setpoint, evitando uscite reali rimaste ON con stato sorgente non valido.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.

@@ -3,14 +3,6 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
-2026-06-24 - v2.6.178 - Autore: Codex
-- MQTT discovery: rimosso il subscribe a `homeassistant/climate/+/config`, cosi e-Therm non riceve piu le proprie discovery retained.
-- Evita cleanup/reazioni su config discovery pubblicate dallo stesso addon durante reconnect o republish.
-- Aggiornata UI_REV a `2026-06-24.E`.
-- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md.
-
----
-
 2026-06-24 - v2.6.177 - Autore: Codex
 - Auto control: quando un termostato non ha temperatura o non ha setpoint, forza subito power/fan OFF invece di lasciare uscite reali nello stato precedente.
 - Applica il forced OFF anche ai target reali HA e alle uscite split heat/cool, evitando relay rimasti ON dopo stati sorgente non validi.

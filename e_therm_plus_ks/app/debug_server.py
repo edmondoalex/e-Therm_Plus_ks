@@ -12,10 +12,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-24.E"
+UI_REV = "2026-06-24.D"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.178"
+CODE_VERSION = "2.6.177"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
