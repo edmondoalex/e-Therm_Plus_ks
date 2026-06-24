@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.174`
+- `config.yaml` -> `version`: `2.6.175`
 
 Ultima modifica
-- PWM automatico: sopra `pwm_full_error` gradi di errore forza PWM 100%, poi sotto soglia torna al PID modulante.
+- Real switch: quando la cache dice gia ON/OFF, verifica lo stato reale HA prima di saltare il comando.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.

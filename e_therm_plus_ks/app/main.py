@@ -19,7 +19,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.174"
+APP_VERSION = "2.6.175"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -2248,7 +2248,13 @@ class ThermEngine:
         desired = "ON" if on else "OFF"
         cache_key = f"sw:{ent}"
         if str(self._real_target_last.get(cache_key) or "") == desired:
-            return
+            st = self._ha_api_request("GET", f"/states/{ent}")
+            if isinstance(st, dict):
+                real_state = str(st.get("state") or "").lower()
+                if (desired == "ON" and real_state == "on") or (desired == "OFF" and real_state == "off"):
+                    return
+            else:
+                return
         ok = self._ha_service_call("switch", "turn_on" if on else "turn_off", {"entity_id": ent})
         if ok:
             # Fast path: avoid blocking readback GET per entity.
