@@ -3,15 +3,6 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
-2026-06-24 - v2.6.176 - Autore: Codex
-- MQTT availability: pubblica `e-therm/status = online` subito al connect, prima di discovery/sync pesanti.
-- Aggiunto heartbeat `online` periodico mentre MQTT risulta connesso, per ripulire retained `offline`.
-- Protetta la pubblicazione discovery da eccezioni, cosi un errore discovery non blocca l'availability.
-- Aggiornata UI_REV a `2026-06-24.C`.
-- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md.
-
----
-
 2026-06-24 - v2.6.175 - Autore: Codex
 - Real switch: se la cache interna indica gia lo stato desiderato, ora viene letto lo stato reale HA dello switch prima di saltare il comando.
 - Se HA risulta disallineato dalla cache, e-Therm rimanda `switch.turn_on` / `switch.turn_off`.

@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.176`
+- `config.yaml` -> `version`: `2.6.175`
 
 Ultima modifica
-- MQTT availability: pubblica `online` subito al connect e con heartbeat periodico per evitare controlli `Non disponibile`.
+- Real switch: quando la cache dice gia ON/OFF, verifica lo stato reale HA prima di saltare il comando.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.

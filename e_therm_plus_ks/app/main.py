@@ -19,7 +19,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.176"
+APP_VERSION = "2.6.175"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -225,7 +225,6 @@ class ThermEngine:
         self._last_ha_plain_sensor_poll_ts = 0.0
         self._last_ha_warn_ts = 0.0
         self._last_discovery_publish_ts = 0.0
-        self._last_availability_publish_ts = 0.0
         self._last_control_runtime_save_ts = 0.0
 
         # realtime cache per vtherm id
@@ -3109,7 +3108,6 @@ class ThermEngine:
         if not bool(self._mqtt_connected):
             self._reconnect_mqtt("mqtt_not_connected")
             return
-        self._publish_availability_online()
 
         # Do not force reconnect based on source staleness; reconnect only on real MQTT disconnect.
 
@@ -3151,7 +3149,6 @@ class ThermEngine:
         if (now - last) < self._opt_seconds("control_interval_sec", 10.0, 5.0):
             return
         self.runtime["_last_control_ts"] = now
-        self._publish_availability_online()
 
         # Keep HA climate-backed thermostats in sync even when watchdog is disabled.
         try:
@@ -3532,18 +3529,6 @@ class ThermEngine:
         # Do not publish retained offline on transient disconnects: this may make
         # HA entities appear unavailable/disappear during short MQTT hiccups.
 
-    def _publish_availability_online(self, force: bool = False) -> None:
-        if self.mqtt is None:
-            return
-        now = time.time()
-        if not force and (now - float(self._last_availability_publish_ts or 0.0)) < 30.0:
-            return
-        try:
-            self.mqtt.publish(f"{self.out_prefix}/status", "online", retain=True)
-            self._last_availability_publish_ts = now
-        except Exception:
-            pass
-
     def _on_connect(self, *args, **kwargs):
         client = args[0] if len(args) > 0 else None
         # Ignore callbacks from stale MQTT clients replaced during reconnect.
@@ -3572,7 +3557,6 @@ class ThermEngine:
             )
         except Exception:
             pass
-        self._publish_availability_online(force=True)
         # Run queued discovery cleanup (if any) once connected.
         try:
             if self._pending_discovery_cleanup:
@@ -3624,30 +3608,12 @@ class ThermEngine:
             self._sync_virtual_states(force=True)
         except Exception:
             pass
-        try:
-            self._publish_discovery()
-        except Exception as e:
-            try:
-                self._last_mqtt_error = f"discovery error: {e}"
-            except Exception:
-                pass
-            try:
-                self._log_event(
-                    origin="system",
-                    tid=None,
-                    name=None,
-                    source_num=None,
-                    category="mqtt",
-                    field="discovery_error",
-                    msg=str(e),
-                )
-            except Exception:
-                pass
+        self._publish_discovery()
         try:
             self._publish_pdc_consensus()
         except Exception:
             pass
-        self._publish_availability_online(force=True)
+        client.publish(f"{self.out_prefix}/status", "online", retain=True)
 
     # -------------------- Static (profiles/schedule) --------------------
 
