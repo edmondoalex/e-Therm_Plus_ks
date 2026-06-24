@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.177`
+- `config.yaml` -> `version`: `2.6.176`
 
 Ultima modifica
-- Auto control: forza power/fan OFF quando mancano temperatura o setpoint, evitando uscite reali rimaste ON con stato sorgente non valido.
+- MQTT availability: pubblica `online` subito al connect e con heartbeat periodico per evitare controlli `Non disponibile`.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.
