@@ -15,7 +15,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-24.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.180"
+CODE_VERSION = "2.6.181"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -2337,6 +2337,8 @@ def render_index(snapshot):
       <a class="cmd" href="/logs">Registro Eventi</a>
       <a class="cmd" href="/thermostats">Termostati</a>
       <a class="cmd" href="/index_debug/vtherm_admin">VTherm Admin</a>
+      <button id="republishBtn" class="cmd" type="button">Rispedisci MQTT discovery</button>
+      <button id="cleanupBtn" class="cmd cleanupBtn" type="button">Pulisci MQTT discovery</button>
     </div>
         <div class="helpBox" id="pinHelp">
           <div><b>Admin VTherm</b></div>
@@ -2398,6 +2400,15 @@ def render_index(snapshot):
       const TAG_STYLE_NAMES = {tag_style_names_json};
       let favorites = {{ outputs: {{}}, scenarios: {{}}, zones: {{}}, partitions: {{}} }};
 
+      function indexDebugApiUrl(path) {{
+        const clean = String(path || '');
+        const current = String(window.location.pathname || '');
+        const marker = '/index_debug';
+        const idx = current.indexOf(marker);
+        if (idx >= 0) return current.slice(0, idx + marker.length) + clean;
+        return clean;
+      }}
+
       (function setupCleanupBtn() {{
         try {{
           const btn = document.getElementById('cleanupBtn');
@@ -2408,7 +2419,7 @@ def render_index(snapshot):
             btn.disabled = true;
             btn.textContent = '...';
             try {{
-              const res = await fetch('/api/cmd', {{
+              const res = await fetch(indexDebugApiUrl('/api/cmd'), {{
                 method: 'POST',
                 headers: {{ 'Content-Type': 'application/json' }},
                 body: JSON.stringify({{ type: 'mqtt', action: 'cleanup_discovery' }}),
@@ -2438,7 +2449,7 @@ def render_index(snapshot):
             btn.disabled = true;
             btn.textContent = '...';
             try {{
-              const res = await fetch('/api/cmd', {{
+              const res = await fetch(indexDebugApiUrl('/api/cmd'), {{
                 method: 'POST',
                 headers: {{ 'Content-Type': 'application/json' }},
                 body: JSON.stringify({{ type: 'mqtt', action: 'republish_discovery' }}),
