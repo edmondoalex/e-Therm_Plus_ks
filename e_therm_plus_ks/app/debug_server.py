@@ -15,7 +15,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-24.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.179"
+CODE_VERSION = "2.6.180"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -13910,6 +13910,14 @@ class _Handler(BaseHTTPRequestHandler):
             snap = self.state.snapshot()
             self._send(200, "text/html; charset=utf-8", render_index_tag_styles(snap))
             return
+        if path in ("/index_debug/vtherm_admin", "/index_debug/vtherm_admin/"):
+            try:
+                print(f"[INFO] UI GET {path} from {self.client_address[0]}")
+            except Exception:
+                pass
+            snap = self.state.snapshot()
+            self._send(200, "text/html; charset=utf-8", render_vtherm_admin(snap))
+            return
         if path in ("/", "/index_debug", "/index_debug/"):
             try:
                 print(f"[INFO] UI GET {path} from {self.client_address[0]}")
@@ -14063,7 +14071,7 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(400, "application/json; charset=utf-8", body)
             return
 
-        if path != "/api/cmd":
+        if path != "/api/cmd" and not path.endswith("/api/cmd"):
             self._send(404, "text/plain; charset=utf-8", b"not found")
             return
         command_fn = type(self).command_fn
