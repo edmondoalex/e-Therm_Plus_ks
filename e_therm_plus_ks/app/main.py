@@ -19,7 +19,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.183"
+APP_VERSION = "2.6.184"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -242,6 +242,8 @@ class ThermEngine:
         self.pwm_deadband_off = float(opts.get("pwm_deadband_off", self.pwm_deadband) or self.pwm_deadband)
         pwm_full_error_opt = opts.get("pwm_full_error", 1.5)
         self.pwm_full_error = float(1.5 if pwm_full_error_opt in (None, "") else pwm_full_error_opt)
+        pwm_min_active_opt = opts.get("pwm_min_active", 15)
+        self.pwm_min_active = int(max(0, min(100, int(15 if pwm_min_active_opt in (None, "") else pwm_min_active_opt))))
         self.pwm_min_to_med = int(opts.get("pwm_min_to_med", 34) or 34)
         self.pwm_med_to_max = int(opts.get("pwm_med_to_max", 67) or 67)
         self.real_fan_min_hold_sec = int(opts.get("real_fan_min_hold_sec", 0) or 0)
@@ -3333,6 +3335,8 @@ class ThermEngine:
                 pwm = c.compute_pwm(cur_f, float(setp), now=now)
             else:
                 pwm = c.compute_pwm(float(setp), cur_f, now=now)
+            if self.pwm_min_active > 0:
+                pwm = max(int(pwm), int(self.pwm_min_active))
 
         _set_real_debug("ON" if demand_on else "OFF", demand_reason, pwm_value=pwm)
 

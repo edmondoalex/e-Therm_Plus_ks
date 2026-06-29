@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.183`
+- `config.yaml` -> `version`: `2.6.184`
 
 Ultima modifica
-- `/thermostats`: rifinita spaziatura indicatore PWM per non andare a ridosso del badge stato.
+- Auto PWM: aggiunto minimo operativo `pwm_min_active` al 15% quando la richiesta e ON.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.

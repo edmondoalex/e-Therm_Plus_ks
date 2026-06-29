@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-29 - v2.6.184 - Autore: Codex
+- Auto PWM: aggiunta opzione `pwm_min_active` con default 15%.
+- Quando la richiesta termica e ON, il PWM calcolato sotto soglia viene portato almeno al minimo operativo; richiesta OFF resta 0%.
+- Evita comandi ON con PWM troppo basso, come 3%, vicino al setpoint.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-29 - v2.6.183 - Autore: Codex
 - `/thermostats`: rifinita la spaziatura della barra PWM sulle card.
 - La colonna PWM e piu contenuta e il badge stato ha larghezza stabile, evitando che `100%` vada a ridosso di `COOL ON`/`HEAT ON`.
