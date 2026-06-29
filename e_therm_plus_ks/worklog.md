@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-29 - v2.6.183 - Autore: Codex
+- `/thermostats`: rifinita la spaziatura della barra PWM sulle card.
+- La colonna PWM e piu contenuta e il badge stato ha larghezza stabile, evitando che `100%` vada a ridosso di `COOL ON`/`HEAT ON`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-29 - v2.6.182 - Autore: Codex
 - `/thermostats`: aggiunto indicatore visuale PWM 0-100% sulle card termostato.
 - La barra e solo visuale: mostra il PWM live e cambia colore/intensita tra cool blu e heat arancio.

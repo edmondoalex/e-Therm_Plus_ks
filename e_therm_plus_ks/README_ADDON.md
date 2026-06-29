@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.182`
+- `config.yaml` -> `version`: `2.6.183`
 
 Ultima modifica
-- `/thermostats`: aggiunto indicatore visuale PWM 0-100% sulle card, con colore/intensita blu per cool e arancio per heat.
+- `/thermostats`: rifinita spaziatura indicatore PWM per non andare a ridosso del badge stato.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.

@@ -12,10 +12,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-29.A"
+UI_REV = "2026-06-29.B"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.182"
+CODE_VERSION = "2.6.183"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14372,9 +14372,10 @@ def render_thermostats_page(snapshot):
       .thermRow {
         position:relative;
         display:grid;
-        grid-template-columns: 48px minmax(210px,1fr) minmax(180px,42%) auto;
+        grid-template-columns: 48px minmax(230px,1fr) minmax(170px,34%) auto;
         align-items:center;
-        gap: 12px;
+        column-gap: 18px;
+        row-gap: 10px;
         min-height: 62px;
         padding: 10px 12px;
         border: 1px solid rgba(255,255,255,0.10);
@@ -14461,6 +14462,7 @@ def render_thermostats_page(snapshot):
         gap: 6px;
         min-width: 0;
         width: 100%;
+        max-width: 460px;
         padding: 7px 10px 8px;
         border-radius: 999px;
         border: 1px solid rgba(255,255,255,0.10);
@@ -14510,7 +14512,7 @@ def render_thermostats_page(snapshot):
         display:inline-flex;
         align-items:center;
         gap: 7px;
-        min-width: 92px;
+        min-width: 118px;
         justify-content:center;
         padding: 7px 10px;
         border-radius: 999px;
