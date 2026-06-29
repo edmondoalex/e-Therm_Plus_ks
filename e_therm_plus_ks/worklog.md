@@ -3,6 +3,28 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-29 - v2.6.182 - Autore: Codex
+- `/thermostats`: aggiunto indicatore visuale PWM 0-100% sulle card termostato.
+- La barra e solo visuale: mostra il PWM live e cambia colore/intensita tra cool blu e heat arancio.
+- Pubblicato `THERM.PWM` nello stato realtime usato dalla UI.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
+2026-06-29 - v2.6.181 - Autore: Codex
+- `index_debug`: aggiunti bottoni per rispedire e pulire MQTT discovery.
+- Sistemate le chiamate API della pagina debug tramite prefisso `/index_debug/api/cmd`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
+2026-06-29 - v2.6.180 - Autore: Codex
+- Fix proxy `/api/cmd` su `index_debug`, accettando anche chiamate con prefisso/pattern compatibile con ingress.
+- Aggiunta route dedicata per `/index_debug/vtherm_admin`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-24 - v2.6.179 - Autore: Codex
 - Ripubblicata la logica stabile della v2.6.174 come nuova versione installabile.
 - Nessuna modifica funzionale rispetto alla v2.6.174: bump necessario per far vedere l'aggiornamento a Home Assistant.
