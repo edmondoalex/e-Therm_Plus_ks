@@ -19,7 +19,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.181"
+APP_VERSION = "2.6.182"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -3194,13 +3194,18 @@ class ThermEngine:
 
     def _control_one(self, t: Dict[str, Any], now: float) -> None:
         tid = str(t.get("id"))
-        def _set_real_debug(demand: str, reason: str, adapt_target: Any = None) -> None:
+        def _set_real_debug(demand: str, reason: str, adapt_target: Any = None, pwm_value: Any = None) -> None:
             try:
                 with self.lock:
                     rt_dbg = self.rt.setdefault(tid, {})
                     th_dbg = rt_dbg.setdefault("THERM", {})
-                    th_dbg["DEMAND_ON"] = str(demand or "").upper()
+                    demand_s = str(demand or "").upper()
+                    th_dbg["DEMAND_ON"] = demand_s
                     th_dbg["DEMAND_REASON"] = str(reason or "").upper()
+                    if pwm_value is not None:
+                        th_dbg["PWM"] = int(max(0, min(100, int(pwm_value))))
+                    elif demand_s == "OFF":
+                        th_dbg["PWM"] = 0
                     if adapt_target is None:
                         th_dbg.pop("ADAPT_TARGET", None)
                     else:
@@ -3329,7 +3334,7 @@ class ThermEngine:
             else:
                 pwm = c.compute_pwm(float(setp), cur_f, now=now)
 
-        _set_real_debug("ON" if demand_on else "OFF", demand_reason)
+        _set_real_debug("ON" if demand_on else "OFF", demand_reason, pwm_value=pwm)
 
         if has_real_therm:
             try:

@@ -12,10 +12,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-24.A"
+UI_REV = "2026-06-29.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.181"
+CODE_VERSION = "2.6.182"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14234,6 +14234,15 @@ def render_thermostats_page(snapshot):
         status_label = "COOL ON" if (req_on and is_cool) else ("HEAT ON" if req_on else "OFF")
         status_icon = "C" if (req_on and is_cool) else ("H" if req_on else "O")
 
+        def _fmt_pwm(v):
+            try:
+                if v is None or str(v).strip() == "":
+                    return None
+                n = int(round(float(str(v).replace(",", "."))))
+                return max(0, min(100, n))
+            except Exception:
+                return None
+
         def _fmt_temp(v):
             try:
                 if v is None or str(v).strip() == "":
@@ -14252,9 +14261,21 @@ def render_thermostats_page(snapshot):
             status_class = "displayonly"
             status_icon = "i"
             meta_html = f'ID {_html_escape(str(tid))} · {temp}°C'
+            pwm_html = ""
             pill_html = ""
         else:
+            pwm = _fmt_pwm(therm.get("PWM"))
+            pwm_text = "--" if pwm is None else str(pwm)
+            pwm_style = "0%" if pwm is None else f"{pwm}%"
+            pwm_opacity = "0.22" if pwm is None else f"{0.22 + (0.78 * pwm / 100):.2f}"
+            pwm_kind = "cool" if is_cool else "heat"
             meta_html = f'ID {_html_escape(str(tid))} · {temp}°C · Set {target}°C · {_html_escape(mode_label)}'
+            pwm_html = (
+                f'<span class="pwmMeter pwm-{pwm_kind}" title="PWM uscita automatica: {_html_escape(pwm_text)}%">'
+                f'  <span class="pwmTop"><span>PWM</span><span class="pwmValue">{_html_escape(pwm_text)}%</span></span>'
+                f'  <span class="pwmTrack" style="--pwm:{_html_escape(pwm_style)};--pwmOpacity:{_html_escape(pwm_opacity)}"><span class="pwmFill"></span></span>'
+                f'</span>'
+            )
             pill_html = f'<span class="statusPill"><span class="statusDot"></span>{_html_escape(status_label)}</span>'
         rows.append(
             f'<a class="thermRow {status_class}" data-tid="{_html_escape(str(tid))}" href="./thermostats/{_html_escape(str(tid))}">'
@@ -14263,6 +14284,7 @@ def render_thermostats_page(snapshot):
             f'    <span class="thermName"><span class="modeBadge mode-{mode_kind}" title="{_html_escape(capability_label)}" aria-label="{_html_escape(capability_label)}">{mode_icon_html}</span><span class="thermNameText">{_html_escape(str(name))}</span></span>'
             f'    <span class="thermMeta">{meta_html}</span>'
             f'  </span>'
+            f'  {pwm_html}'
             f'  {pill_html}'
             f'</a>'
         )
@@ -14350,7 +14372,7 @@ def render_thermostats_page(snapshot):
       .thermRow {
         position:relative;
         display:grid;
-        grid-template-columns: 48px minmax(0,1fr) auto;
+        grid-template-columns: 48px minmax(210px,1fr) minmax(180px,42%) auto;
         align-items:center;
         gap: 12px;
         min-height: 62px;
@@ -14431,6 +14453,58 @@ def render_thermostats_page(snapshot):
       }
       .capUnknown { color: rgba(255,255,255,0.5); font-size: 13px; line-height: 1; }
       .thermMeta { font-size: 12px; color: rgba(255,255,255,0.58); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .pwmMeter {
+        --pwmColor: var(--rowColor);
+        position:relative;
+        display:flex;
+        flex-direction:column;
+        gap: 6px;
+        min-width: 0;
+        width: 100%;
+        padding: 7px 10px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,0.10);
+        background: rgba(0,0,0,0.16);
+        box-shadow: inset 0 0 18px rgba(255,255,255,0.025);
+      }
+      .pwmMeter.pwm-cool { --pwmColor: #66c7ff; }
+      .pwmMeter.pwm-heat { --pwmColor: #ff9f1c; }
+      .pwmTop {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap: 10px;
+        color: rgba(255,255,255,0.64);
+        font-size: 10px;
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: .9px;
+      }
+      .pwmValue {
+        color: var(--pwmColor);
+        letter-spacing: 0;
+        font-size: 11px;
+        min-width: 34px;
+        text-align:right;
+      }
+      .pwmTrack {
+        position:relative;
+        display:block;
+        height: 7px;
+        border-radius: 999px;
+        overflow:hidden;
+        background: rgba(255,255,255,0.09);
+      }
+      .pwmFill {
+        position:absolute;
+        inset:0 auto 0 0;
+        width: var(--pwm, 0%);
+        border-radius: inherit;
+        background: linear-gradient(90deg, color-mix(in srgb, var(--pwmColor) 36%, transparent), var(--pwmColor));
+        box-shadow: 0 0 16px color-mix(in srgb, var(--pwmColor) 48%, transparent);
+        opacity: var(--pwmOpacity, 1);
+        transition: width .28s ease;
+      }
       .statusPill {
         position:relative;
         display:inline-flex;
@@ -14451,6 +14525,7 @@ def render_thermostats_page(snapshot):
       .thermRow.heat .statusDot, .thermRow.cool .statusDot { opacity:1; box-shadow: 0 0 14px var(--rowColor); }
       @media (max-width: 620px) {
         .thermRow { grid-template-columns: 42px minmax(0,1fr); }
+        .pwmMeter { grid-column: 2; max-width: 100%; box-sizing: border-box; }
         .statusPill { grid-column: 2; width: fit-content; min-width: 84px; }
       }
     </style>
@@ -14515,6 +14590,12 @@ def render_thermostats_page(snapshot):
         const out = String(therm.OUT_STATUS || "").toUpperCase();
         const demand = String(therm.DEMAND_ON || "").toUpperCase();
         const realAction = String(therm.REAL_HVAC_ACTION || "").toUpperCase();
+        const pwmRaw = therm.PWM ?? therm.POWER ?? therm.PWM_POWER;
+        let pwm = null;
+        if (pwmRaw !== null && pwmRaw !== undefined && String(pwmRaw).trim() !== "") {
+          const n = Number(String(pwmRaw).replace(",", "."));
+          if (Number.isFinite(n)) pwm = Math.max(0, Math.min(100, Math.round(n)));
+        }
         let reqOn = out === "ON";
         if (realAction === "HEATING" || realAction === "COOLING") reqOn = true;
         else if (realAction === "IDLE" || realAction === "OFF") reqOn = false;
@@ -14532,6 +14613,8 @@ def render_thermostats_page(snapshot):
           cls,
           label,
           icon,
+          pwm,
+          pwmKind: isCool ? "cool" : "heat",
           meta: "ID " + String(e.id) + " · " + fmtTemp(rt.TEMP) + "°C · Set " + fmtTemp(thr.VAL) + "°C · " + modeLabel
         };
       }
@@ -14551,9 +14634,24 @@ def render_thermostats_page(snapshot):
           const orb = row.querySelector(".statusOrb span");
           const meta = row.querySelector(".thermMeta");
           const pill = row.querySelector(".statusPill");
+          const pwmMeter = row.querySelector(".pwmMeter");
+          const pwmValue = row.querySelector(".pwmValue");
+          const pwmTrack = row.querySelector(".pwmTrack");
           if (orb) orb.textContent = st.icon;
           if (meta) meta.textContent = st.meta;
           if (pill && !displayOnly) pill.innerHTML = '<span class="statusDot"></span>' + st.label;
+          if (pwmMeter && !displayOnly) {
+            const txt = st.pwm === null || st.pwm === undefined ? "--" : String(st.pwm);
+            pwmMeter.setAttribute("title", "PWM uscita automatica: " + txt + "%");
+            pwmMeter.classList.remove("pwm-cool", "pwm-heat");
+            pwmMeter.classList.add(st.pwmKind === "cool" ? "pwm-cool" : "pwm-heat");
+            if (pwmValue) pwmValue.textContent = txt + "%";
+            if (pwmTrack) {
+              const val = st.pwm === null || st.pwm === undefined ? 0 : st.pwm;
+              pwmTrack.style.setProperty("--pwm", val + "%");
+              pwmTrack.style.setProperty("--pwmOpacity", String(0.22 + (0.78 * val / 100)));
+            }
+          }
         }
         for (const row of document.querySelectorAll(".thermRow[data-tid]")) {
           if (!seen.has(String(row.getAttribute("data-tid")))) structureChanged = true;
