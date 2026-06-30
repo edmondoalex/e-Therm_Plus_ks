@@ -14215,24 +14215,7 @@ def render_thermostats_page(snapshot):
         therm = rt.get("THERM") if isinstance(rt.get("THERM"), dict) else {}
         season = str(therm.get("ACT_SEA") or "").upper()
         mode = str(therm.get("ACT_MODEL") or therm.get("ACT_MODE") or "").upper()
-        out = str(therm.get("OUT_STATUS") or "").upper()
-        demand = str(therm.get("DEMAND_ON") or "").upper()
-        real_hvac_action = str(therm.get("REAL_HVAC_ACTION") or "").upper()
-        req_on = out == "ON"
-        if real_hvac_action in ("HEATING", "COOLING"):
-            req_on = True
-        elif real_hvac_action in ("IDLE", "OFF"):
-            req_on = False
-        elif demand == "ON":
-            req_on = True
-        elif demand == "OFF":
-            req_on = False
-        if mode == "OFF":
-            req_on = False
         is_cool = season == "SUM"
-        status_class = "cool" if (req_on and is_cool) else ("heat" if req_on else "off")
-        status_label = "COOL ON" if (req_on and is_cool) else ("HEAT ON" if req_on else "OFF")
-        status_icon = "C" if (req_on and is_cool) else ("H" if req_on else "O")
 
         def _fmt_pwm(v):
             try:
@@ -14251,6 +14234,30 @@ def render_thermostats_page(snapshot):
             except Exception:
                 return "--,-"
 
+        out = str(therm.get("OUT_STATUS") or "").upper()
+        demand = str(therm.get("DEMAND_ON") or "").upper()
+        real_hvac_action = str(therm.get("REAL_HVAC_ACTION") or "").upper()
+        real_power_switch = str(therm.get("REAL_POWER_SWITCH_STATE") or "").upper()
+        pwm_now = _fmt_pwm(therm.get("PWM"))
+        req_on = out == "ON"
+        if demand == "ON" or (pwm_now is not None and pwm_now > 0):
+            req_on = True
+        elif real_power_switch == "ON":
+            req_on = True
+        elif real_hvac_action in ("HEATING", "COOLING"):
+            req_on = True
+        elif demand == "OFF":
+            req_on = False
+        elif real_power_switch == "OFF":
+            req_on = False
+        elif real_hvac_action in ("IDLE", "OFF"):
+            req_on = False
+        if mode == "OFF":
+            req_on = False
+        status_class = "cool" if (req_on and is_cool) else ("heat" if req_on else "off")
+        status_label = "COOL ON" if (req_on and is_cool) else ("HEAT ON" if req_on else "OFF")
+        status_icon = "C" if (req_on and is_cool) else ("H" if req_on else "O")
+
         temp = _fmt_temp(rt.get("TEMP"))
         thr = therm.get("TEMP_THR") if isinstance(therm.get("TEMP_THR"), dict) else {}
         target = _fmt_temp(thr.get("VAL"))
@@ -14264,7 +14271,7 @@ def render_thermostats_page(snapshot):
             pwm_html = ""
             pill_html = ""
         else:
-            pwm = _fmt_pwm(therm.get("PWM"))
+            pwm = pwm_now
             pwm_text = "--" if pwm is None else str(pwm)
             pwm_style = "0%" if pwm is None else f"{pwm}%"
             pwm_opacity = "0.22" if pwm is None else f"{0.22 + (0.78 * pwm / 100):.2f}"
@@ -14592,6 +14599,7 @@ def render_thermostats_page(snapshot):
         const out = String(therm.OUT_STATUS || "").toUpperCase();
         const demand = String(therm.DEMAND_ON || "").toUpperCase();
         const realAction = String(therm.REAL_HVAC_ACTION || "").toUpperCase();
+        const realPowerSwitch = String(therm.REAL_POWER_SWITCH_STATE || "").toUpperCase();
         const pwmRaw = therm.PWM ?? therm.POWER ?? therm.PWM_POWER;
         let pwm = null;
         if (pwmRaw !== null && pwmRaw !== undefined && String(pwmRaw).trim() !== "") {
@@ -14599,10 +14607,12 @@ def render_thermostats_page(snapshot):
           if (Number.isFinite(n)) pwm = Math.max(0, Math.min(100, Math.round(n)));
         }
         let reqOn = out === "ON";
-        if (realAction === "HEATING" || realAction === "COOLING") reqOn = true;
-        else if (realAction === "IDLE" || realAction === "OFF") reqOn = false;
-        else if (demand === "ON") reqOn = true;
+        if (demand === "ON" || (pwm !== null && pwm > 0)) reqOn = true;
+        else if (realPowerSwitch === "ON") reqOn = true;
+        else if (realAction === "HEATING" || realAction === "COOLING") reqOn = true;
         else if (demand === "OFF") reqOn = false;
+        else if (realPowerSwitch === "OFF") reqOn = false;
+        else if (realAction === "IDLE" || realAction === "OFF") reqOn = false;
         if (mode === "OFF") reqOn = false;
         const isCool = season === "SUM";
         const cls = reqOn && isCool ? "cool" : (reqOn ? "heat" : "off");
@@ -14845,16 +14855,20 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
     demand0 = str(therm0.get("DEMAND_ON") or "").upper()
     real_hvac_action0 = str(therm0.get("REAL_HVAC_ACTION") or "").upper()
     real_power_switch0 = str(therm0.get("REAL_POWER_SWITCH_STATE") or "").upper()
+    try:
+        pwm0 = int(round(float(str(therm0.get("PWM")).replace(",", ".")))) if therm0.get("PWM") not in (None, "") else 0
+    except Exception:
+        pwm0 = 0
     req_on0 = out0 == "ON"
-    if real_power_switch0 == "ON":
+    if demand0 == "ON" or pwm0 > 0:
         req_on0 = True
-    elif real_power_switch0 == "OFF":
-        req_on0 = False
-    elif demand0 == "ON":
+    elif real_power_switch0 == "ON":
         req_on0 = True
     elif real_hvac_action0 in ("HEATING", "COOLING"):
         req_on0 = True
     elif demand0 == "OFF":
+        req_on0 = False
+    elif real_power_switch0 == "OFF":
         req_on0 = False
     elif real_hvac_action0 in ("IDLE", "OFF"):
         req_on0 = False
@@ -15545,12 +15559,18 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const demandState = String(demandOn || "").toUpperCase();
         const realAction = String(realHvacAction || "").toUpperCase();
         const realPowerSwitch = String(realPowerSwitchState || "").toUpperCase();
+        const pwmRaw = therm ? (therm.PWM ?? therm.POWER ?? therm.PWM_POWER) : null;
+        let pwmVal = 0;
+        if (pwmRaw !== null && pwmRaw !== undefined && String(pwmRaw).trim() !== "") {
+          const n = Number(String(pwmRaw).replace(",", "."));
+          if (Number.isFinite(n)) pwmVal = Math.max(0, Math.min(100, Math.round(n)));
+        }
         let reqOn = outOn;
-        if (realPowerSwitch === "ON") reqOn = true;
-        else if (realPowerSwitch === "OFF") reqOn = false;
-        else if (demandState === "ON") reqOn = true;
+        if (demandState === "ON" || pwmVal > 0) reqOn = true;
+        else if (realPowerSwitch === "ON") reqOn = true;
         else if (realAction === "HEATING" || realAction === "COOLING") reqOn = true;
         else if (demandState === "OFF") reqOn = false;
+        else if (realPowerSwitch === "OFF") reqOn = false;
         else if (realAction === "IDLE" || realAction === "OFF") reqOn = false;
         if (String(mode || "").toUpperCase() === "OFF") reqOn = false;
         const tempDisp = temp ? fmtDec(temp).replace(".", ",") : "--,-";

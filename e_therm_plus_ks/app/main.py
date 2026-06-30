@@ -2318,7 +2318,6 @@ class ThermEngine:
                 rt = self.rt.setdefault(tid, {})
                 th = rt.setdefault("THERM", {})
                 th["REAL_POWER_SWITCH_STATE"] = real_state
-                th["OUT_STATUS"] = real_state
         except Exception:
             pass
 

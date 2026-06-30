@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.194
+
+- Keep `OUT_STATUS` owned by the virtual thermostat demand/PWM calculation, so `ha_multi_sensor_avg` thermostats do not get forced back to `OFF` by real switch readback.
+- Align thermostat list and detail ON/OFF display: active `DEMAND_ON` or PWM now shows ON/heat before falling back to real switch state.
+
 ## 2.6.193
 
 - Read mapped `real_targets.power_switch` state from Home Assistant and expose it as `REAL_POWER_SWITCH_STATE`.
