@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.189
+
+- Fix vTherm editor real relay mapping for non-split `ha_multi_sensor_avg` thermostats.
+- Save the Heat relay field as flat `real_targets.power_switch` when seasonal split outputs are disabled.
+
 ## 2.6.188
 
 - Metadata-only bump to force a fresh Home Assistant Supervisor store refresh after adding the add-on scoped changelog.

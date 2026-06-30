@@ -17312,8 +17312,13 @@ function saveItem() {
     if (rtPowerLight) realTargets.power_light = rtPowerLight;
     if (rtValveLow) realTargets.valve_switch_low = rtValveLow;
     if (rtValveHot) realTargets.valve_switch_hot = rtValveHot;
-    if (rtHeatPowerSwitch) realTargets.heat = { power_switch: rtHeatPowerSwitch };
-    if (rtCoolPowerSwitch) realTargets.cool = { power_switch: rtCoolPowerSwitch };
+    if (split) {
+      if (rtHeatPowerSwitch) realTargets.heat = { power_switch: rtHeatPowerSwitch };
+      if (rtCoolPowerSwitch) realTargets.cool = { power_switch: rtCoolPowerSwitch };
+    } else {
+      if (rtHeatPowerSwitch) realTargets.power_switch = rtHeatPowerSwitch;
+      else if (rtCoolPowerSwitch) realTargets.power_switch = rtCoolPowerSwitch;
+    }
     const fanSwitches = {};
     if (rtFanMin) fanSwitches.min = rtFanMin;
     if (rtFanMed) fanSwitches.med = rtFanMed;
