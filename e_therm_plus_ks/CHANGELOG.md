@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.193
+
+- Read mapped `real_targets.power_switch` state from Home Assistant and expose it as `REAL_POWER_SWITCH_STATE`.
+- Make the thermostat page follow the real power switch state when available: switch on means ON/orange, switch off means OFF/gray.
+
 ## 2.6.192
 
 - Restore thermostat dial color semantics: gray when there is no heat/cool demand, orange only for active heat demand, blue only for active cool demand.

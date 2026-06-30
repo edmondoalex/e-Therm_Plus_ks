@@ -2295,6 +2295,33 @@ class ThermEngine:
         for ent in self._split_entities(entities):
             self._apply_real_switch(ent, on)
 
+    def _sync_real_power_switch_status(self, t: Dict[str, Any], entities: Any) -> None:
+        states: List[bool] = []
+        for ent in self._split_entities(entities):
+            e = str(ent or "").strip()
+            if not e.startswith("switch."):
+                continue
+            st = self._ha_api_request("GET", f"/states/{e}")
+            if not isinstance(st, dict):
+                continue
+            s = str(st.get("state") or "").strip().lower()
+            if s == "on":
+                states.append(True)
+            elif s == "off":
+                states.append(False)
+        if not states:
+            return
+        real_state = "ON" if any(states) else "OFF"
+        try:
+            tid = str(t.get("id") or "")
+            with self.lock:
+                rt = self.rt.setdefault(tid, {})
+                th = rt.setdefault("THERM", {})
+                th["REAL_POWER_SWITCH_STATE"] = real_state
+                th["OUT_STATUS"] = real_state
+        except Exception:
+            pass
+
     def _apply_real_pwm_light(self, entity_id: str, pwm_value: int) -> None:
         ent = str(entity_id or "").strip()
         if not ent.startswith("light."):
@@ -2338,6 +2365,7 @@ class ThermEngine:
             )
             if power_switch:
                 self._apply_real_switches(power_switch, pwm > 0)
+                self._sync_real_power_switch_status(t, power_switch)
 
         if outputs.get("fan3"):
             fan = desired.get("fan") if isinstance(desired.get("fan"), dict) else {}

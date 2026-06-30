@@ -14844,8 +14844,13 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
     out0 = str(therm0.get("OUT_STATUS") or "").upper()
     demand0 = str(therm0.get("DEMAND_ON") or "").upper()
     real_hvac_action0 = str(therm0.get("REAL_HVAC_ACTION") or "").upper()
+    real_power_switch0 = str(therm0.get("REAL_POWER_SWITCH_STATE") or "").upper()
     req_on0 = out0 == "ON"
-    if demand0 == "ON":
+    if real_power_switch0 == "ON":
+        req_on0 = True
+    elif real_power_switch0 == "OFF":
+        req_on0 = False
+    elif demand0 == "ON":
         req_on0 = True
     elif real_hvac_action0 in ("HEATING", "COOLING"):
         req_on0 = True
@@ -15522,6 +15527,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const demandReason = therm ? String(therm.DEMAND_REASON || "") : "";
         const realHvacState = therm ? String(therm.REAL_HVAC_STATE || "") : "";
         const realHvacAction = therm ? String(therm.REAL_HVAC_ACTION || "") : "";
+        const realPowerSwitchState = therm ? String(therm.REAL_POWER_SWITCH_STATE || "") : "";
         const offCmdResult = therm ? String(therm.OFF_CMD_RESULT || "") : "";
         const bridgeError = therm ? String(therm.BRIDGE_ERROR || "") : "";
         const temp = (rt.TEMP !== undefined && rt.TEMP !== null) ? String(rt.TEMP) : "";
@@ -15538,8 +15544,11 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const outOn = String(out || "").toUpperCase() === "ON";
         const demandState = String(demandOn || "").toUpperCase();
         const realAction = String(realHvacAction || "").toUpperCase();
+        const realPowerSwitch = String(realPowerSwitchState || "").toUpperCase();
         let reqOn = outOn;
-        if (demandState === "ON") reqOn = true;
+        if (realPowerSwitch === "ON") reqOn = true;
+        else if (realPowerSwitch === "OFF") reqOn = false;
+        else if (demandState === "ON") reqOn = true;
         else if (realAction === "HEATING" || realAction === "COOLING") reqOn = true;
         else if (demandState === "OFF") reqOn = false;
         else if (realAction === "IDLE" || realAction === "OFF") reqOn = false;
