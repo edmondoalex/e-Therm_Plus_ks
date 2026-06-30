@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.192
+
+- Restore thermostat dial color semantics: gray when there is no heat/cool demand, orange only for active heat demand, blue only for active cool demand.
+
 ## 2.6.191
 
 - Keep the thermostat dial accented by active season: orange for winter/heat and blue for summer/cool, while the relay badge still shows real ON/OFF demand.

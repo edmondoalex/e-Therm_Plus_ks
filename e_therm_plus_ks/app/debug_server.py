@@ -14865,9 +14865,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
     state_label0 = "OFF" if mode_label0 == "Off" else ("MAN" if mode0 == "MAN" else (mode0 or "MAN"))
     relay_label0 = "COOL ON" if (req_on0 and sea_key0 == "SUM") else ("HEAT ON" if req_on0 else "OFF")
     relay_class0 = " coolOn" if (req_on0 and sea_key0 == "SUM") else (" heatOn" if req_on0 else "")
-    accent0 = "var(--ring-cool)" if sea_key0 == "SUM" else "var(--ring-heat)"
-    if mode_label0 == "Off":
-        accent0 = "var(--ring-off)"
+    accent0 = "var(--ring-cool)" if (req_on0 and sea_key0 == "SUM") else ("var(--ring-heat)" if req_on0 else "var(--ring-off)")
     pin_fg0 = "rgba(0,0,0,0.86)" if req_on0 else "rgba(255,255,255,0.92)"
     temp0 = _fmt_init_temp(rt0.get("TEMP"))
     rh0_raw = rt0.get("RH")
@@ -15376,7 +15374,8 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const fg = document.getElementById("ringFg");
         if (!fg) return;
         const root = document.documentElement;
-        let accent = (season === "SUM") ? "var(--ring-cool)" : "var(--ring-heat)";
+        let accent = "var(--ring-off)";
+        if (outOn) accent = (season === "SUM") ? "var(--ring-cool)" : "var(--ring-heat)";
         fg.style.stroke = accent;
         if (root) {
           root.style.setProperty("--accent", accent);
