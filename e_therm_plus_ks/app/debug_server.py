@@ -15,7 +15,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.186"
+CODE_VERSION = "2.6.187"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -16268,6 +16268,10 @@ def render_vtherm_config_page(snapshot):
           <label>Sonde HA (media, separate da virgola)</label>
           <input id="f_src_sensors" placeholder="Es: sensor.sonda_salone_temp, sensor.sonda_cucina_temp, sensor.sonda_ingresso_temp" />
         </div>
+        <div id="f_src_helper_climate_wrap" style="grid-column: 1 / -1;">
+          <label>Climate helper HA per setpoint/modo (opzionale)</label>
+          <input id="f_src_helper_climate_entity_id" placeholder="Es: climate.giorno" />
+        </div>
         <div id="f_src_min_valid_wrap">
           <label>Min sonde valide</label>
           <input id="f_src_min_valid" placeholder="Es: 2" inputmode="numeric" />
@@ -16594,6 +16598,7 @@ function toggleSourceFields() {
   const entWrap = document.getElementById('f_src_entity_wrap');
   const humWrap = document.getElementById('f_src_humidity_wrap');
   const sensorsWrap = document.getElementById('f_src_sensors_wrap');
+  const helperClimateWrap = document.getElementById('f_src_helper_climate_wrap');
   const minValidWrap = document.getElementById('f_src_min_valid_wrap');
   const staleWrap = document.getElementById('f_src_stale_wrap');
   const rtClimateWrap = document.getElementById('f_rt_climate_wrap');
@@ -16606,6 +16611,7 @@ function toggleSourceFields() {
   if (entWrap) entWrap.style.display = (srcType === 'ha_climate' || srcType === 'ha_sensor') ? '' : 'none';
   if (humWrap) humWrap.style.display = (srcType === 'ha_sensor' || srcType === 'ha_multi_sensor_avg') ? '' : 'none';
   if (sensorsWrap) sensorsWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
+  if (helperClimateWrap) helperClimateWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
   if (minValidWrap) minValidWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
   if (staleWrap) staleWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
   if (rtClimateWrap) rtClimateWrap.style.display = (srcType === 'ha_multi_sensor_avg') ? '' : 'none';
@@ -16644,6 +16650,7 @@ function sanitizeTherm(t) {
   const srcNum = Number(src.num);
   const srcEntityId = String(src.entity_id || '').trim();
   const srcHumidityEntityId = String(src.humidity_entity_id || src.rh_entity_id || '').trim();
+  const srcHelperClimateEntityId = String(src.helper_climate_entity_id || src.climate_entity_id || src.setpoint_climate_entity_id || '').trim();
   const srcSensors = Array.isArray(src.sensors)
     ? src.sensors.map(x => String(x || '').trim()).filter(Boolean)
     : [];
@@ -16676,6 +16683,7 @@ function sanitizeTherm(t) {
       type: 'ha_multi_sensor_avg',
       sensors: srcSensors,
       ...(srcHumidityEntityId ? { humidity_entity_id: srcHumidityEntityId } : {}),
+      ...(srcHelperClimateEntityId ? { helper_climate_entity_id: srcHelperClimateEntityId } : {}),
       ...(Number.isFinite(srcMinValid) && srcMinValid > 0 ? { min_valid_sensors: Math.trunc(srcMinValid) } : {}),
       ...(Number.isFinite(srcStale) && srcStale >= 0 ? { stale_sec: Math.trunc(srcStale) } : {}),
     };
@@ -17043,6 +17051,7 @@ function toggleDisplayOnlyFields() {
     'f_rt_heat_power_switch', 'f_rt_cool_power_switch',
     'f_rt_fan_min_switch', 'f_rt_fan_med_switch', 'f_rt_fan_max_switch',
     'f_auto', 'f_split', 'f_heat_power', 'f_heat_fan3', 'f_cool_power', 'f_cool_fan3',
+    'f_src_helper_climate_entity_id',
     'f_rt_climate_entity', 'f_rt_sync_setpoint', 'f_rt_sync_mode', 'f_rt_sync_preset',
     'f_rt_min_cycle', 'f_rt_adaptive', 'f_rt_delta_base_heat', 'f_rt_delta_base_cool',
     'f_rt_delta_step', 'f_rt_delta_step_sec', 'f_rt_delta_max_heat', 'f_rt_delta_max_cool',
@@ -17067,6 +17076,7 @@ function editItem(idx) {
   document.getElementById('f_src_entity_id').value = String((t.source || {}).entity_id || '');
   document.getElementById('f_src_humidity_entity_id').value = String((t.source || {}).humidity_entity_id || (t.source || {}).rh_entity_id || '');
   document.getElementById('f_src_sensors').value = Array.isArray((t.source || {}).sensors) ? (t.source.sensors || []).join(', ') : '';
+  document.getElementById('f_src_helper_climate_entity_id').value = String((t.source || {}).helper_climate_entity_id || (t.source || {}).climate_entity_id || (t.source || {}).setpoint_climate_entity_id || '');
   document.getElementById('f_src_min_valid').value = String((t.source || {}).min_valid_sensors || '');
   document.getElementById('f_src_stale').value = String((t.source || {}).stale_sec || '');
   const rth = (t.real_thermostat && typeof t.real_thermostat === 'object') ? t.real_thermostat : {};
@@ -17144,6 +17154,7 @@ function addNew() {
   document.getElementById('f_src_entity_id').value = '';
   document.getElementById('f_src_humidity_entity_id').value = '';
   document.getElementById('f_src_sensors').value = '';
+  document.getElementById('f_src_helper_climate_entity_id').value = '';
   document.getElementById('f_src_min_valid').value = '2';
   document.getElementById('f_src_stale').value = '600';
   document.getElementById('f_rt_climate_entity').value = '';
@@ -17208,6 +17219,7 @@ function saveItem() {
   const srcNum = Number(String(document.getElementById('f_src_num').value || '').trim());
   const srcEntityId = String(document.getElementById('f_src_entity_id').value || '').trim();
   const srcHumidityEntityId = String(document.getElementById('f_src_humidity_entity_id').value || '').trim();
+  const srcHelperClimateEntityId = String(document.getElementById('f_src_helper_climate_entity_id').value || '').trim();
   const srcSensorsRaw = String(document.getElementById('f_src_sensors').value || '').trim();
   const srcSensors = srcSensorsRaw
     ? srcSensorsRaw.split(',').map(s => String(s || '').trim()).filter(Boolean)
@@ -17271,6 +17283,9 @@ function saveItem() {
       if (msg) msg.textContent = 'Min sonde valide deve essere tra 1 e numero sonde.'; return;
     }
     if (Number.isFinite(srcStale) && srcStale < 0) { if (msg) msg.textContent = 'stale_sec deve essere >= 0.'; return; }
+    if (srcHelperClimateEntityId && !srcHelperClimateEntityId.startsWith('climate.')) {
+      if (msg) msg.textContent = 'Climate helper deve iniziare con climate.'; return;
+    }
   } else if (srcType === 'virtual') {
     // No external source required.
   } else {
@@ -17348,6 +17363,7 @@ function saveItem() {
       type: 'ha_multi_sensor_avg',
       sensors: srcSensors,
       ...(srcHumidityEntityId ? { humidity_entity_id: srcHumidityEntityId } : {}),
+      ...(srcHelperClimateEntityId ? { helper_climate_entity_id: srcHelperClimateEntityId } : {}),
       ...(Number.isFinite(srcMinValid) ? { min_valid_sensors: Math.trunc(srcMinValid) } : {}),
       ...(Number.isFinite(srcStale) ? { stale_sec: Math.trunc(srcStale) } : {}),
     };

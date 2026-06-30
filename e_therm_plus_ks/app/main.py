@@ -19,7 +19,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.186"
+APP_VERSION = "2.6.187"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -1450,6 +1450,16 @@ class ThermEngine:
             return src_ent
         return ""
 
+    def _ha_helper_climate_entity(self, t: Dict[str, Any]) -> str:
+        src = t.get("source") if isinstance(t.get("source"), dict) else {}
+        ent = str(
+            src.get("helper_climate_entity_id")
+            or src.get("climate_entity_id")
+            or src.get("setpoint_climate_entity_id")
+            or ""
+        ).strip()
+        return ent if ent.startswith("climate.") else ""
+
     def _bool_cfg(self, d: Dict[str, Any], key: str, default: bool) -> bool:
         try:
             v = d.get(key)
@@ -1555,6 +1565,29 @@ class ThermEngine:
                     rh = self._ha_state_humidity(st_h)
 
             th_patch: Dict[str, Any] = {}
+            helper_ent = self._ha_helper_climate_entity(t)
+            if helper_ent:
+                st = self._ha_api_request("GET", f"/states/{helper_ent}")
+                if isinstance(st, dict):
+                    attrs = st.get("attributes") if isinstance(st.get("attributes"), dict) else {}
+                    helper_tgt = _as_float(attrs.get("temperature"))
+                    helper_hvac = str(st.get("state") or "").strip().lower()
+                    helper_preset = str(attrs.get("preset_mode") or "").strip().upper()
+                    helper_action = str(attrs.get("hvac_action") or "").strip().lower()
+                    if helper_tgt is not None:
+                        th_patch["TEMP_THR"] = {"VAL": float(helper_tgt)}
+                    if helper_hvac == "heat":
+                        th_patch["ACT_SEA"] = "WIN"
+                        th_patch["ACT_MODEL"] = helper_preset or "MAN"
+                    elif helper_hvac == "cool":
+                        th_patch["ACT_SEA"] = "SUM"
+                        th_patch["ACT_MODEL"] = helper_preset or "MAN"
+                    elif helper_hvac == "off":
+                        th_patch["ACT_SEA"] = "OFF"
+                        th_patch["ACT_MODEL"] = "OFF"
+                    if helper_action in ("heating", "cooling"):
+                        th_patch["HELPER_HVAC_ACTION"] = str(helper_action).upper()
+                    th_patch["HELPER_CLIMATE"] = helper_ent
             real_ent = self._real_thermostat_entity(t)
             if real_ent:
                 st = self._ha_api_request("GET", f"/states/{real_ent}")
@@ -4245,19 +4278,21 @@ class ThermEngine:
                 num = int(src.get("num"))
             except Exception:
                 return
-        ent = str(src.get("entity_id") or "").strip() if is_ha else self._real_thermostat_entity(t)
+        real_ent = self._real_thermostat_entity(t)
+        helper_ent = self._ha_helper_climate_entity(t)
+        ent = str(src.get("entity_id") or "").strip() if is_ha else (real_ent or helper_ent)
         if (is_ha or is_ha_avg) and not ent:
             return
         rtcfg = self._real_thermostat_cfg(t)
         can_bridge_real_climate = bool(ent) and (is_ha or is_ha_avg or is_ha_sensor or is_virtual)
         adaptive_cfg = rtcfg.get("adaptive_demand_setpoint")
-        adaptive_enabled = True if is_ha_avg else (bool(adaptive_cfg) if adaptive_cfg is not None else False)
+        adaptive_enabled = True if (is_ha_avg and bool(real_ent)) else (bool(adaptive_cfg) if adaptive_cfg is not None else False)
         sync_setp = self._bool_cfg(rtcfg, "sync_setpoint", True)
         sync_mode = self._bool_cfg(rtcfg, "sync_hvac_mode", True)
         sync_preset = self._bool_cfg(rtcfg, "sync_preset_mode", True)
         # In adaptive mode the real thermostat setpoint is driven by demand logic
         # (real ambient +/- delta). Avoid overwriting it with virtual target commands.
-        if adaptive_enabled and is_ha_avg:
+        if adaptive_enabled and is_ha_avg and real_ent:
             sync_setp = False
         name = str(t.get("name") or f"vTherm {tid}")
 

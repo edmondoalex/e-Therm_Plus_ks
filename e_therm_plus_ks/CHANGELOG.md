@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.187
+
+- Add optional `source.helper_climate_entity_id` for `ha_multi_sensor_avg` thermostats.
+- Use the helper climate as Home Assistant setpoint/mode memory while keeping averaged probe temperature as the virtual thermostat temperature.
+- Add the helper climate field to the debug thermostat editor.
+
 ## 2.6.186
 
 - Add add-on changelog for Home Assistant Supervisor update details.

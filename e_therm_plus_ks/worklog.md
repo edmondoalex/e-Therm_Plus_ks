@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-30 - v2.6.187 - Autore: Codex
+- `ha_multi_sensor_avg`: aggiunto `source.helper_climate_entity_id` per usare un climate helper HA come memoria setpoint/modo senza `real_thermostat`.
+- La temperatura corrente resta la media delle sonde configurate; setpoint e modo HVAC possono arrivare dal climate helper.
+- UI debug: aggiunto campo "Climate helper HA per setpoint/modo" nella configurazione media sonde.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-06-30 - v2.6.186 - Autore: Codex
 - Add-on metadata: aggiunto `CHANGELOG.md` per la finestra update di Home Assistant Supervisor.
 - Aggiunto `url` al manifest `config.yaml` e bump versione per forzare un nuovo rilevamento store.

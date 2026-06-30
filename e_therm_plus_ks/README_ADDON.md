@@ -6,7 +6,7 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.186`
+- `config.yaml` -> `version`: `2.6.187`
 
 Ultima modifica
 - Metadata add-on: aggiunto changelog per Supervisor e URL repository nel manifest.
