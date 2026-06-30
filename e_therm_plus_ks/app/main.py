@@ -3236,6 +3236,7 @@ class ThermEngine:
                     th_dbg = rt_dbg.setdefault("THERM", {})
                     demand_s = str(demand or "").upper()
                     th_dbg["DEMAND_ON"] = demand_s
+                    th_dbg["OUT_STATUS"] = "ON" if demand_s == "ON" else "OFF"
                     th_dbg["DEMAND_REASON"] = str(reason or "").upper()
                     if pwm_value is not None:
                         th_dbg["PWM"] = int(max(0, min(100, int(pwm_value))))

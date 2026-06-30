@@ -14845,13 +14845,13 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
     demand0 = str(therm0.get("DEMAND_ON") or "").upper()
     real_hvac_action0 = str(therm0.get("REAL_HVAC_ACTION") or "").upper()
     req_on0 = out0 == "ON"
-    if real_hvac_action0 in ("HEATING", "COOLING"):
+    if demand0 == "ON":
         req_on0 = True
-    elif real_hvac_action0 in ("IDLE", "OFF"):
-        req_on0 = False
-    elif demand0 == "ON":
+    elif real_hvac_action0 in ("HEATING", "COOLING"):
         req_on0 = True
     elif demand0 == "OFF":
+        req_on0 = False
+    elif real_hvac_action0 in ("IDLE", "OFF"):
         req_on0 = False
     if mode0 == "OFF":
         req_on0 = False
@@ -14865,7 +14865,9 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
     state_label0 = "OFF" if mode_label0 == "Off" else ("MAN" if mode0 == "MAN" else (mode0 or "MAN"))
     relay_label0 = "COOL ON" if (req_on0 and sea_key0 == "SUM") else ("HEAT ON" if req_on0 else "OFF")
     relay_class0 = " coolOn" if (req_on0 and sea_key0 == "SUM") else (" heatOn" if req_on0 else "")
-    accent0 = "var(--ring-cool)" if (req_on0 and sea_key0 == "SUM") else ("var(--ring-heat)" if req_on0 else "var(--ring-off)")
+    accent0 = "var(--ring-cool)" if sea_key0 == "SUM" else "var(--ring-heat)"
+    if mode_label0 == "Off":
+        accent0 = "var(--ring-off)"
     pin_fg0 = "rgba(0,0,0,0.86)" if req_on0 else "rgba(255,255,255,0.92)"
     temp0 = _fmt_init_temp(rt0.get("TEMP"))
     rh0_raw = rt0.get("RH")
@@ -15374,8 +15376,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const fg = document.getElementById("ringFg");
         if (!fg) return;
         const root = document.documentElement;
-        let accent = "var(--ring-off)";
-        if (outOn) accent = (season === "SUM") ? "var(--ring-cool)" : "var(--ring-heat)";
+        let accent = (season === "SUM") ? "var(--ring-cool)" : "var(--ring-heat)";
         fg.style.stroke = accent;
         if (root) {
           root.style.setProperty("--accent", accent);
@@ -15539,10 +15540,10 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const demandState = String(demandOn || "").toUpperCase();
         const realAction = String(realHvacAction || "").toUpperCase();
         let reqOn = outOn;
-        if (realAction === "HEATING" || realAction === "COOLING") reqOn = true;
-        else if (realAction === "IDLE" || realAction === "OFF") reqOn = false;
-        else if (demandState === "ON") reqOn = true;
+        if (demandState === "ON") reqOn = true;
+        else if (realAction === "HEATING" || realAction === "COOLING") reqOn = true;
         else if (demandState === "OFF") reqOn = false;
+        else if (realAction === "IDLE" || realAction === "OFF") reqOn = false;
         if (String(mode || "").toUpperCase() === "OFF") reqOn = false;
         const tempDisp = temp ? fmtDec(temp).replace(".", ",") : "--,-";
         const rhDisp = rh ? (String(rh) + "%") : "--%";

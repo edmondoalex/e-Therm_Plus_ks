@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.191
+
+- Keep the thermostat dial accented by active season: orange for winter/heat and blue for summer/cool, while the relay badge still shows real ON/OFF demand.
+- Update `OUT_STATUS` from computed demand so heat requests show `HEAT ON` instead of `OFF` when the virtual thermostat is actively calling for heat.
+- Let computed `DEMAND_ON=ON` take precedence over an idle real HVAC action in the thermostat page display.
+
 ## 2.6.190
 
 - Show flat `real_targets.power_switch` in the Heat relay field when reopening non-split thermostats in the editor.
