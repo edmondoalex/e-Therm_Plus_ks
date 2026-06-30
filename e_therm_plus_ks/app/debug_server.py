@@ -12,10 +12,10 @@ from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-UI_REV = "2026-06-29.C"
+UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.184"
+CODE_VERSION = "2.6.185"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -16277,7 +16277,7 @@ def render_vtherm_config_page(snapshot):
           <input id="f_src_stale" placeholder="Es: 600" inputmode="numeric" />
         </div>
         <div id="f_rt_climate_wrap">
-          <label>Termostato reale (climate, obbligatorio per media sonde)</label>
+          <label>Termostato reale (climate, opzionale per media sonde)</label>
           <input id="f_rt_climate_entity" placeholder="Es: climate.daikin_sala" />
         </div>
         <div id="f_rt_sync_wrap" style="grid-column: 1 / -1;">
@@ -16625,9 +16625,9 @@ function toggleSourceFields() {
     const cP = document.getElementById('f_cool_power');
     const cF = document.getElementById('f_cool_fan3');
     if (split) split.checked = false;
-    if (hP) hP.checked = false;
+    if (hP) hP.checked = true;
     if (hF) hF.checked = false;
-    if (cP) cP.checked = false;
+    if (cP) cP.checked = true;
     if (cF) cF.checked = false;
     setOutputsEnabled(false);
   } else {
@@ -17253,9 +17253,9 @@ function saveItem() {
   const rtFanMax = String(document.getElementById('f_rt_fan_max_switch').value || '').trim();
   const split = displayOnly ? false : ((srcType === 'ha_multi_sensor_avg') ? false : (!!document.getElementById('f_split').checked || !!rtHeatPowerSwitch || !!rtCoolPowerSwitch));
   const autoCtl = displayOnly ? false : !!document.getElementById('f_auto').checked;
-  const hPower = displayOnly ? false : ((srcType === 'ha_multi_sensor_avg') ? false : (!!document.getElementById('f_heat_power').checked || !!rtHeatPowerSwitch));
+  const hPower = displayOnly ? false : ((srcType === 'ha_multi_sensor_avg') ? true : (!!document.getElementById('f_heat_power').checked || !!rtHeatPowerSwitch));
   const hFan3 = displayOnly ? false : ((srcType === 'ha_multi_sensor_avg') ? false : !!document.getElementById('f_heat_fan3').checked);
-  const cPower = displayOnly ? false : ((srcType === 'ha_multi_sensor_avg') ? false : (!!document.getElementById('f_cool_power').checked || !!rtCoolPowerSwitch));
+  const cPower = displayOnly ? false : ((srcType === 'ha_multi_sensor_avg') ? true : (!!document.getElementById('f_cool_power').checked || !!rtCoolPowerSwitch));
   const cFan3 = displayOnly ? false : ((srcType === 'ha_multi_sensor_avg') ? false : !!document.getElementById('f_cool_fan3').checked);
   const msg = document.getElementById('dlgMsg');
 
@@ -17267,7 +17267,6 @@ function saveItem() {
     if (!srcEntityId) { if (msg) msg.textContent = 'Source entity_id obbligatorio (es: sensor.temperatura_sala).'; return; }
   } else if (srcType === 'ha_multi_sensor_avg') {
     if (srcSensors.length < 1) { if (msg) msg.textContent = 'Inserisci almeno una sonda HA.'; return; }
-    if (!displayOnly && !rtClimateEntity) { if (msg) msg.textContent = 'Termostato reale obbligatorio (climate.xxx).'; return; }
     if (Number.isFinite(srcMinValid) && (srcMinValid < 1 || srcMinValid > srcSensors.length)) {
       if (msg) msg.textContent = 'Min sonde valide deve essere tra 1 e numero sonde.'; return;
     }
@@ -17308,7 +17307,7 @@ function saveItem() {
   }
 
   let realThermostat = null;
-  if (!displayOnly && srcType === 'ha_multi_sensor_avg') {
+  if (!displayOnly && srcType === 'ha_multi_sensor_avg' && rtClimateEntity) {
     realThermostat = {
       entity_id: rtClimateEntity,
       sync_setpoint: rtSyncSetpoint,

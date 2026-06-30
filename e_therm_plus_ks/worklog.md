@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-30 - v2.6.185 - Autore: Codex
+- UI vTherm: `ha_multi_sensor_avg` non richiede piu obbligatoriamente un termostato reale `climate.xxx`.
+- Per media sonde, `outputs.power` resta attivo anche senza termostato reale, cosi la richiesta puo comandare gruppi/consensi.
+- `real_thermostat` viene salvato solo se il campo climate reale e compilato.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md.
+
+---
+
 2026-06-29 - v2.6.184 - Autore: Codex
 - Auto PWM: aggiunta opzione `pwm_min_active` con default 15%.
 - Quando la richiesta termica e ON, il PWM calcolato sotto soglia viene portato almeno al minimo operativo; richiesta OFF resta 0%.

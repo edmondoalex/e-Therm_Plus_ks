@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.184`
+- `config.yaml` -> `version`: `2.6.185`
 
 Ultima modifica
-- Auto PWM: aggiunto minimo operativo `pwm_min_active` al 15% quando la richiesta e ON.
+- UI vTherm: media sonde senza termostato reale consentita; usa `power` per comandare gruppi/consensi.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.
