@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.190
+
+- Show flat `real_targets.power_switch` in the Heat relay field when reopening non-split thermostats in the editor.
+
 ## 2.6.189
 
 - Fix vTherm editor real relay mapping for non-split `ha_multi_sensor_avg` thermostats.

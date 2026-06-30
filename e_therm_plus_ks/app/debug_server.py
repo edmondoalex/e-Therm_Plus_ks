@@ -17119,7 +17119,8 @@ function editItem(idx) {
   document.getElementById('f_rt_valve_hot_switch').value = String(rt.valve_switch_hot || rt.valv_switch_hot || rt.valve_switch_alta || '');
   const heatRt = (rt.heat && typeof rt.heat === 'object') ? rt.heat : {};
   const coolRt = (rt.cool && typeof rt.cool === 'object') ? rt.cool : {};
-  document.getElementById('f_rt_heat_power_switch').value = String(heatRt.power_switch || heatRt.relay_switch || '');
+  const flatPowerSwitch = String(rt.power_switch || rt.relay_switch || rt.switch || '');
+  document.getElementById('f_rt_heat_power_switch').value = String(heatRt.power_switch || heatRt.relay_switch || (!split ? flatPowerSwitch : ''));
   document.getElementById('f_rt_cool_power_switch').value = String(coolRt.power_switch || coolRt.relay_switch || '');
   document.getElementById('f_rt_fan_min_switch').value = String(fanSw.min || '');
   document.getElementById('f_rt_fan_med_switch').value = String(fanSw.med || '');
