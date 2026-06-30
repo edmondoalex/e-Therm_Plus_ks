@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.188
+
+- Metadata-only bump to force a fresh Home Assistant Supervisor store refresh after adding the add-on scoped changelog.
+- Keep `CHANGELOG.md` inside the add-on folder next to `config.yaml`.
+
 ## 2.6.187
 
 - Add optional `source.helper_climate_entity_id` for `ha_multi_sensor_avg` thermostats.

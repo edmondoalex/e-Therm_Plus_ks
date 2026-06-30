@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-30 - v2.6.188 - Autore: Codex
+- Metadata-only bump per forzare Home Assistant Supervisor a ricaricare lo store dopo l'aggiunta del changelog nella cartella addon.
+- Confermata struttura addon: `e_therm_plus_ks/config.yaml` e `e_therm_plus_ks/CHANGELOG.md` nella stessa cartella.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-06-30 - v2.6.187 - Autore: Codex
 - `ha_multi_sensor_avg`: aggiunto `source.helper_climate_entity_id` per usare un climate helper HA come memoria setpoint/modo senza `real_thermostat`.
 - La temperatura corrente resta la media delle sonde configurate; setpoint e modo HVAC possono arrivare dal climate helper.
