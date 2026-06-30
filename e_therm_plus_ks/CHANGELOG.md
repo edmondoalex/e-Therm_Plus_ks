@@ -1,0 +1,27 @@
+# Changelog
+
+## 2.6.186
+
+- Add add-on changelog for Home Assistant Supervisor update details.
+- Add repository URL to the add-on manifest.
+- Bump add-on version to force a fresh store update check.
+
+## 2.6.185
+
+- Allow `ha_multi_sensor_avg` virtual thermostats without a real `climate.xxx` thermostat.
+- Keep `outputs.power` active for sensor-average thermostats so demand can drive groups and consensus switches.
+- Save `real_thermostat` only when a real climate entity is configured.
+
+## 2.6.184
+
+- Add `pwm_min_active`, default `15`.
+- Clamp active PWM requests below the minimum to the configured minimum while keeping OFF at `0`.
+
+## 2.6.183
+
+- Add stable spacing between the PWM meter and `COOL ON` / `HEAT ON` status badges.
+
+## 2.6.182
+
+- Show live PWM percentage and visual meter on thermostat cards.
+- Publish `THERM.PWM` into realtime thermostat state.

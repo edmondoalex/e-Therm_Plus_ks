@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-06-30 - v2.6.186 - Autore: Codex
+- Add-on metadata: aggiunto `CHANGELOG.md` per la finestra update di Home Assistant Supervisor.
+- Aggiunto `url` al manifest `config.yaml` e bump versione per forzare un nuovo rilevamento store.
+- File modificati: config.yaml, app/main.py, app/debug_server.py, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-06-30 - v2.6.185 - Autore: Codex
 - UI vTherm: `ha_multi_sensor_avg` non richiede piu obbligatoriamente un termostato reale `climate.xxx`.
 - Per media sonde, `outputs.power` resta attivo anche senza termostato reale, cosi la richiesta puo comandare gruppi/consensi.
