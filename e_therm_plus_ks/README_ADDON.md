@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.196`
+- `config.yaml` -> `version`: `2.6.197`
 
 Ultima modifica
-- Dettaglio termostato: drag setpoint incrementale per evitare salti del cursore sulla giunzione del cerchio.
+- Dettaglio termostato: il setpoint usa un arco da 330 gradi, così minimo e massimo non coincidono più nello stesso punto.
 - MQTT: ignorati in silenzio i comandi retained vuoti sui topic `/set`.
 
 Regole

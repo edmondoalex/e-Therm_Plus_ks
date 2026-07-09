@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.197
+
+- Map the thermostat setpoint knob over a 330 degree dial arc instead of a full 360 degree circle, so minimum and maximum setpoints no longer share the same screen position.
+- Apply the same arc mapping to current-temperature tick placement and drag calculations, reducing jumps across thermostats with different temperature ranges.
+
 ## 2.6.196
 
 - Make thermostat dial dragging incremental from the previous pointer position, preventing jumps when the pointer crosses the circular range seam.

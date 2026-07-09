@@ -15,7 +15,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.196"
+CODE_VERSION = "2.6.197"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -15801,6 +15801,8 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
       const knob = document.getElementById("knob");
       const knobVal = document.getElementById("knobVal");
       const ringTick = document.getElementById("ringTick");
+      const DIAL_START_DEG = 15;
+      const DIAL_SWEEP_DEG = 330;
       let dialDragging = false;
       let dialValue = null;
       let dialGrabOffsetDeg = 0;
@@ -15817,6 +15819,12 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         if (d > 180) d -= 360;
         if (d < -180) d += 360;
         return d;
+      }
+      function clampValue(val) {
+        const b = tempBounds();
+        const n = Number(val);
+        if (!Number.isFinite(n)) return b.min;
+        return Math.max(b.min, Math.min(b.max, n));
       }
 
       function pointerDegFromEvent(ev) {
@@ -15835,7 +15843,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
 
       function valueToDeg(val) {
         const b = tempBounds();
-        return clamp01((Number(val) - b.min) / b.span) * 360;
+        return DIAL_START_DEG + clamp01((Number(val) - b.min) / b.span) * DIAL_SWEEP_DEG;
       }
 
       function knobDegFromValue(val) {
@@ -15843,17 +15851,22 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
       }
 
       function valueFromDeg(degFromTop) {
-        const pct = clamp01(normDeg(degFromTop) / 360);
+        const rel = normDeg(degFromTop - DIAL_START_DEG);
+        let pct = 0;
+        if (rel <= DIAL_SWEEP_DEG) {
+          pct = clamp01(rel / DIAL_SWEEP_DEG);
+        } else {
+          const distToMax = rel - DIAL_SWEEP_DEG;
+          const distToMin = 360 - rel;
+          pct = (distToMax <= distToMin) ? 1 : 0;
+        }
         const b = tempBounds();
         return round05(b.min + pct * b.span);
       }
 
       function dialValueFromEvent(ev) {
         const degFromTop = normDeg(pointerDegFromEvent(ev) - dialGrabOffsetDeg);
-        const pct = clamp01(degFromTop / 360);
-        const b = tempBounds();
-        const val = b.min + pct * b.span;
-        return round05(val);
+        return valueFromDeg(degFromTop);
       }
 
       function dialValueFromPointerDelta(ev) {
@@ -15865,8 +15878,8 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const deltaDeg = signedDegDelta(dialLastPointerDeg, curDeg);
         dialLastPointerDeg = curDeg;
         const b = tempBounds();
-        const next = Number(dialValue) + (deltaDeg / 360) * b.span;
-        return round05(Math.max(b.min, Math.min(b.max, next)));
+        const next = Number(dialValue) + (deltaDeg / DIAL_SWEEP_DEG) * b.span;
+        return round05(clampValue(next));
       }
 
       function dialSetKnob(val) {
@@ -15875,8 +15888,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const cx = rect.width / 2;
         const cy = rect.height / 2;
         const b = tempBounds();
-        const pct = clamp01((val - b.min) / b.span);
-        const deg = pct * 360 - 90; // align with rotated ring
+        const deg = valueToDeg(val) - 90; // align with rotated ring
         const rad = deg * Math.PI / 180;
         let ringW = 14;
         try {
@@ -15902,8 +15914,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         if (!Number.isFinite(v)) return;
         const b = tempBounds();
         v = Math.max(b.min, Math.min(b.max, v));
-        const pct = clamp01((v - b.min) / b.span);
-        const deg = pct * 360 - 90;
+        const deg = valueToDeg(v) - 90;
         const rad = deg * Math.PI / 180;
         const radius = Math.max(10, rect.width / 2 - ringW - 14);
         const x = cx + radius * Math.cos(rad);
