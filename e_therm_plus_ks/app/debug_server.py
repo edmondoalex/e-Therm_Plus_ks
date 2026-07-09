@@ -16,7 +16,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.200"
+CODE_VERSION = "2.6.201"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -15151,7 +15151,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
                <circle id="ringFg" cx="100" cy="100" r="84" fill="none" stroke="__INIT_ACCENT__" stroke-width="var(--ring-w)" stroke-linecap="round" stroke-dasharray="__INIT_DASH__"></circle>
              </svg>
              <div class="ringTick" id="ringTick" aria-hidden="true"></div>
-             <div class="knob ready" id="knob" role="slider" tabindex="0" aria-label="Set temperatura" style="left:__INIT_KNOB_LEFT__%;top:__INIT_KNOB_TOP__%">
+             <div class="knob" id="knob" role="slider" tabindex="0" aria-label="Set temperatura" style="left:__INIT_KNOB_LEFT__%;top:__INIT_KNOB_TOP__%">
                <div class="knobPin"><span id="knobVal">__INIT_TARGET__</span></div>
              </div>
             <div class="ringCenter">
@@ -15467,6 +15467,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
           const res = await fetch(apiUrl("/api/entities?type=thermostats&id=" + encodeURIComponent(TH_ID)), { cache: "no-store" });
           if (!res.ok) return;
           snap = await res.json();
+          knobVisibleAllowed = true;
           render();
         } catch (_e) {}
       }
@@ -15773,6 +15774,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
             try {
               const msg = JSON.parse(ev.data);
               if (msg && msg.entities) snap = msg;
+              if (msg && msg.entities) knobVisibleAllowed = true;
               if (msg && msg.type === "update") {
                 if (msg.meta && snap.meta) Object.assign(snap.meta, msg.meta);
                 if (Array.isArray(msg.entities)) {
@@ -15817,6 +15819,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
       let dialValue = null;
       let dialGrabOffsetDeg = 0;
       let dialLastPointerDeg = null;
+      let knobVisibleAllowed = false;
       let lastTargetValue = Number("__INIT_TARGET_NUM__");
       let pendingTarget = null; // { val: number, ts: ms }
       const pendingProfiles = {}; // key: "WIN:T1" -> {val:number, ts:number}
@@ -15900,7 +15903,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const y = 50 + KNOB_RADIUS_PCT * Math.sin(rad);
         knob.style.left = x.toFixed(3) + "%";
         knob.style.top = y.toFixed(3) + "%";
-        knob.classList.add("ready");
+        if (knobVisibleAllowed) knob.classList.add("ready");
       }
 
       function tickSet(val) {
@@ -16065,6 +16068,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
 
       // Start
       startSSE();
+      fetchSnap();
       setInterval(fetchSnap, 5000);
       render();
     </script>

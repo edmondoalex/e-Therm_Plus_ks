@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-09 - v2.6.201 - Autore: Codex
+- Dettaglio termostato: il pomello setpoint resta nascosto durante il primo render embedded e viene mostrato solo dopo il primo snapshot live, evitando il salto quando il range iniziale e quello live differiscono.
+- Avviato un fetch immediato dello snapshot del dettaglio all'apertura, senza attendere il refresh periodico.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-09 - v2.6.200 - Autore: Codex
 - Dettaglio termostato: il pomello setpoint viene renderizzato gia' nella posizione iniziale corretta lato server, evitando il salto appena si apre la pagina.
 - Allineato il calcolo HTML/JavaScript del raggio del pomello in percentuale, cosi' il primo render e il successivo aggiornamento live non si correggono a vicenda.

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.201
+
+- Keep the thermostat setpoint knob hidden during the embedded first render and reveal it only after the first live `/api/entities` or SSE snapshot, preventing visible jumps when initial and live temperature ranges differ.
+- Trigger an immediate detail-page snapshot fetch on open instead of waiting for the periodic refresh.
+
 ## 2.6.200
 
 - Render the thermostat setpoint knob with its initial server-side dial position, avoiding the first-frame jump when opening a thermostat detail page.
