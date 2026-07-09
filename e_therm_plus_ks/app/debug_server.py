@@ -16,7 +16,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.201"
+CODE_VERSION = "2.6.202"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14913,6 +14913,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         },
     }
     init = json.dumps({"entities": [ent0] if isinstance(ent0, dict) else [], "meta": init_meta}, ensure_ascii=False)
+    init_therm_config = json.dumps(therm_cfg0 if isinstance(therm_cfg0, dict) else {}, ensure_ascii=False)
     tid_esc = _html_escape(str(thermostat_id))
 
     tpl = """<!doctype html>
@@ -15303,6 +15304,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
     <script>
       const TH_ID = String("__TID__");
       let snap = __INIT__;
+      const DETAIL_THERM_CONFIG = __INIT_THERM_CONFIG__;
       let sse = null;
 
       function apiRoot() {
@@ -15360,12 +15362,14 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
             if (String((t && t.id) || "") === String(TH_ID)) return t || null;
           }
         } catch (_e) {}
-        return null;
+        return (DETAIL_THERM_CONFIG && typeof DETAIL_THERM_CONFIG === "object") ? DETAIL_THERM_CONFIG : null;
       }
 
       function climateCfg() {
         const t = getThermConfig();
-        const c = (t && t.climate && typeof t.climate === "object") ? t.climate : {};
+        const fallback = (DETAIL_THERM_CONFIG && DETAIL_THERM_CONFIG.climate && typeof DETAIL_THERM_CONFIG.climate === "object")
+          ? DETAIL_THERM_CONFIG.climate : {};
+        const c = (t && t.climate && typeof t.climate === "object") ? t.climate : fallback;
         return c || {};
       }
 
@@ -16080,6 +16084,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         .replace("__TID__", tid_esc)
         .replace("__ADDON_VERSION__", _html_escape(ADDON_VERSION))
         .replace("__INIT__", init)
+        .replace("__INIT_THERM_CONFIG__", init_therm_config)
         .replace("__INIT_ACCENT__", _html_escape(accent0))
         .replace("__INIT_PIN_FG__", _html_escape(pin_fg0))
         .replace("__INIT_DASH__", _html_escape(dash0))

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.202
+
+- Embed the thermostat configuration directly in the detail page JavaScript and use it as the stable fallback for climate min/max bounds, so the setpoint knob cannot fall back to the generic `5-35` range when live snapshots omit config metadata.
+
 ## 2.6.201
 
 - Keep the thermostat setpoint knob hidden during the embedded first render and reveal it only after the first live `/api/entities` or SSE snapshot, preventing visible jumps when initial and live temperature ranges differ.
