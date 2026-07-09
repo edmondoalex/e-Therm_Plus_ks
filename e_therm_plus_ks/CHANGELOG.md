@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.196
+
+- Make thermostat dial dragging incremental from the previous pointer position, preventing jumps when the pointer crosses the circular range seam.
+- Keep the center setpoint label owned by the active drag preview while dragging.
+
 ## 2.6.195
 
 - Stabilize thermostat detail setpoint drag: live SSE updates no longer move the dial knob while the user is dragging it.

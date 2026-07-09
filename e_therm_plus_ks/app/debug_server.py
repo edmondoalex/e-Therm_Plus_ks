@@ -15,7 +15,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.195"
+CODE_VERSION = "2.6.196"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -15597,7 +15597,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const elMode = document.getElementById("valMode");
         if (elSub) elSub.textContent = titleLine;
         if (elTemp) elTemp.textContent = tempDisp;
-        if (elSet) elSet.innerHTML = "Set " + setDisp + "&deg;C";
+        if (elSet && !dialDragging) elSet.innerHTML = "Set " + setDisp + "&deg;C";
         if (elRh) elRh.textContent = "RH " + rhDisp;
         if (elRelay) {
           elRelay.classList.remove("heatOn", "coolOn");
@@ -15804,6 +15804,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
       let dialDragging = false;
       let dialValue = null;
       let dialGrabOffsetDeg = 0;
+      let dialLastPointerDeg = null;
       let lastTargetValue = Number(String("__INIT_TARGET__").replace(",", "."));
       let pendingTarget = null; // { val: number, ts: ms }
       const pendingProfiles = {}; // key: "WIN:T1" -> {val:number, ts:number}
@@ -15811,6 +15812,12 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
       function clamp01(x) { return Math.max(0, Math.min(1, x)); }
       function round05(x) { return Math.round(x * 2) / 2; }
       function normDeg(x) { return (Number(x || 0) % 360 + 360) % 360; }
+      function signedDegDelta(fromDeg, toDeg) {
+        let d = normDeg(toDeg) - normDeg(fromDeg);
+        if (d > 180) d -= 360;
+        if (d < -180) d += 360;
+        return d;
+      }
 
       function pointerDegFromEvent(ev) {
         if (!ringWrap) return 0;
@@ -15847,6 +15854,19 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const b = tempBounds();
         const val = b.min + pct * b.span;
         return round05(val);
+      }
+
+      function dialValueFromPointerDelta(ev) {
+        const curDeg = pointerDegFromEvent(ev);
+        if (dialLastPointerDeg === null || dialValue === null || !Number.isFinite(dialValue)) {
+          dialLastPointerDeg = curDeg;
+          return dialValueFromEvent(ev);
+        }
+        const deltaDeg = signedDegDelta(dialLastPointerDeg, curDeg);
+        dialLastPointerDeg = curDeg;
+        const b = tempBounds();
+        const next = Number(dialValue) + (deltaDeg / 360) * b.span;
+        return round05(Math.max(b.min, Math.min(b.max, next)));
       }
 
       function dialSetKnob(val) {
@@ -15912,6 +15932,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         if (!ringWrap || !knob) return;
         if (ev.currentTarget === knob && ev.stopPropagation) ev.stopPropagation();
         dialDragging = true;
+        dialLastPointerDeg = pointerDegFromEvent(ev);
         knob.classList.add("dragging");
         if (ev.target && ev.target.closest && ev.target.closest("#knob")) {
           const base = Number.isFinite(lastTargetValue) ? lastTargetValue : 20;
@@ -15926,12 +15947,13 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
       }
       function dialPointerMove(ev) {
         if (!dialDragging) return;
-        dialValue = dialValueFromEvent(ev);
+        dialValue = dialValueFromPointerDelta(ev);
         dialPreview(dialValue);
       }
       function dialPointerUp(_ev) {
         if (!dialDragging) return;
         dialDragging = false;
+        dialLastPointerDeg = null;
         if (knob) knob.classList.remove("dragging");
         if (dialValue !== null) dialCommit(dialValue);
       }

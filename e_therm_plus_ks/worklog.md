@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-09 - v2.6.196 - Autore: Codex
+- Dettaglio termostato: il drag del setpoint ora usa delta angolari incrementali tra eventi pointer, evitando salti quando il cursore attraversa la giunzione del cerchio.
+- Durante il drag anche la label centrale del setpoint resta controllata dalla preview locale, non dal render live.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-09 - v2.6.195 - Autore: Codex
 - Dettaglio termostato: durante il drag del setpoint gli update live non riposizionano piu anello e pomello, evitando il saltellamento avanti/indietro.
 - Normalizzato l'angolo di presa del pomello quando si trascina dalla bolla valore.
