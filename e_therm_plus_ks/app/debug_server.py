@@ -15,7 +15,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.188"
+CODE_VERSION = "2.6.195"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -15730,8 +15730,10 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         }
 
         ringSetColor(reqOn, seaKey);
-        ringSetValue(Number.isFinite(effTarget) ? String(effTarget.toFixed(1)) : (target ? fmtDec(target) : "20"));
-        dialSetKnob(Number.isFinite(effTarget) ? effTarget : (target ? Number(fmtDec(target)) : 20));
+        if (!dialDragging) {
+          ringSetValue(Number.isFinite(effTarget) ? String(effTarget.toFixed(1)) : (target ? fmtDec(target) : "20"));
+          dialSetKnob(Number.isFinite(effTarget) ? effTarget : (target ? Number(fmtDec(target)) : 20));
+        }
         if (temp) tickSet(Number(fmtDec(temp)));
 
         const chipTemp = document.getElementById("chipTemp");
@@ -15829,6 +15831,10 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         return clamp01((Number(val) - b.min) / b.span) * 360;
       }
 
+      function knobDegFromValue(val) {
+        return normDeg(valueToDeg(val));
+      }
+
       function valueFromDeg(degFromTop) {
         const pct = clamp01(normDeg(degFromTop) / 360);
         const b = tempBounds();
@@ -15909,7 +15915,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         knob.classList.add("dragging");
         if (ev.target && ev.target.closest && ev.target.closest("#knob")) {
           const base = Number.isFinite(lastTargetValue) ? lastTargetValue : 20;
-          dialGrabOffsetDeg = normDeg(pointerDegFromEvent(ev) - valueToDeg(base));
+          dialGrabOffsetDeg = normDeg(pointerDegFromEvent(ev) - knobDegFromValue(base));
           dialValue = round05(base);
         } else {
           dialGrabOffsetDeg = 0;

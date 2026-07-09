@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.195
+
+- Stabilize thermostat detail setpoint drag: live SSE updates no longer move the dial knob while the user is dragging it.
+- Normalize knob grab angle so dragging from the bubble does not jump across the circular range boundary.
+- Ignore empty retained `/set` MQTT command cleanup messages without logging a warning.
+
 ## 2.6.194
 
 - Keep `OUT_STATUS` owned by the virtual thermostat demand/PWM calculation, so `ha_multi_sensor_avg` thermostats do not get forced back to `OFF` by real switch readback.

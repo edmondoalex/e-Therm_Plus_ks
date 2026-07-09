@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-09 - v2.6.195 - Autore: Codex
+- Dettaglio termostato: durante il drag del setpoint gli update live non riposizionano piu anello e pomello, evitando il saltellamento avanti/indietro.
+- Normalizzato l'angolo di presa del pomello quando si trascina dalla bolla valore.
+- MQTT: i retained command vuoti sui topic `/set` vengono ignorati senza warning.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-06-30 - v2.6.188 - Autore: Codex
 - Metadata-only bump per forzare Home Assistant Supervisor a ricaricare lo store dopo l'aggiunta del changelog nella cartella addon.
 - Confermata struttura addon: `e_therm_plus_ks/config.yaml` e `e_therm_plus_ks/CHANGELOG.md` nella stessa cartella.

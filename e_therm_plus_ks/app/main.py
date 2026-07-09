@@ -19,7 +19,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.188"
+APP_VERSION = "2.6.195"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -4793,6 +4793,8 @@ class ThermEngine:
             # which looks like "auto control blocked" for auto_override_sec seconds.
             try:
                 if bool(getattr(msg, "retain", False)) and topic.endswith("/set"):
+                    if payload_raw == "":
+                        return
                     print(f"[WARN] Ignoring retained command on {topic}")
                     return
             except Exception:
@@ -4803,6 +4805,8 @@ class ThermEngine:
         if topic.startswith(f"{self.out_prefix}/valv") or topic.startswith(f"{self.out_prefix}/valv_hot") or topic.startswith(f"{self.out_prefix}/valv_low"):
             try:
                 if bool(getattr(msg, "retain", False)) and topic.endswith("/set"):
+                    if payload_raw == "":
+                        return
                     print(f"[WARN] Ignoring retained command on {topic}")
                     return
             except Exception:

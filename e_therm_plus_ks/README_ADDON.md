@@ -6,10 +6,11 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.188`
+- `config.yaml` -> `version`: `2.6.195`
 
 Ultima modifica
-- Metadata add-on: aggiunto changelog per Supervisor e URL repository nel manifest.
+- Dettaglio termostato: stabilizzato il drag del setpoint per evitare saltellamenti durante gli update live.
+- MQTT: ignorati in silenzio i comandi retained vuoti sui topic `/set`.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.
