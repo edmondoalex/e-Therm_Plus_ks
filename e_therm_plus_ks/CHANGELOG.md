@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.200
+
+- Render the thermostat setpoint knob with its initial server-side dial position, avoiding the first-frame jump when opening a thermostat detail page.
+- Use the same percentage-based dial radius in HTML and JavaScript so the initial render and live updates do not reposition the knob.
+
 ## 2.6.199
 
 - Use a numeric-only initial setpoint value for JavaScript knob positioning instead of reusing the localized display string.

@@ -1,6 +1,7 @@
 ﻿import os
 import base64
 import hashlib
+import math
 import re
 from pathlib import Path
 import json
@@ -15,7 +16,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.199"
+CODE_VERSION = "2.6.200"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14896,6 +14897,13 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
     pct0 = max(0.01, min(0.999, (target0_num - float(min0)) / (float(max0) - float(min0))))
     circ0 = 527.79
     dash0 = f"{(pct0 * circ0):.2f} {((1 - pct0) * circ0):.2f}"
+    dial_start0 = 15.0
+    dial_sweep0 = 330.0
+    knob_deg0 = dial_start0 + pct0 * dial_sweep0 - 90.0
+    knob_rad0 = math.radians(knob_deg0)
+    knob_radius_pct0 = 48.2
+    knob_left0 = 50.0 + knob_radius_pct0 * math.cos(knob_rad0)
+    knob_top0 = 50.0 + knob_radius_pct0 * math.sin(knob_rad0)
 
     init_meta = {
         "last_update": (snapshot.get("meta") or {}).get("last_update"),
@@ -15143,7 +15151,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
                <circle id="ringFg" cx="100" cy="100" r="84" fill="none" stroke="__INIT_ACCENT__" stroke-width="var(--ring-w)" stroke-linecap="round" stroke-dasharray="__INIT_DASH__"></circle>
              </svg>
              <div class="ringTick" id="ringTick" aria-hidden="true"></div>
-             <div class="knob" id="knob" role="slider" tabindex="0" aria-label="Set temperatura">
+             <div class="knob ready" id="knob" role="slider" tabindex="0" aria-label="Set temperatura" style="left:__INIT_KNOB_LEFT__%;top:__INIT_KNOB_TOP__%">
                <div class="knobPin"><span id="knobVal">__INIT_TARGET__</span></div>
              </div>
             <div class="ringCenter">
@@ -15804,6 +15812,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
       const ringTick = document.getElementById("ringTick");
       const DIAL_START_DEG = 15;
       const DIAL_SWEEP_DEG = 330;
+      const KNOB_RADIUS_PCT = 48.2;
       let dialDragging = false;
       let dialValue = null;
       let dialGrabOffsetDeg = 0;
@@ -15885,21 +15894,12 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
 
       function dialSetKnob(val) {
         if (!ringWrap || !knob) return;
-        const rect = ringWrap.getBoundingClientRect();
-        const cx = rect.width / 2;
-        const cy = rect.height / 2;
-        const b = tempBounds();
         const deg = valueToDeg(val) - 90; // align with rotated ring
         const rad = deg * Math.PI / 180;
-        let ringW = 14;
-        try {
-          ringW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--ring-w")) || ringW;
-        } catch (_e) {}
-        const radius = Math.max(10, rect.width / 2 - (ringW / 2));
-        const x = cx + radius * Math.cos(rad);
-        const y = cy + radius * Math.sin(rad);
-        knob.style.left = String(x) + "px";
-        knob.style.top = String(y) + "px";
+        const x = 50 + KNOB_RADIUS_PCT * Math.cos(rad);
+        const y = 50 + KNOB_RADIUS_PCT * Math.sin(rad);
+        knob.style.left = x.toFixed(3) + "%";
+        knob.style.top = y.toFixed(3) + "%";
         knob.classList.add("ready");
       }
 
@@ -16083,6 +16083,8 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         .replace("__INIT_TEMP__", _html_escape(temp0))
         .replace("__INIT_TARGET__", _html_escape(target0))
         .replace("__INIT_TARGET_NUM__", _html_escape(f"{float(target0_num):.1f}"))
+        .replace("__INIT_KNOB_LEFT__", _html_escape(f"{knob_left0:.3f}"))
+        .replace("__INIT_KNOB_TOP__", _html_escape(f"{knob_top0:.3f}"))
         .replace("__INIT_RH__", _html_escape(rh0))
         .replace("__INIT_RELAY_CLASS__", relay_class0)
         .replace("__INIT_RELAY__", _html_escape(relay_label0))
