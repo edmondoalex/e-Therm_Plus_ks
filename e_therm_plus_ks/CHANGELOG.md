@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.199
+
+- Use a numeric-only initial setpoint value for JavaScript knob positioning instead of reusing the localized display string.
+- Position the thermostat setpoint knob immediately after wiring the ring, before the full live render pass.
+
 ## 2.6.198
 
 - Hide the thermostat setpoint knob until JavaScript has positioned it from the current value, preventing the visible jump from its default DOM position.

@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.198`
+- `config.yaml` -> `version`: `2.6.199`
 
 Ultima modifica
-- Dettaglio termostato: il pomello setpoint resta nascosto fino al primo posizionamento JS corretto.
+- Dettaglio termostato: inizializzazione numerica separata per posizionare subito il pomello setpoint.
 - MQTT: ignorati in silenzio i comandi retained vuoti sui topic `/set`.
 
 Regole

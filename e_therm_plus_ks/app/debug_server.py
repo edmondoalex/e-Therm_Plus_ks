@@ -15,7 +15,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.198"
+CODE_VERSION = "2.6.199"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -15808,7 +15808,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
       let dialValue = null;
       let dialGrabOffsetDeg = 0;
       let dialLastPointerDeg = null;
-      let lastTargetValue = Number(String("__INIT_TARGET__").replace(",", "."));
+      let lastTargetValue = Number("__INIT_TARGET_NUM__");
       let pendingTarget = null; // { val: number, ts: ms }
       const pendingProfiles = {}; // key: "WIN:T1" -> {val:number, ts:number}
 
@@ -15977,6 +15977,9 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         ringWrap.addEventListener("pointerup", dialPointerUp);
         ringWrap.addEventListener("pointercancel", dialPointerUp);
       }
+      if (Number.isFinite(lastTargetValue)) {
+        dialSetKnob(lastTargetValue);
+      }
 
       wireBtn("btnSeason", () => {
         const ent = getTherm();
@@ -16079,6 +16082,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         .replace("__INIT_MODE__", _html_escape(f"{mode_label0} | {state_label0}"))
         .replace("__INIT_TEMP__", _html_escape(temp0))
         .replace("__INIT_TARGET__", _html_escape(target0))
+        .replace("__INIT_TARGET_NUM__", _html_escape(f"{float(target0_num):.1f}"))
         .replace("__INIT_RH__", _html_escape(rh0))
         .replace("__INIT_RELAY_CLASS__", relay_class0)
         .replace("__INIT_RELAY__", _html_escape(relay_label0))
