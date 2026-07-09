@@ -15,7 +15,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.197"
+CODE_VERSION = "2.6.198"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14992,7 +14992,8 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
       .btnRow, .roundBtn, .side, .sideCard, .sideHead, .sideBody, .actionBtn, .aLeft, .aTxt, .aName, .aVal { display:none; }
       .ico { width: 56px; height: 56px; border-radius: 999px; display:flex; align-items:center; justify-content:center; border: 1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.18); color: rgba(255,255,255,0.86); }
 
-      .knob { position:absolute; width: var(--ring-w); height: var(--ring-w); border-radius: 999px; border: 2px solid rgba(255,255,255,0.88); background: rgba(0,0,0,0.55); box-shadow: 0 10px 30px rgba(0,0,0,0.55); transform: translate(-50%, -50%); cursor: pointer; }
+      .knob { position:absolute; left:50%; top:50%; width: var(--ring-w); height: var(--ring-w); border-radius: 999px; border: 2px solid rgba(255,255,255,0.88); background: rgba(0,0,0,0.55); box-shadow: 0 10px 30px rgba(0,0,0,0.55); transform: translate(-50%, -50%); cursor: pointer; opacity:0; }
+      .knob.ready { opacity:1; }
       .knobPin {
          position:absolute;
          left:50%;
@@ -15899,6 +15900,7 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         const y = cy + radius * Math.sin(rad);
         knob.style.left = String(x) + "px";
         knob.style.top = String(y) + "px";
+        knob.classList.add("ready");
       }
 
       function tickSet(val) {
@@ -15974,9 +15976,6 @@ def render_thermostat_detail(snapshot, thermostat_id: str):
         ringWrap.addEventListener("pointermove", dialPointerMove);
         ringWrap.addEventListener("pointerup", dialPointerUp);
         ringWrap.addEventListener("pointercancel", dialPointerUp);
-      }
-      if (knob) {
-        knob.addEventListener("pointerdown", dialPointerDown);
       }
 
       wireBtn("btnSeason", () => {

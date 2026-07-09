@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-09 - v2.6.198 - Autore: Codex
+- Dettaglio termostato: il pomello setpoint nasce nascosto e diventa visibile solo dopo `dialSetKnob`, evitando il salto dalla posizione DOM iniziale alla posizione calcolata.
+- Rimosso il listener `pointerdown` duplicato sul pomello: il wrapper del ring gestisce da solo capture e drag.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-09 - v2.6.197 - Autore: Codex
 - Dettaglio termostato: il cursore setpoint ora usa un arco utile da 330 gradi invece del cerchio completo, evitando che fondo scala minimo e massimo coincidano nello stesso punto.
 - Allineati anche tick temperatura e calcolo drag al nuovo arco, utile per termostati con range diversi come 5-35 e 0-50.

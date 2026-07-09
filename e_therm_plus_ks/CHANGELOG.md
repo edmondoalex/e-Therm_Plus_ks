@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.198
+
+- Hide the thermostat setpoint knob until JavaScript has positioned it from the current value, preventing the visible jump from its default DOM position.
+- Remove the duplicate knob `pointerdown` listener and let the ring wrapper handle pointer capture consistently.
+
 ## 2.6.197
 
 - Map the thermostat setpoint knob over a 330 degree dial arc instead of a full 360 degree circle, so minimum and maximum setpoints no longer share the same screen position.

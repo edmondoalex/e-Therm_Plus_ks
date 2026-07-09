@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.197`
+- `config.yaml` -> `version`: `2.6.198`
 
 Ultima modifica
-- Dettaglio termostato: il setpoint usa un arco da 330 gradi, così minimo e massimo non coincidono più nello stesso punto.
+- Dettaglio termostato: il pomello setpoint resta nascosto fino al primo posizionamento JS corretto.
 - MQTT: ignorati in silenzio i comandi retained vuoti sui topic `/set`.
 
 Regole
