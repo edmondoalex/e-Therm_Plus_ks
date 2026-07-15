@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.207
+
+- Remove the back-arrow buttons from the `Termostati Guest` room list and room detail pages.
+
 ## 2.6.206
 
 - Add manual guest assignment fields to the vTherm thermostat editor: `guest_enabled` and `guest_room`.

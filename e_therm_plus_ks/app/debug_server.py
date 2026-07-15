@@ -16,7 +16,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.206"
+CODE_VERSION = "2.6.207"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14297,7 +14297,6 @@ def render_guest_thermostats_index(snapshot):
     body { margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg); background:radial-gradient(circle at 50% 100%,#252c38 0,#080b11 48%,#030507 100%); }
     .wrap { max-width:900px; margin:0 auto; padding:42px 18px 56px; }
     .top { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
-    .back { width:42px; height:42px; display:grid; place-items:center; border:1px solid var(--border); border-radius:12px; color:var(--fg); text-decoration:none; background:rgba(0,0,0,.18); }
     h1 { margin:0; font-size:24px; }
     .badge { color:var(--muted); font-size:13px; }
     .list { display:flex; flex-direction:column; gap:12px; }
@@ -14312,7 +14311,7 @@ def render_guest_thermostats_index(snapshot):
 </head>
 <body>
   <main class="wrap">
-    <div class="top"><a class="back" href="/index_debug" aria-label="Indietro">‹</a><div><h1>Termostati Guest</h1><div class="badge">Suite e camere · v __ADDON_VERSION__</div></div></div>
+    <div class="top"><div><h1>Termostati Guest</h1><div class="badge">Suite e camere · v __ADDON_VERSION__</div></div></div>
     <div class="list">__ROOMS__</div>
   </main>
 </body>
@@ -14391,7 +14390,6 @@ def render_guest_thermostats_room(snapshot, room_slug):
     body { margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg); background:radial-gradient(circle at 50% 100%,#252c38 0,#080b11 48%,#030507 100%); }
     .wrap { max-width:900px; margin:0 auto; padding:42px 18px 56px; }
     .top { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
-    .back { width:42px; height:42px; display:grid; place-items:center; border:1px solid var(--border); border-radius:12px; color:var(--fg); text-decoration:none; background:rgba(0,0,0,.18); }
     h1 { margin:0; font-size:24px; }
     .badge { color:var(--muted); font-size:13px; }
     .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; }
@@ -14411,7 +14409,7 @@ def render_guest_thermostats_room(snapshot, room_slug):
 </head>
 <body>
   <main class="wrap">
-    <div class="top"><a class="back" href="/thermostats_guest" aria-label="Indietro">‹</a><div><h1>__ROOM__</h1><div class="badge">Controllo guest</div></div></div>
+    <div class="top"><div><h1>__ROOM__</h1><div class="badge">Controllo guest</div></div></div>
     <div class="grid">__CARDS__</div>
   </main>
   <script>
