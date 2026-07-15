@@ -17,7 +17,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.213"
+CODE_VERSION = "2.6.214"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14160,6 +14160,28 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(400, "text/plain; charset=utf-8", b"invalid json")
             return
         try:
+            if isinstance(payload, dict) and (
+                str(payload.get("source") or "").strip().lower() == "guest"
+                or str(payload.get("origin") or "").strip().lower() == "guest"
+                or bool(payload.get("guest"))
+            ):
+                forwarded = str(self.headers.get("X-Forwarded-For") or "").strip()
+                remote_ip = forwarded.split(",", 1)[0].strip() if forwarded else ""
+                if not remote_ip:
+                    remote_ip = str((self.client_address or [""])[0] or "")
+                client = payload.get("client") if isinstance(payload.get("client"), dict) else {}
+                client.update(
+                    {
+                        "ip": remote_ip,
+                        "user_agent": str(self.headers.get("User-Agent") or ""),
+                        "referer": str(self.headers.get("Referer") or ""),
+                        "host": str(self.headers.get("Host") or ""),
+                    }
+                )
+                payload["client"] = client
+        except Exception:
+            pass
+        try:
             result = command_fn(payload)
             # Back-compat: allow handlers to return bool (success/failure) or dict.
             if result is None:
@@ -14556,6 +14578,7 @@ def render_guest_thermostats_room(snapshot, room_slug):
   </main>
   <script>
     const therms = __THERMS__;
+    const guestRoomName = __ROOM_JSON__;
     const allowedIds = new Set(therms.map(t => String(t.id)));
     function apiRoot() {
       const p = String(window.location && window.location.pathname ? window.location.pathname : "");
@@ -14670,7 +14693,7 @@ def render_guest_thermostats_room(snapshot, room_slug):
       }
     }
     async function sendTarget(id, val) {
-      const res = await fetch(apiUrl("/api/cmd"), { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({type:"thermostats", id:Number(id), action:"set_target", value:String(Number(val).toFixed(1))}) });
+      const res = await fetch(apiUrl("/api/cmd"), { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({type:"thermostats", id:Number(id), action:"set_target", value:String(Number(val).toFixed(1)), source:"guest", origin:"guest", guest:true, page:"thermostats_guest", guest_room:guestRoomName}) });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data || data.ok !== true) throw new Error((data && data.error) || String(res.status));
     }
@@ -14704,6 +14727,7 @@ def render_guest_thermostats_room(snapshot, room_slug):
         tpl.replace("__ROOM__", _html_escape(room["name"]))
         .replace("__CARDS__", body)
         .replace("__THERMS__", json.dumps(init, ensure_ascii=False))
+        .replace("__ROOM_JSON__", json.dumps(str(room["name"]), ensure_ascii=False))
     ).encode("utf-8")
 
 

@@ -19,7 +19,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.213"
+APP_VERSION = "2.6.214"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -5600,10 +5600,68 @@ class ThermEngine:
         tid = str(cmd.get("id"))
         action = str(cmd.get("action") or "")
         value = cmd.get("value")
+        is_guest_cmd = (
+            str(cmd.get("source") or "").strip().lower() == "guest"
+            or str(cmd.get("origin") or "").strip().lower() == "guest"
+            or bool(cmd.get("guest"))
+        )
+
+        def _snapshot_therm_info(therm_id: str) -> Dict[str, Any]:
+            info: Dict[str, Any] = {"name": None, "target": None, "source_num": None}
+            try:
+                snap = self.state.snapshot()
+                for ent in snap.get("entities") or []:
+                    if str(ent.get("type") or "").lower() != "thermostats":
+                        continue
+                    if str(ent.get("id")) != str(therm_id):
+                        continue
+                    st = ent.get("static") if isinstance(ent.get("static"), dict) else {}
+                    rt = ent.get("realtime") if isinstance(ent.get("realtime"), dict) else {}
+                    therm = rt.get("THERM") if isinstance(rt.get("THERM"), dict) else {}
+                    thr = therm.get("TEMP_THR") if isinstance(therm.get("TEMP_THR"), dict) else {}
+                    info["name"] = ent.get("name") or st.get("DES")
+                    info["target"] = thr.get("VAL")
+                    try:
+                        info["source_num"] = int(ent.get("source_num") or st.get("NUM") or therm_id)
+                    except Exception:
+                        info["source_num"] = None
+                    break
+            except Exception:
+                pass
+            return info
 
         # Map UI actions to HA clone command handler where possible
         if action == "set_target":
+            old_info = _snapshot_therm_info(tid) if is_guest_cmd else {}
             self._handle_ha_clone_command(tid, "target_temperature", str(value), origin="ui")
+            if is_guest_cmd:
+                try:
+                    client = cmd.get("client") if isinstance(cmd.get("client"), dict) else {}
+                    guest_room = str(cmd.get("guest_room") or "").strip()
+                    ip = str(client.get("ip") or "").strip()
+                    ua = str(client.get("user_agent") or "").strip()
+                    self._log_event(
+                        origin="guest",
+                        tid=tid,
+                        name=old_info.get("name"),
+                        source_num=old_info.get("source_num"),
+                        category="guest",
+                        field="setpoint",
+                        old=old_info.get("target"),
+                        new=value,
+                        msg=(
+                            f"setpoint guest {guest_room}".strip()
+                            + (f" da {ip}" if ip else "")
+                        ),
+                        extra={
+                            "guest_room": guest_room,
+                            "client": client,
+                            "device": ua,
+                            "page": cmd.get("page"),
+                        },
+                    )
+                except Exception:
+                    pass
             return {"ok": True}
         if action == "set_mode":
             v = str(value or "").strip().upper()

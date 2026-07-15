@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-15 - v2.6.214 - Autore: Codex
+- Termostati Guest: tracciate le modifiche setpoint nel log eventi con stanza, termostato, vecchio/nuovo setpoint e dati dispositivo.
+- API comandi: aggiunti metadati client per richieste guest (IP, User-Agent, referer, host).
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-15 - v2.6.213 - Autore: Codex
 - Configurazione vTherm: aggiunto campo globale `Base URL guest locale (per QR)`.
 - QR stanze guest: se configurato, usa `guest_base_url` invece dell'host corrente del browser.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.214
+
+- Log guest thermostat setpoint changes with room, thermostat id/name, old/new setpoint, client IP, User-Agent, referer, and host.
+
 ## 2.6.213
 
 - Add a global `Base URL guest locale (per QR)` setting in vTherm configuration.
