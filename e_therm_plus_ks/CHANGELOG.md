@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.208
+
+- Show thermostat runtime status badges on guest room cards: `OFF`, `HEAT ON`, or `COOL ON`.
+
 ## 2.6.207
 
 - Remove the back-arrow buttons from the `Termostati Guest` room list and room detail pages.

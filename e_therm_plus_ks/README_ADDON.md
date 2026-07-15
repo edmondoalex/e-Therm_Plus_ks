@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.207`
+- `config.yaml` -> `version`: `2.6.208`
 
 Ultima modifica
-- Termostati Guest: rimosse le frecce indietro dalle pagine guest.
+- Termostati Guest: badge stato `OFF`, `HEAT ON`, `COOL ON` nelle card camera.
 - MQTT: ignorati in silenzio i comandi retained vuoti sui topic `/set`.
 
 Regole

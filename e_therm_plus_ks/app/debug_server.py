@@ -16,7 +16,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.207"
+CODE_VERSION = "2.6.208"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14350,6 +14350,46 @@ def render_guest_thermostats_room(snapshot, room_slug):
             return "--,-"
         return f"{n:.1f}".replace(".", ",")
 
+    def _fmt_pwm(v):
+        try:
+            if v is None or str(v).strip() == "":
+                return None
+            n = int(round(float(str(v).replace(",", "."))))
+            return max(0, min(100, n))
+        except Exception:
+            return None
+
+    def _status(therm):
+        season = str((therm or {}).get("ACT_SEA") or "").upper()
+        mode = str((therm or {}).get("ACT_MODEL") or (therm or {}).get("ACT_MODE") or "").upper()
+        is_cool = season == "SUM"
+        out = str((therm or {}).get("OUT_STATUS") or "").upper()
+        demand = str((therm or {}).get("DEMAND_ON") or (therm or {}).get("DEMAND_STATE") or "").upper()
+        real_hvac_action = str((therm or {}).get("REAL_HVAC_ACTION") or "").upper()
+        real_power_switch = str((therm or {}).get("REAL_POWER_SWITCH_STATE") or "").upper()
+        pwm_now = _fmt_pwm((therm or {}).get("PWM"))
+        req_on = out == "ON"
+        if demand == "ON" or (pwm_now is not None and pwm_now > 0):
+            req_on = True
+        elif real_power_switch == "ON":
+            req_on = True
+        elif real_hvac_action in ("HEATING", "COOLING"):
+            req_on = True
+        elif demand == "OFF":
+            req_on = False
+        elif real_power_switch == "OFF":
+            req_on = False
+        elif real_hvac_action in ("IDLE", "OFF"):
+            req_on = False
+        if mode == "OFF":
+            req_on = False
+        state_class = "cool" if (req_on and is_cool) else ("heat" if req_on else "off")
+        state_label = "COOL ON" if (req_on and is_cool) else ("HEAT ON" if req_on else "OFF")
+        mode_label = "Estate" if is_cool else "Inverno"
+        if season == "OFF" or mode == "OFF":
+            mode_label = "Off"
+        return state_class, state_label, mode_label
+
     cards = []
     init = []
     for item in room["items"]:
@@ -14368,10 +14408,11 @@ def render_guest_thermostats_room(snapshot, room_slug):
         min_allowed = base - offset
         max_allowed = base + offset
         target = max(min_allowed, min(max_allowed, target))
+        status_class, status_label, mode_label = _status(therm)
         init.append({"id": tid, "target": target, "min": min_allowed, "max": max_allowed})
         cards.append(
-            f'<section class="thermCard" data-tid="{_html_escape(tid)}">'
-            f'  <div class="thermTop"><div><div class="thermName">{_html_escape(name)}</div><div class="thermMeta">ID {_html_escape(tid)} · limite ±{_html_escape(_fmt(offset))}°C</div></div><div class="tempNow">{_html_escape(_fmt(rt.get("TEMP")))}°</div></div>'
+            f'<section class="thermCard status-{_html_escape(status_class)}" data-tid="{_html_escape(tid)}">'
+            f'  <div class="thermTop"><div><div class="thermName">{_html_escape(name)}</div><div class="thermMeta">ID {_html_escape(tid)} · limite ±{_html_escape(_fmt(offset))}°C · {_html_escape(mode_label)}</div><div class="statusPill status-{_html_escape(status_class)}"><span class="statusDot"></span>{_html_escape(status_label)}</div></div><div class="tempNow">{_html_escape(_fmt(rt.get("TEMP")))}°</div></div>'
             f'  <div class="setLine"><button class="stepBtn" data-dir="-1">−</button><div class="setBox"><span class="setVal">{_html_escape(_fmt(target))}</span><span>Setpoint</span></div><button class="stepBtn" data-dir="1">+</button></div>'
             f'  <div class="rangeText">Min {_html_escape(_fmt(min_allowed))}°C · Max {_html_escape(_fmt(max_allowed))}°C</div>'
             f'</section>'
@@ -14394,9 +14435,17 @@ def render_guest_thermostats_room(snapshot, room_slug):
     .badge { color:var(--muted); font-size:13px; }
     .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; }
     .thermCard { padding:18px; border:1px solid var(--border); border-radius:14px; background:linear-gradient(160deg,rgba(89,190,255,.10),var(--card)); }
+    .thermCard.status-heat { border-color:rgba(255,159,28,.40); background:linear-gradient(160deg,rgba(255,159,28,.14),var(--card)); }
+    .thermCard.status-cool { border-color:rgba(89,190,255,.44); background:linear-gradient(160deg,rgba(89,190,255,.16),var(--card)); }
     .thermTop { min-height:58px; display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
     .thermName { font-size:18px; font-weight:850; }
     .thermMeta, .rangeText { color:var(--muted); font-size:13px; margin-top:5px; }
+    .statusPill { width:max-content; margin-top:10px; display:inline-flex; align-items:center; gap:8px; min-height:28px; padding:5px 11px; border:1px solid rgba(255,255,255,.12); border-radius:999px; color:rgba(255,255,255,.82); background:rgba(0,0,0,.22); font-size:12px; font-weight:850; letter-spacing:.4px; }
+    .statusPill.status-heat { color:#ffb44f; border-color:rgba(255,159,28,.34); background:rgba(255,159,28,.10); }
+    .statusPill.status-cool { color:#66c7ff; border-color:rgba(89,190,255,.38); background:rgba(89,190,255,.11); }
+    .statusDot { width:8px; height:8px; border-radius:999px; background:rgba(255,255,255,.35); }
+    .statusPill.status-heat .statusDot { background:#ff9f1c; box-shadow:0 0 14px rgba(255,159,28,.70); }
+    .statusPill.status-cool .statusDot { background:#66c7ff; box-shadow:0 0 14px rgba(102,199,255,.70); }
     .tempNow { color:var(--blue); font-size:24px; font-weight:850; }
     .setLine { display:grid; grid-template-columns:64px 1fr 64px; align-items:center; gap:14px; margin-top:20px; }
     .stepBtn { height:58px; border-radius:14px; border:1px solid rgba(89,190,255,.30); background:rgba(89,190,255,.10); color:var(--fg); font-size:34px; font-weight:700; }
