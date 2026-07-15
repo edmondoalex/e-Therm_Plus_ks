@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.205`
+- `config.yaml` -> `version`: `2.6.206`
 
 Ultima modifica
-- Home principale: voce `Termostati Guest` visibile nel menu.
+- Configurazione vTherm: flag `Guest` e nome stanza guest nella modifica termostato.
 - MQTT: ignorati in silenzio i comandi retained vuoti sui topic `/set`.
 
 Regole

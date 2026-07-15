@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.206
+
+- Add manual guest assignment fields to the vTherm thermostat editor: `guest_enabled` and `guest_room`.
+- Make the guest thermostat page include only manually flagged thermostats instead of automatically including every `SUITE PLAN` thermostat.
+
 ## 2.6.205
 
 - Add the `Termostati Guest` entry to the actual main home menu, linking to the guest room/suite thermostat pages.
