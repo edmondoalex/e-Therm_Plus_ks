@@ -16,7 +16,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.208"
+CODE_VERSION = "2.6.209"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14409,7 +14409,7 @@ def render_guest_thermostats_room(snapshot, room_slug):
         max_allowed = base + offset
         target = max(min_allowed, min(max_allowed, target))
         status_class, status_label, mode_label = _status(therm)
-        init.append({"id": tid, "target": target, "min": min_allowed, "max": max_allowed})
+        init.append({"id": tid, "target": target, "min": min_allowed, "max": max_allowed, "offset": offset})
         cards.append(
             f'<section class="thermCard status-{_html_escape(status_class)}" data-tid="{_html_escape(tid)}">'
             f'  <div class="thermTop"><div><div class="thermName">{_html_escape(name)}</div><div class="thermMeta">ID {_html_escape(tid)} · limite ±{_html_escape(_fmt(offset))}°C · {_html_escape(mode_label)}</div><div class="statusPill status-{_html_escape(status_class)}"><span class="statusDot"></span>{_html_escape(status_label)}</div></div><div class="tempNow">{_html_escape(_fmt(rt.get("TEMP")))}°</div></div>'
@@ -14434,7 +14434,7 @@ def render_guest_thermostats_room(snapshot, room_slug):
     h1 { margin:0; font-size:24px; }
     .badge { color:var(--muted); font-size:13px; }
     .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; }
-    .thermCard { padding:18px; border:1px solid var(--border); border-radius:14px; background:linear-gradient(160deg,rgba(89,190,255,.10),var(--card)); }
+    .thermCard { padding:18px; border:1px solid var(--border); border-radius:14px; background:linear-gradient(160deg,rgba(255,255,255,.04),var(--card)); }
     .thermCard.status-heat { border-color:rgba(255,159,28,.40); background:linear-gradient(160deg,rgba(255,159,28,.14),var(--card)); }
     .thermCard.status-cool { border-color:rgba(89,190,255,.44); background:linear-gradient(160deg,rgba(89,190,255,.16),var(--card)); }
     .thermTop { min-height:58px; display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
@@ -14463,6 +14463,7 @@ def render_guest_thermostats_room(snapshot, room_slug):
   </main>
   <script>
     const therms = __THERMS__;
+    const allowedIds = new Set(therms.map(t => String(t.id)));
     function apiRoot() {
       const p = String(window.location && window.location.pathname ? window.location.pathname : "");
       if (p.startsWith("/api/hassio_ingress/")) {
@@ -14474,6 +14475,107 @@ def render_guest_thermostats_room(snapshot, room_slug):
     function apiUrl(path) { const root = apiRoot(); return root + (String(path || "").startsWith("/") ? path : "/" + path); }
     function fmt(n) { return Number(n).toFixed(1).replace(".", ","); }
     function stateFor(id) { return therms.find(t => String(t.id) === String(id)); }
+    function fmtTemp(v) {
+      try {
+        if (v === null || v === undefined || String(v).trim() === "") return "--,-";
+        const n = Number(String(v).replace(",", "."));
+        return Number.isFinite(n) ? n.toFixed(1).replace(".", ",") : "--,-";
+      } catch (_e) {
+        return "--,-";
+      }
+    }
+    function calcStatus(e) {
+      const rt = e && typeof e.realtime === "object" ? e.realtime : {};
+      const therm = rt && typeof rt.THERM === "object" ? rt.THERM : {};
+      const season = String(therm.ACT_SEA || "").toUpperCase();
+      const mode = String(therm.ACT_MODEL || therm.ACT_MODE || "").toUpperCase();
+      const out = String(therm.OUT_STATUS || "").toUpperCase();
+      const demand = String(therm.DEMAND_ON || therm.DEMAND_STATE || "").toUpperCase();
+      const realAction = String(therm.REAL_HVAC_ACTION || "").toUpperCase();
+      const realPowerSwitch = String(therm.REAL_POWER_SWITCH_STATE || "").toUpperCase();
+      const pwmRaw = therm.PWM ?? therm.POWER ?? therm.PWM_POWER;
+      let pwm = null;
+      if (pwmRaw !== null && pwmRaw !== undefined && String(pwmRaw).trim() !== "") {
+        const n = Number(String(pwmRaw).replace(",", "."));
+        if (Number.isFinite(n)) pwm = Math.max(0, Math.min(100, Math.round(n)));
+      }
+      let reqOn = out === "ON";
+      if (demand === "ON" || (pwm !== null && pwm > 0)) reqOn = true;
+      else if (realPowerSwitch === "ON") reqOn = true;
+      else if (realAction === "HEATING" || realAction === "COOLING") reqOn = true;
+      else if (demand === "OFF") reqOn = false;
+      else if (realPowerSwitch === "OFF") reqOn = false;
+      else if (realAction === "IDLE" || realAction === "OFF") reqOn = false;
+      if (mode === "OFF") reqOn = false;
+      const isCool = season === "SUM";
+      let modeLabel = isCool ? "Estate" : "Inverno";
+      if (season === "OFF" || mode === "OFF") modeLabel = "Off";
+      return {
+        cls: reqOn && isCool ? "cool" : (reqOn ? "heat" : "off"),
+        label: reqOn && isCool ? "COOL ON" : (reqOn ? "HEAT ON" : "OFF"),
+        modeLabel
+      };
+    }
+    function applyEntity(e) {
+      if (!e || !allowedIds.has(String(e.id))) return;
+      const id = String(e.id);
+      const st = stateFor(id);
+      const card = Array.from(document.querySelectorAll(".thermCard[data-tid]")).find(el => String(el.getAttribute("data-tid")) === id);
+      if (!st || !card) return;
+      const rt = e && typeof e.realtime === "object" ? e.realtime : {};
+      const therm = rt && typeof rt.THERM === "object" ? rt.THERM : {};
+      const thr = therm && typeof therm.TEMP_THR === "object" ? therm.TEMP_THR : {};
+      const status = calcStatus(e);
+      card.classList.remove("status-heat", "status-cool", "status-off");
+      card.classList.add("status-" + status.cls);
+      const pill = card.querySelector(".statusPill");
+      if (pill) {
+        pill.classList.remove("status-heat", "status-cool", "status-off");
+        pill.classList.add("status-" + status.cls);
+        pill.innerHTML = '<span class="statusDot"></span>' + status.label;
+      }
+      const tempNow = card.querySelector(".tempNow");
+      if (tempNow) tempNow.textContent = fmtTemp(rt.TEMP) + "°";
+      const meta = card.querySelector(".thermMeta");
+      if (meta) meta.textContent = "ID " + id + " · limite ±" + fmt(st.offset) + "°C · " + status.modeLabel;
+      const targetRaw = thr.VAL;
+      if (targetRaw !== null && targetRaw !== undefined && String(targetRaw).trim() !== "") {
+        const n = Number(String(targetRaw).replace(",", "."));
+        if (Number.isFinite(n)) {
+          st.target = Math.max(st.min, Math.min(st.max, n));
+          const val = card.querySelector(".setVal");
+          if (val) val.textContent = fmt(st.target);
+        }
+      }
+    }
+    function applyEntities(entities) {
+      for (const e of (entities || [])) {
+        if (String(e.type || "").toLowerCase() === "thermostats") applyEntity(e);
+      }
+    }
+    async function fetchEntities() {
+      const res = await fetch(apiUrl("/api/entities?type=thermostats"), { cache: "no-store" });
+      if (!res.ok) throw new Error(String(res.status));
+      const data = await res.json();
+      applyEntities(Array.isArray(data) ? data : (data.entities || []));
+    }
+    function startSSE() {
+      if (typeof EventSource === "undefined") return false;
+      try {
+        const es = new EventSource(apiUrl("/api/stream?type=thermostats"));
+        es.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg && msg.type === "snapshot" && Array.isArray(msg.entities)) applyEntities(msg.entities);
+            else fetchEntities().catch(() => {});
+          } catch (_e) {}
+        };
+        es.onerror = () => { try { es.close(); } catch (_e) {} };
+        return true;
+      } catch (_e) {
+        return false;
+      }
+    }
     async function sendTarget(id, val) {
       const res = await fetch(apiUrl("/api/cmd"), { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({type:"thermostats", id:Number(id), action:"set_target", value:String(Number(val).toFixed(1))}) });
       const data = await res.json().catch(() => null);
@@ -14490,10 +14592,18 @@ def render_guest_thermostats_room(snapshot, room_slug):
           st.target = next;
           const val = card.querySelector(".setVal");
           if (val) val.textContent = fmt(next);
-          try { await sendTarget(id, next); } catch (e) { alert("Errore comando: " + (e && e.message ? e.message : e)); }
+          try {
+            await sendTarget(id, next);
+            setTimeout(() => fetchEntities().catch(() => {}), 500);
+          } catch (e) {
+            alert("Errore comando: " + (e && e.message ? e.message : e));
+          }
         });
       });
     });
+    startSSE();
+    fetchEntities().catch(() => {});
+    setInterval(() => { fetchEntities().catch(() => {}); }, 5000);
   </script>
 </body>
 </html>"""

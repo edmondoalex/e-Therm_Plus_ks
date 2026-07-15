@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.209
+
+- Add live updates to guest thermostat room pages so card color, status, temperature, and setpoint align automatically with real thermostat changes.
+- Use neutral gray cards when off, orange when heating, and blue when cooling.
+
 ## 2.6.208
 
 - Show thermostat runtime status badges on guest room cards: `OFF`, `HEAT ON`, or `COOL ON`.
