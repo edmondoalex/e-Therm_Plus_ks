@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-15 - v2.6.213 - Autore: Codex
+- Configurazione vTherm: aggiunto campo globale `Base URL guest locale (per QR)`.
+- QR stanze guest: se configurato, usa `guest_base_url` invece dell'host corrente del browser.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-15 - v2.6.212 - Autore: Codex
 - Termostati Guest: aggiunta pagina QR per ogni stanza con nome stanza, QR code e link diretto.
 - Lista camere guest: aggiunto pulsante QR accanto a ogni stanza.

@@ -17,7 +17,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.212"
+CODE_VERSION = "2.6.213"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14014,10 +14014,14 @@ class _Handler(BaseHTTPRequestHandler):
             token = path.split("/", 2)[2] if len(path.split("/")) >= 3 else ""
             token = re.sub(r"/qr/?$", "", token)
             snap = self.state.snapshot()
+            cfg = ((snap.get("meta") or {}).get("vtherm_config") or {}) if isinstance(snap, dict) else {}
+            cfg_base = ""
+            if isinstance(cfg, dict):
+                cfg_base = str(cfg.get("guest_base_url") or cfg.get("guest_local_base_url") or "").strip().rstrip("/")
             proto = self.headers.get("X-Forwarded-Proto") or ("https" if str(self.headers.get("X-Forwarded-Ssl") or "").lower() == "on" else "http")
             host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or ""
             route = f"/thermostats_guest/{token}"
-            guest_url = f"{proto}://{host}{ingress_prefix}{route}" if host else f"{ingress_prefix}{route}"
+            guest_url = f"{cfg_base}{route}" if cfg_base else (f"{proto}://{host}{ingress_prefix}{route}" if host else f"{ingress_prefix}{route}")
             self._send(200, "text/html; charset=utf-8", render_guest_thermostats_qr(snap, token, guest_url))
             return
         if path.startswith("/thermostats_guest/"):
@@ -16893,6 +16897,13 @@ def render_vtherm_config_page(snapshot):
           </div>
         </div>
         <div class="msg" id="msg"></div>
+        <div style="margin:12px 0 4px;">
+          <label>Base URL guest locale (per QR)</label>
+          <input id="guest_base_url" placeholder="Es: http://192.168.1.50:21001" />
+          <div class="muted" style="margin-top:6px;">
+            Usato per generare i QR: il QR apre direttamente <code>/thermostats_guest/stanza</code>.
+          </div>
+        </div>
         <details>
           <summary>Editor JSON (avanzato)</summary>
           <div style="margin-top:10px;">
@@ -17177,6 +17188,22 @@ function syncTextarea() {
   const el = document.getElementById('cfg');
   if (!el) return;
   el.value = JSON.stringify(cfg, null, 2);
+}
+
+function renderGuestSettings() {
+  const el = document.getElementById('guest_base_url');
+  if (el) el.value = String(cfg.guest_base_url || cfg.guest_local_base_url || '').trim();
+}
+
+function syncGuestSettingsFromUi() {
+  const el = document.getElementById('guest_base_url');
+  if (!el) return;
+  const value = String(el.value || '').trim();
+  if (value) cfg.guest_base_url = value.replace(new RegExp('/+$'), '');
+  else {
+    delete cfg.guest_base_url;
+    delete cfg.guest_local_base_url;
+  }
 }
 
 function sanitizeGroup(g) {
@@ -18376,6 +18403,7 @@ async function saveCfg(skipTextarea) {
       return;
     }
   }
+  syncGuestSettingsFromUi();
   // Sanitize list
   cfg.thermostats = (cfg.thermostats || []).map(sanitizeTherm);
   ensureGroupsFromTherms();
@@ -18408,6 +18436,7 @@ async function reloadCfg() {
     setMsg('Config ricaricata.');
     renderList();
     renderGroups();
+    renderGuestSettings();
   } catch (e) {
     setMsg('Ricarica fallita: ' + e);
   }
@@ -18415,6 +18444,7 @@ async function reloadCfg() {
 
 renderList();
 renderGroups();
+renderGuestSettings();
 const srcSel = document.getElementById('f_src_type');
 if (srcSel) srcSel.addEventListener('change', toggleSourceFields);
 const displayOnlySel = document.getElementById('f_display_only');

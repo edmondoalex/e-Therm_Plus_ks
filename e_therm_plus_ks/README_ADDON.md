@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.212`
+- `config.yaml` -> `version`: `2.6.213`
 
 Ultima modifica
-- Termostati Guest: pagina QR stanza con nome, QR code e link diretto.
+- Configurazione vTherm: Base URL guest locale usato per generare QR.
 - MQTT: ignorati in silenzio i comandi retained vuoti sui topic `/set`.
 
 Regole

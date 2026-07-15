@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.213
+
+- Add a global `Base URL guest locale (per QR)` setting in vTherm configuration.
+- Guest room QR codes use `guest_base_url` when configured instead of the current browser host.
+
 ## 2.6.212
 
 - Add QR pages for guest thermostat rooms with room name, QR code, and direct guest-room link.
