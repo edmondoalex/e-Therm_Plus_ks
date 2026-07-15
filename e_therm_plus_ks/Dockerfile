@@ -3,5 +3,5 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 COPY app /app
 COPY config.yaml /app/config.yaml
-RUN pip install --no-cache-dir paho-mqtt
+RUN pip install --no-cache-dir paho-mqtt qrcode
 CMD ["python", "main.py"]

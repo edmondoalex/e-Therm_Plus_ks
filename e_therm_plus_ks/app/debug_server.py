@@ -1,5 +1,6 @@
 ﻿import os
 import base64
+import io
 import hashlib
 import math
 import re
@@ -16,7 +17,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.211"
+CODE_VERSION = "2.6.212"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14009,6 +14010,16 @@ class _Handler(BaseHTTPRequestHandler):
             snap = self.state.snapshot()
             self._send(200, "text/html; charset=utf-8", render_guest_thermostats_index(snap))
             return
+        if path.startswith("/thermostats_guest/") and path.rstrip("/").endswith("/qr"):
+            token = path.split("/", 2)[2] if len(path.split("/")) >= 3 else ""
+            token = re.sub(r"/qr/?$", "", token)
+            snap = self.state.snapshot()
+            proto = self.headers.get("X-Forwarded-Proto") or ("https" if str(self.headers.get("X-Forwarded-Ssl") or "").lower() == "on" else "http")
+            host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or ""
+            route = f"/thermostats_guest/{token}"
+            guest_url = f"{proto}://{host}{ingress_prefix}{route}" if host else f"{ingress_prefix}{route}"
+            self._send(200, "text/html; charset=utf-8", render_guest_thermostats_qr(snap, token, guest_url))
+            return
         if path.startswith("/thermostats_guest/"):
             token = path.split("/", 2)[2] if len(path.split("/")) >= 3 else ""
             snap = self.state.snapshot()
@@ -14277,11 +14288,14 @@ def render_guest_thermostats_index(snapshot):
         if temps:
             meta += " · " + " / ".join(temps) + "°C"
         rows.append(
-            f'<a class="roomRow" href="/thermostats_guest/{_html_escape(room["slug"])}">'
-            f'  <span class="roomIcon">G</span>'
-            f'  <span><span class="roomName">{_html_escape(room["name"])}</span><span class="roomMeta">{_html_escape(meta)}</span></span>'
-            f'  <span class="chev">›</span>'
-            f'</a>'
+            f'<div class="roomRow">'
+            f'  <a class="roomMain" href="/thermostats_guest/{_html_escape(room["slug"])}">'
+            f'    <span class="roomIcon">G</span>'
+            f'    <span><span class="roomName">{_html_escape(room["name"])}</span><span class="roomMeta">{_html_escape(meta)}</span></span>'
+            f'    <span class="chev">›</span>'
+            f'  </a>'
+            f'  <a class="qrBtn" href="/thermostats_guest/{_html_escape(room["slug"])}/qr" title="QR code {_html_escape(room["name"])}" aria-label="QR code {_html_escape(room["name"])}">QR</a>'
+            f'</div>'
         )
     body = "".join(rows) if rows else '<div class="empty">Nessuna camera guest configurata.</div>'
     tpl = """<!doctype html>
@@ -14300,12 +14314,16 @@ def render_guest_thermostats_index(snapshot):
     h1 { margin:0; font-size:24px; }
     .badge { color:var(--muted); font-size:13px; }
     .list { display:flex; flex-direction:column; gap:12px; }
-    .roomRow { min-height:76px; display:grid; grid-template-columns:52px 1fr auto; align-items:center; gap:16px; padding:14px 18px; border:1px solid var(--border); border-radius:14px; background:linear-gradient(90deg,rgba(89,190,255,.11),var(--card)); color:var(--fg); text-decoration:none; }
-    .roomRow:hover { border-color:rgba(89,190,255,.38); text-decoration:none; }
+    .roomRow { min-height:76px; display:grid; grid-template-columns:1fr auto; align-items:center; gap:12px; padding:14px 14px 14px 18px; border:1px solid var(--border); border-radius:14px; background:linear-gradient(90deg,rgba(89,190,255,.11),var(--card)); }
+    .roomRow:hover { border-color:rgba(89,190,255,.38); }
+    .roomMain { min-width:0; display:grid; grid-template-columns:52px minmax(0,1fr) auto; align-items:center; gap:16px; color:var(--fg); text-decoration:none; }
+    .roomMain:hover { text-decoration:none; }
     .roomIcon { width:42px; height:42px; border-radius:12px; display:grid; place-items:center; color:var(--blue); background:rgba(89,190,255,.10); border:1px solid rgba(89,190,255,.22); font-weight:900; }
     .roomName { display:block; font-size:19px; font-weight:850; }
     .roomMeta { display:block; margin-top:4px; color:var(--muted); font-size:14px; }
     .chev { color:rgba(255,255,255,.72); font-size:32px; }
+    .qrBtn { width:52px; height:44px; display:grid; place-items:center; border-radius:12px; border:1px solid rgba(89,190,255,.30); color:var(--blue); background:rgba(89,190,255,.10); text-decoration:none; font-weight:900; font-size:13px; }
+    .qrBtn:hover { border-color:rgba(89,190,255,.55); text-decoration:none; }
     .empty { padding:18px; color:var(--muted); border:1px solid var(--border); border-radius:14px; background:var(--card); }
   </style>
 </head>
@@ -14319,6 +14337,72 @@ def render_guest_thermostats_index(snapshot):
     return (
         tpl.replace("__ADDON_VERSION__", _html_escape(ADDON_VERSION))
         .replace("__ROOMS__", body)
+    ).encode("utf-8")
+
+
+def _qr_svg_for_url(url: str) -> str:
+    try:
+        import qrcode
+        from qrcode.image.svg import SvgPathImage
+
+        img = qrcode.make(str(url or ""), image_factory=SvgPathImage, border=2)
+        buf = io.BytesIO()
+        img.save(buf)
+        svg = buf.getvalue().decode("utf-8", errors="replace")
+        return svg
+    except Exception:
+        return (
+            '<div class="qrFallback">'
+            'QR non disponibile: aggiorna l addon alla build con libreria qrcode.'
+            '</div>'
+        )
+
+
+def render_guest_thermostats_qr(snapshot, room_slug, guest_url):
+    rooms = _guest_thermostat_rooms(snapshot)
+    room = next((r for r in rooms if r["slug"] == str(room_slug or "").strip()), None)
+    if room is None:
+        return render_guest_thermostats_index(snapshot)
+    url = str(guest_url or "").strip()
+    qr_svg = _qr_svg_for_url(url)
+    tpl = """<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta http-equiv="Cache-Control" content="no-store, max-age=0"/>
+  <title>QR - __ROOM__</title>
+  <style>
+    :root { --bg:#070a0f; --card:rgba(255,255,255,.06); --border:rgba(255,255,255,.12); --fg:#eef3fb; --muted:#a5afbd; --blue:#59beff; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg); background:radial-gradient(circle at 50% 100%,#252c38 0,#080b11 48%,#030507 100%); display:grid; place-items:center; padding:22px; }
+    .page { width:min(520px,100%); display:grid; gap:18px; justify-items:center; text-align:center; }
+    h1 { margin:0; font-size:30px; line-height:1.12; }
+    .qrBox { width:min(390px,88vw); aspect-ratio:1; display:grid; place-items:center; padding:18px; border:1px solid var(--border); border-radius:18px; background:#fff; }
+    .qrBox svg { width:100%; height:100%; display:block; }
+    .qrBox path { fill:#000; }
+    .guestLink { width:100%; overflow-wrap:anywhere; padding:14px 16px; border:1px solid var(--border); border-radius:14px; background:rgba(0,0,0,.22); color:var(--blue); text-decoration:none; font-weight:750; line-height:1.35; }
+    .guestLink:hover { border-color:rgba(89,190,255,.45); text-decoration:none; }
+    .qrFallback { color:#111; font-weight:800; line-height:1.35; }
+    @media print {
+      body { background:#fff; color:#000; }
+      .guestLink { color:#000; border-color:#ddd; background:#fff; }
+      .qrBox { border-color:#ddd; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <h1>__ROOM__</h1>
+    <div class="qrBox">__QR__</div>
+    <a class="guestLink" href="__URL__">__URL__</a>
+  </main>
+</body>
+</html>"""
+    return (
+        tpl.replace("__ROOM__", _html_escape(room["name"]))
+        .replace("__QR__", qr_svg)
+        .replace("__URL__", _html_escape(url))
     ).encode("utf-8")
 
 

@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-15 - v2.6.212 - Autore: Codex
+- Termostati Guest: aggiunta pagina QR per ogni stanza con nome stanza, QR code e link diretto.
+- Lista camere guest: aggiunto pulsante QR accanto a ogni stanza.
+- Dockerfile: aggiunta dipendenza Python `qrcode`.
+- File modificati: Dockerfile, app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-15 - v2.6.211 - Autore: Codex
 - Configurazione vTherm: aggiunto campo UI `Limite +/- gradi guest` nella modifica termostato.
 - Il valore viene salvato come `guest_setpoint_offset`; default 3 quando il campo e' vuoto.

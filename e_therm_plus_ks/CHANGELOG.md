@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.212
+
+- Add QR pages for guest thermostat rooms with room name, QR code, and direct guest-room link.
+- Add a QR button beside each guest room and install the `qrcode` Python dependency in the addon image.
+
 ## 2.6.211
 
 - Add `Limite +/- gradi guest` to the thermostat editor UI, saved as `guest_setpoint_offset` with default `3`.

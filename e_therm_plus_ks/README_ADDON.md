@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.211`
+- `config.yaml` -> `version`: `2.6.212`
 
 Ultima modifica
-- Configurazione vTherm: campo UI `Limite +/- gradi guest`, default 3.
+- Termostati Guest: pagina QR stanza con nome, QR code e link diretto.
 - MQTT: ignorati in silenzio i comandi retained vuoti sui topic `/set`.
 
 Regole
