@@ -16,7 +16,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.209"
+CODE_VERSION = "2.6.210"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14433,12 +14433,12 @@ def render_guest_thermostats_room(snapshot, room_slug):
     .top { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
     h1 { margin:0; font-size:24px; }
     .badge { color:var(--muted); font-size:13px; }
-    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; }
-    .thermCard { padding:18px; border:1px solid var(--border); border-radius:14px; background:linear-gradient(160deg,rgba(255,255,255,.04),var(--card)); }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; align-items:stretch; }
+    .thermCard { min-height:258px; padding:18px; border:1px solid var(--border); border-radius:14px; background:linear-gradient(160deg,rgba(255,255,255,.04),var(--card)); display:grid; grid-template-rows:96px 78px 24px; row-gap:18px; }
     .thermCard.status-heat { border-color:rgba(255,159,28,.40); background:linear-gradient(160deg,rgba(255,159,28,.14),var(--card)); }
     .thermCard.status-cool { border-color:rgba(89,190,255,.44); background:linear-gradient(160deg,rgba(89,190,255,.16),var(--card)); }
-    .thermTop { min-height:58px; display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
-    .thermName { font-size:18px; font-weight:850; }
+    .thermTop { min-height:96px; display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:14px; }
+    .thermName { min-height:44px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:18px; line-height:22px; font-weight:850; }
     .thermMeta, .rangeText { color:var(--muted); font-size:13px; margin-top:5px; }
     .statusPill { width:max-content; margin-top:10px; display:inline-flex; align-items:center; gap:8px; min-height:28px; padding:5px 11px; border:1px solid rgba(255,255,255,.12); border-radius:999px; color:rgba(255,255,255,.82); background:rgba(0,0,0,.22); font-size:12px; font-weight:850; letter-spacing:.4px; }
     .statusPill.status-heat { color:#ffb44f; border-color:rgba(255,159,28,.34); background:rgba(255,159,28,.10); }
@@ -14446,14 +14446,19 @@ def render_guest_thermostats_room(snapshot, room_slug):
     .statusDot { width:8px; height:8px; border-radius:999px; background:rgba(255,255,255,.35); }
     .statusPill.status-heat .statusDot { background:#ff9f1c; box-shadow:0 0 14px rgba(255,159,28,.70); }
     .statusPill.status-cool .statusDot { background:#66c7ff; box-shadow:0 0 14px rgba(102,199,255,.70); }
-    .tempNow { color:var(--blue); font-size:24px; font-weight:850; }
-    .setLine { display:grid; grid-template-columns:64px 1fr 64px; align-items:center; gap:14px; margin-top:20px; }
-    .stepBtn { height:58px; border-radius:14px; border:1px solid rgba(89,190,255,.30); background:rgba(89,190,255,.10); color:var(--fg); font-size:34px; font-weight:700; }
+    .tempNow { min-width:68px; text-align:right; color:var(--blue); font-size:24px; font-weight:850; }
+    .setLine { display:grid; grid-template-columns:72px minmax(94px,1fr) 72px; align-items:center; gap:16px; margin-top:0; }
+    .stepBtn { width:100%; height:64px; border-radius:14px; border:1px solid rgba(89,190,255,.30); background:rgba(89,190,255,.10); color:var(--fg); font-size:34px; font-weight:700; }
     .stepBtn:active { transform:translateY(1px); }
-    .setBox { min-height:78px; display:grid; place-items:center; align-content:center; border:1px solid rgba(255,255,255,.10); border-radius:14px; background:rgba(0,0,0,.20); }
+    .setBox { height:78px; display:grid; place-items:center; align-content:center; border:1px solid rgba(255,255,255,.10); border-radius:14px; background:rgba(0,0,0,.20); }
     .setVal { font-size:38px; font-weight:850; line-height:1; }
     .setBox span:last-child { margin-top:6px; color:var(--muted); font-size:13px; }
+    .rangeText { align-self:end; min-height:18px; }
     .empty { padding:18px; color:var(--muted); border:1px solid var(--border); border-radius:14px; background:var(--card); }
+    @media (max-width: 720px) {
+      .grid { grid-template-columns:1fr; }
+      .thermCard { min-height:250px; }
+    }
   </style>
 </head>
 <body>

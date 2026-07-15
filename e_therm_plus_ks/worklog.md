@@ -3,6 +3,12 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-15 - v2.6.210 - Autore: Codex
+- Termostati Guest: allineate le card camera con righe interne fisse per header, controlli e range.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-15 - v2.6.209 - Autore: Codex
 - Termostati Guest: pagina camera aggiornata live via SSE/polling per stato, temperatura e setpoint.
 - Le card guest sono grigie se spente, arancio con caldo acceso e celesti con freddo acceso.

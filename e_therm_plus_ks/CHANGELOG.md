@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.210
+
+- Align guest thermostat cards with fixed internal rows so names, temperatures, controls, and ranges line up consistently.
+
 ## 2.6.209
 
 - Add live updates to guest thermostat room pages so card color, status, temperature, and setpoint align automatically with real thermostat changes.

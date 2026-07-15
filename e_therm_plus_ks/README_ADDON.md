@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.209`
+- `config.yaml` -> `version`: `2.6.210`
 
 Ultima modifica
-- Termostati Guest: card live, grigie/off, arancio/caldo, celesti/freddo.
+- Termostati Guest: card camera allineate con righe interne fisse.
 - MQTT: ignorati in silenzio i comandi retained vuoti sui topic `/set`.
 
 Regole
