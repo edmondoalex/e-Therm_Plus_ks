@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.210`
+- `config.yaml` -> `version`: `2.6.211`
 
 Ultima modifica
-- Termostati Guest: card camera allineate con righe interne fisse.
+- Configurazione vTherm: campo UI `Limite +/- gradi guest`, default 3.
 - MQTT: ignorati in silenzio i comandi retained vuoti sui topic `/set`.
 
 Regole

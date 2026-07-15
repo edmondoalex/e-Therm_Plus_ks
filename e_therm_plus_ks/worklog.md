@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-15 - v2.6.211 - Autore: Codex
+- Configurazione vTherm: aggiunto campo UI `Limite +/- gradi guest` nella modifica termostato.
+- Il valore viene salvato come `guest_setpoint_offset`; default 3 quando il campo e' vuoto.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-15 - v2.6.210 - Autore: Codex
 - Termostati Guest: allineate le card camera con righe interne fisse per header, controlli e range.
 - File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.

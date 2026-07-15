@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.211
+
+- Add `Limite +/- gradi guest` to the thermostat editor UI, saved as `guest_setpoint_offset` with default `3`.
+
 ## 2.6.210
 
 - Align guest thermostat cards with fixed internal rows so names, temperatures, controls, and ranges line up consistently.

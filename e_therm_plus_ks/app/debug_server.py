@@ -16,7 +16,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.210"
+CODE_VERSION = "2.6.211"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -16947,6 +16947,10 @@ def render_vtherm_config_page(snapshot):
             <label>Nome stanza guest</label>
             <input id="f_guest_room" placeholder="Es: SUITE 3 Oman" />
           </div>
+          <div style="margin-top:8px;">
+            <label>Limite +/- gradi guest</label>
+            <input id="f_guest_setpoint_offset" placeholder="Default 3" inputmode="decimal" />
+          </div>
         </div>
         <div style="grid-column: 1 / -1;">
           <label>Climate clone: modi e setpoint</label>
@@ -17281,6 +17285,7 @@ function sanitizeTherm(t) {
   const displayOnly = !!(t && (t.display_only || t.view_only || t.read_only));
   const guestEnabled = !!(t && (t.guest_enabled === true || t.guest === true || String(t.guest_enabled || t.guest || '').trim().toLowerCase() === 'true' || String(t.guest_enabled || t.guest || '').trim() === '1'));
   const guestRoom = String((t && (t.guest_room || t.guest_group || t.room || t.camera || t.suite)) || '').trim();
+  const guestOffset = Number(String((t && (t.guest_setpoint_offset ?? t.guest_max_offset)) ?? '').replace(',', '.').trim());
   let sourceObj = { type: 'esafe', num: Number.isFinite(srcNum) ? srcNum : 1 };
   if (srcType === 'ha_climate') {
     sourceObj = { type: 'ha_climate', entity_id: srcEntityId };
@@ -17312,6 +17317,7 @@ function sanitizeTherm(t) {
     auto_control_enabled: displayOnly ? false : autoCtl,
     ...(guestEnabled ? { guest_enabled: true } : {}),
     ...(guestEnabled && guestRoom ? { guest_room: guestRoom } : {}),
+    ...(guestEnabled && Number.isFinite(guestOffset) && guestOffset > 0 ? { guest_setpoint_offset: guestOffset } : {}),
     ...(!displayOnly && profile ? { profile } : {}),
     ...(!displayOnly && consensusGroupHeat ? { consensus_group_heat: consensusGroupHeat } : {}),
     ...(!displayOnly && consensusGroupCool ? { consensus_group_cool: consensusGroupCool } : {}),
@@ -17722,6 +17728,7 @@ function editItem(idx) {
   document.getElementById('f_display_only').checked = !!t.display_only;
   document.getElementById('f_guest_enabled').checked = !!t.guest_enabled;
   document.getElementById('f_guest_room').value = String(t.guest_room || t.guest_group || t.room || t.camera || t.suite || '');
+  document.getElementById('f_guest_setpoint_offset').value = String((t.guest_setpoint_offset ?? t.guest_max_offset ?? 3));
   const clim = (t.climate && typeof t.climate === 'object') ? t.climate : {};
   const climModes = Array.isArray(clim.modes) ? clim.modes.map(m => String(m || '').toLowerCase()) : ['off', 'heat', 'cool'];
   document.getElementById('f_clim_mode_off').checked = climModes.includes('off');
@@ -17802,6 +17809,7 @@ function addNew() {
   document.getElementById('f_display_only').checked = false;
   document.getElementById('f_guest_enabled').checked = false;
   document.getElementById('f_guest_room').value = '';
+  document.getElementById('f_guest_setpoint_offset').value = '3';
   document.getElementById('f_clim_mode_off').checked = true;
   document.getElementById('f_clim_mode_heat').checked = true;
   document.getElementById('f_clim_mode_cool').checked = true;
@@ -17873,6 +17881,8 @@ function saveItem() {
   const displayOnly = !!document.getElementById('f_display_only').checked;
   const guestEnabled = !!document.getElementById('f_guest_enabled').checked;
   const guestRoom = String(document.getElementById('f_guest_room').value || '').trim();
+  const guestSetpointOffsetRaw = String(document.getElementById('f_guest_setpoint_offset').value || '').replace(',', '.').trim();
+  const guestSetpointOffset = guestSetpointOffsetRaw ? Number(guestSetpointOffsetRaw) : 3;
   const climModeOff = !!document.getElementById('f_clim_mode_off').checked;
   const climModeHeat = !!document.getElementById('f_clim_mode_heat').checked;
   const climModeCool = !!document.getElementById('f_clim_mode_cool').checked;
@@ -17925,6 +17935,7 @@ function saveItem() {
     }
   }
   if (guestEnabled && !guestRoom) { if (msg) msg.textContent = 'Nome stanza guest obbligatorio se il flag Guest è attivo.'; return; }
+  if (guestEnabled && (!Number.isFinite(guestSetpointOffset) || guestSetpointOffset <= 0)) { if (msg) msg.textContent = 'Limite +/- gradi guest deve essere maggiore di 0.'; return; }
   const climateModes = [];
   if (climModeOff) climateModes.push('off');
   if (climModeHeat) climateModes.push('heat');
@@ -18007,7 +18018,7 @@ function saveItem() {
     floor: floor,
     source: sourceObj,
     ...(displayOnly ? { display_only: true } : {}),
-    ...(guestEnabled ? { guest_enabled: true, guest_room: guestRoom } : {}),
+    ...(guestEnabled ? { guest_enabled: true, guest_room: guestRoom, guest_setpoint_offset: guestSetpointOffset } : {}),
     profile: displayOnly ? '' : profile,
     consensus_group_heat: displayOnly ? '' : consensusGroupHeat,
     consensus_group_cool: displayOnly ? '' : consensusGroupCool,
