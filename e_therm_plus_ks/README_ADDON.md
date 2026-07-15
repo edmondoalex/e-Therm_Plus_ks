@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.204`
+- `config.yaml` -> `version`: `2.6.205`
 
 Ultima modifica
-- Home UI: pagina dedicata `Termostati Guest`; lista normale senza termostati guest/suite.
+- Home principale: voce `Termostati Guest` visibile nel menu.
 - MQTT: ignorati in silenzio i comandi retained vuoti sui topic `/set`.
 
 Regole

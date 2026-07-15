@@ -16,7 +16,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.204"
+CODE_VERSION = "2.6.205"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -10989,6 +10989,25 @@ def render_menu(snapshot):
             <div>
               <div class="name">Termostati</div>
               <div class="meta">Stato, setpoint, modalit?, profilo</div>
+            </div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none">
+            <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+
+        <a class="item" href="thermostats_guest">
+          <div class="left">
+            <div class="icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M7 11a5 5 0 0 1 10 0v1a4 4 0 1 1-10 0v-1z" stroke="currentColor" stroke-width="1.7"/>
+                <path d="M10 7.5V4h4v3.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                <path d="M12 12v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div>
+              <div class="name">Termostati Guest</div>
+              <div class="meta">Suite e camere</div>
             </div>
           </div>
           <svg class="chev" viewBox="0 0 24 24" fill="none">

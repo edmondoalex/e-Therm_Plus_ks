@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.205
+
+- Add the `Termostati Guest` entry to the actual main home menu, linking to the guest room/suite thermostat pages.
+
 ## 2.6.204
 
 - Move guest thermostats out of the normal `Termostati` page and add a dedicated `Termostati Guest` entry/page for suite and room thermostats.

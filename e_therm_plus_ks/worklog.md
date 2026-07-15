@@ -3,6 +3,12 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-15 - v2.6.205 - Autore: Codex
+- Home principale: aggiunta voce `Termostati Guest` nel menu realmente mostrato all'apertura.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-15 - v2.6.204 - Autore: Codex
 - Home UI: aggiunta voce separata `Termostati Guest`.
 - Lista `Termostati`: rimossi i termostati guest/suite dall'elenco normale.
