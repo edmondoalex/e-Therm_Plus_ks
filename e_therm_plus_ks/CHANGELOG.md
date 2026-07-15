@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.204
+
+- Move guest thermostats out of the normal `Termostati` page and add a dedicated `Termostati Guest` entry/page for suite and room thermostats.
+- Filter live thermostat updates by page so normal and guest lists stay separated during SSE/API refreshes.
+
 ## 2.6.203
 
 - Separate guest thermostats from the normal technical thermostat list. Thermostats configured on `SUITE PLAN` or marked as guest/suite/hotel are rendered under a dedicated `TERMOSTATI GUEST` section.

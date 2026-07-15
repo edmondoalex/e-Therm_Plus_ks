@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-15 - v2.6.204 - Autore: Codex
+- Home UI: aggiunta voce separata `Termostati Guest`.
+- Lista `Termostati`: rimossi i termostati guest/suite dall'elenco normale.
+- Pagina `Termostati Guest`: mostra solo termostati con piano `SUITE PLAN` o marcati guest/suite/hotel, con filtro anche sugli aggiornamenti live SSE/API.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-15 - v2.6.203 - Autore: Codex
 - Lista termostati: separati i termostati guest/suite dal normale elenco tecnico.
 - I termostati con piano `SUITE PLAN` o marcati guest/suite/hotel vengono mostrati in una sezione dedicata `TERMOSTATI GUEST`.

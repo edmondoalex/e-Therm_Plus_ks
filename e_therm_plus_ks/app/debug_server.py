@@ -16,7 +16,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.203"
+CODE_VERSION = "2.6.204"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -9968,6 +9968,25 @@ def render_security_functions(snapshot):
           </svg>
         </a>
 
+        <a class="item" href="/thermostats_guest">
+          <div class="left">
+            <div class="icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M7 11a5 5 0 0 1 10 0v1a4 4 0 1 1-10 0v-1z" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M10 7.5V4h4v3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                <path d="M12 12v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div>
+              <div class="name">Termostati Guest</div>
+              <div class="meta">Suite e camere</div>
+            </div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none">
+            <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+
         <a class="item" href="/security/timers">
           <div class="left">
             <div class="icon">
@@ -13965,7 +13984,16 @@ class _Handler(BaseHTTPRequestHandler):
 
         if path in ("/thermostats", "/thermostats/", "/t", "/t/"):
             snap = self.state.snapshot()
-            self._send(200, "text/html; charset=utf-8", render_thermostats_page(snap))
+            self._send(200, "text/html; charset=utf-8", render_thermostats_page(snap, guest_only=False))
+            return
+        if path in ("/thermostats_guest", "/thermostats_guest/", "/guest_thermostats", "/guest_thermostats/"):
+            snap = self.state.snapshot()
+            self._send(200, "text/html; charset=utf-8", render_guest_thermostats_index(snap))
+            return
+        if path.startswith("/thermostats_guest/"):
+            token = path.split("/", 2)[2] if len(path.split("/")) >= 3 else ""
+            snap = self.state.snapshot()
+            self._send(200, "text/html; charset=utf-8", render_guest_thermostats_room(snap, token))
             return
         if path.startswith("/t/"):
             token = path.split("/", 2)[2] if len(path.split("/")) >= 3 else ""
@@ -14132,7 +14160,278 @@ def set_command_handler(command_fn):
 # Clean Thermostats UI (replaces older experimental versions)
 # -----------------------------------------------------------------------------
 
-def render_thermostats_page(snapshot):
+def _is_guest_thermostat_cfg(cfg_t):
+    if not isinstance(cfg_t, dict):
+        return False
+    raw_values = [
+        cfg_t.get("thermostat_type"),
+        cfg_t.get("type"),
+        cfg_t.get("group"),
+        cfg_t.get("category"),
+        cfg_t.get("usage"),
+        cfg_t.get("scope"),
+    ]
+    for raw in raw_values:
+        value = str(raw or "").strip().lower()
+        if value in ("guest", "guests", "hotel", "suite", "suites", "camera", "camere"):
+            return True
+    floor = str(cfg_t.get("floor") or cfg_t.get("piano") or "").strip().upper()
+    return floor in ("SUITE PLAN", "SUITES", "GUEST", "GUESTS", "CAMERE", "HOTEL")
+
+
+def _guest_room_slug(name):
+    slug = re.sub(r"[^a-z0-9]+", "-", str(name or "").strip().lower()).strip("-")
+    return slug or "camera"
+
+
+def _guest_room_name(cfg_t, entity):
+    if isinstance(cfg_t, dict):
+        for key in ("guest_room", "guest_group", "room", "camera", "suite"):
+            raw = str(cfg_t.get(key) or "").strip()
+            if raw:
+                return raw
+    name = str((entity or {}).get("name") or ((entity or {}).get("static") or {}).get("DES") or "").strip()
+    m = re.search(r"(?i)\b(?:bathroom|bath|bagno|veranda)\s+(suite\s+\d+\s+.+)$", name)
+    if m:
+        return m.group(1).strip()
+    m = re.search(r"(?i)\b(suite\s+\d+\s+.+)$", name)
+    if m:
+        return m.group(1).strip()
+    return name or "Camera"
+
+
+def _guest_thermostat_rooms(snapshot):
+    entities = snapshot.get("entities") or []
+    therms = [e for e in entities if str(e.get("type") or "").lower() == "thermostats"]
+    cfg = (snapshot.get("meta") or {}).get("vtherm_config") or {}
+    cfg_therms = cfg.get("thermostats") if isinstance(cfg, dict) else []
+    order = {}
+    cfg_by_id = {}
+    if isinstance(cfg_therms, list):
+        for idx, t in enumerate(cfg_therms):
+            if isinstance(t, dict) and t.get("id") is not None:
+                order[str(t.get("id"))] = int(idx)
+                cfg_by_id[str(t.get("id"))] = t
+    original_pos = {id(e): idx for idx, e in enumerate(therms)}
+    therms.sort(key=lambda e: (order.get(str(e.get("id")), 999999), original_pos.get(id(e), 999999)))
+
+    rooms = {}
+    for e in therms:
+        cfg_t = cfg_by_id.get(str(e.get("id")), {}) if isinstance(cfg_by_id, dict) else {}
+        if not _is_guest_thermostat_cfg(cfg_t):
+            continue
+        room_name = _guest_room_name(cfg_t, e)
+        slug = _guest_room_slug(room_name)
+        if slug not in rooms:
+            rooms[slug] = {"slug": slug, "name": room_name, "items": []}
+        rooms[slug]["items"].append({"entity": e, "config": cfg_t})
+    return list(rooms.values())
+
+
+def render_guest_thermostats_index(snapshot):
+    rooms = _guest_thermostat_rooms(snapshot)
+
+    def _fmt(v):
+        try:
+            if v is None or str(v).strip() == "":
+                return "--,-"
+            return f"{float(str(v).replace(',', '.')):.1f}".replace(".", ",")
+        except Exception:
+            return "--,-"
+
+    rows = []
+    for room in rooms:
+        temps = []
+        for item in room["items"]:
+            rt = item["entity"].get("realtime") if isinstance(item["entity"].get("realtime"), dict) else {}
+            temp = _fmt(rt.get("TEMP"))
+            if temp != "--,-":
+                temps.append(temp)
+        meta = f'{len(room["items"])} termostati'
+        if temps:
+            meta += " · " + " / ".join(temps) + "°C"
+        rows.append(
+            f'<a class="roomRow" href="/thermostats_guest/{_html_escape(room["slug"])}">'
+            f'  <span class="roomIcon">G</span>'
+            f'  <span><span class="roomName">{_html_escape(room["name"])}</span><span class="roomMeta">{_html_escape(meta)}</span></span>'
+            f'  <span class="chev">›</span>'
+            f'</a>'
+        )
+    body = "".join(rows) if rows else '<div class="empty">Nessuna camera guest configurata.</div>'
+    tpl = """<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta http-equiv="Cache-Control" content="no-store, max-age=0"/>
+  <title>e-Therm Plus KS - Termostati Guest</title>
+  <style>
+    :root { --bg:#070a0f; --card:rgba(255,255,255,.055); --border:rgba(255,255,255,.12); --fg:#e8edf7; --muted:#9ca7b7; --blue:#59beff; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg); background:radial-gradient(circle at 50% 100%,#252c38 0,#080b11 48%,#030507 100%); }
+    .wrap { max-width:900px; margin:0 auto; padding:42px 18px 56px; }
+    .top { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
+    .back { width:42px; height:42px; display:grid; place-items:center; border:1px solid var(--border); border-radius:12px; color:var(--fg); text-decoration:none; background:rgba(0,0,0,.18); }
+    h1 { margin:0; font-size:24px; }
+    .badge { color:var(--muted); font-size:13px; }
+    .list { display:flex; flex-direction:column; gap:12px; }
+    .roomRow { min-height:76px; display:grid; grid-template-columns:52px 1fr auto; align-items:center; gap:16px; padding:14px 18px; border:1px solid var(--border); border-radius:14px; background:linear-gradient(90deg,rgba(89,190,255,.11),var(--card)); color:var(--fg); text-decoration:none; }
+    .roomRow:hover { border-color:rgba(89,190,255,.38); text-decoration:none; }
+    .roomIcon { width:42px; height:42px; border-radius:12px; display:grid; place-items:center; color:var(--blue); background:rgba(89,190,255,.10); border:1px solid rgba(89,190,255,.22); font-weight:900; }
+    .roomName { display:block; font-size:19px; font-weight:850; }
+    .roomMeta { display:block; margin-top:4px; color:var(--muted); font-size:14px; }
+    .chev { color:rgba(255,255,255,.72); font-size:32px; }
+    .empty { padding:18px; color:var(--muted); border:1px solid var(--border); border-radius:14px; background:var(--card); }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="top"><a class="back" href="/index_debug" aria-label="Indietro">‹</a><div><h1>Termostati Guest</h1><div class="badge">Suite e camere · v __ADDON_VERSION__</div></div></div>
+    <div class="list">__ROOMS__</div>
+  </main>
+</body>
+</html>"""
+    return (
+        tpl.replace("__ADDON_VERSION__", _html_escape(ADDON_VERSION))
+        .replace("__ROOMS__", body)
+    ).encode("utf-8")
+
+
+def render_guest_thermostats_room(snapshot, room_slug):
+    rooms = _guest_thermostat_rooms(snapshot)
+    room = next((r for r in rooms if r["slug"] == str(room_slug or "").strip()), None)
+    if room is None:
+        return render_guest_thermostats_index(snapshot)
+    cfg = (snapshot.get("meta") or {}).get("vtherm_config") or {}
+    default_offset = 3.0
+    if isinstance(cfg, dict):
+        try:
+            default_offset = float(str(cfg.get("guest_setpoint_offset", cfg.get("guest_max_offset", 3.0))).replace(",", "."))
+        except Exception:
+            default_offset = 3.0
+
+    def _num(v, fallback=None):
+        try:
+            if v is None or str(v).strip() == "":
+                return fallback
+            n = float(str(v).replace(",", "."))
+            return n if n == n else fallback
+        except Exception:
+            return fallback
+
+    def _fmt(v):
+        n = _num(v)
+        if n is None:
+            return "--,-"
+        return f"{n:.1f}".replace(".", ",")
+
+    cards = []
+    init = []
+    for item in room["items"]:
+        e = item["entity"]
+        cfg_t = item["config"] if isinstance(item["config"], dict) else {}
+        tid = str(e.get("id"))
+        name = str(e.get("name") or (e.get("static") or {}).get("DES") or f"Termostato {tid}")
+        rt = e.get("realtime") if isinstance(e.get("realtime"), dict) else {}
+        therm = rt.get("THERM") if isinstance(rt.get("THERM"), dict) else {}
+        thr = therm.get("TEMP_THR") if isinstance(therm.get("TEMP_THR"), dict) else {}
+        target = _num(thr.get("VAL"), 20.0)
+        base = _num(cfg_t.get("guest_base_setpoint", cfg_t.get("guest_base")), target)
+        offset = _num(cfg_t.get("guest_setpoint_offset", cfg_t.get("guest_max_offset")), default_offset)
+        if offset is None or offset <= 0:
+            offset = 3.0
+        min_allowed = base - offset
+        max_allowed = base + offset
+        target = max(min_allowed, min(max_allowed, target))
+        init.append({"id": tid, "target": target, "min": min_allowed, "max": max_allowed})
+        cards.append(
+            f'<section class="thermCard" data-tid="{_html_escape(tid)}">'
+            f'  <div class="thermTop"><div><div class="thermName">{_html_escape(name)}</div><div class="thermMeta">ID {_html_escape(tid)} · limite ±{_html_escape(_fmt(offset))}°C</div></div><div class="tempNow">{_html_escape(_fmt(rt.get("TEMP")))}°</div></div>'
+            f'  <div class="setLine"><button class="stepBtn" data-dir="-1">−</button><div class="setBox"><span class="setVal">{_html_escape(_fmt(target))}</span><span>Setpoint</span></div><button class="stepBtn" data-dir="1">+</button></div>'
+            f'  <div class="rangeText">Min {_html_escape(_fmt(min_allowed))}°C · Max {_html_escape(_fmt(max_allowed))}°C</div>'
+            f'</section>'
+        )
+    body = "".join(cards) if cards else '<div class="empty">Nessun termostato in questa camera.</div>'
+    tpl = """<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta http-equiv="Cache-Control" content="no-store, max-age=0"/>
+  <title>e-Therm Plus KS - __ROOM__</title>
+  <style>
+    :root { --bg:#070a0f; --card:rgba(255,255,255,.06); --border:rgba(255,255,255,.12); --fg:#eef3fb; --muted:#a5afbd; --blue:#59beff; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg); background:radial-gradient(circle at 50% 100%,#252c38 0,#080b11 48%,#030507 100%); }
+    .wrap { max-width:900px; margin:0 auto; padding:42px 18px 56px; }
+    .top { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
+    .back { width:42px; height:42px; display:grid; place-items:center; border:1px solid var(--border); border-radius:12px; color:var(--fg); text-decoration:none; background:rgba(0,0,0,.18); }
+    h1 { margin:0; font-size:24px; }
+    .badge { color:var(--muted); font-size:13px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; }
+    .thermCard { padding:18px; border:1px solid var(--border); border-radius:14px; background:linear-gradient(160deg,rgba(89,190,255,.10),var(--card)); }
+    .thermTop { min-height:58px; display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+    .thermName { font-size:18px; font-weight:850; }
+    .thermMeta, .rangeText { color:var(--muted); font-size:13px; margin-top:5px; }
+    .tempNow { color:var(--blue); font-size:24px; font-weight:850; }
+    .setLine { display:grid; grid-template-columns:64px 1fr 64px; align-items:center; gap:14px; margin-top:20px; }
+    .stepBtn { height:58px; border-radius:14px; border:1px solid rgba(89,190,255,.30); background:rgba(89,190,255,.10); color:var(--fg); font-size:34px; font-weight:700; }
+    .stepBtn:active { transform:translateY(1px); }
+    .setBox { min-height:78px; display:grid; place-items:center; align-content:center; border:1px solid rgba(255,255,255,.10); border-radius:14px; background:rgba(0,0,0,.20); }
+    .setVal { font-size:38px; font-weight:850; line-height:1; }
+    .setBox span:last-child { margin-top:6px; color:var(--muted); font-size:13px; }
+    .empty { padding:18px; color:var(--muted); border:1px solid var(--border); border-radius:14px; background:var(--card); }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="top"><a class="back" href="/thermostats_guest" aria-label="Indietro">‹</a><div><h1>__ROOM__</h1><div class="badge">Controllo guest</div></div></div>
+    <div class="grid">__CARDS__</div>
+  </main>
+  <script>
+    const therms = __THERMS__;
+    function apiRoot() {
+      const p = String(window.location && window.location.pathname ? window.location.pathname : "");
+      if (p.startsWith("/api/hassio_ingress/")) {
+        const parts = p.split("/").filter(Boolean);
+        if (parts.length >= 3) return "/" + parts.slice(0, 3).join("/");
+      }
+      return "";
+    }
+    function apiUrl(path) { const root = apiRoot(); return root + (String(path || "").startsWith("/") ? path : "/" + path); }
+    function fmt(n) { return Number(n).toFixed(1).replace(".", ","); }
+    function stateFor(id) { return therms.find(t => String(t.id) === String(id)); }
+    async function sendTarget(id, val) {
+      const res = await fetch(apiUrl("/api/cmd"), { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({type:"thermostats", id:Number(id), action:"set_target", value:String(Number(val).toFixed(1))}) });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || data.ok !== true) throw new Error((data && data.error) || String(res.status));
+    }
+    document.querySelectorAll(".thermCard[data-tid]").forEach(card => {
+      const id = card.getAttribute("data-tid");
+      const st = stateFor(id);
+      if (!st) return;
+      card.querySelectorAll(".stepBtn[data-dir]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const dir = Number(btn.getAttribute("data-dir") || 0);
+          const next = Math.max(st.min, Math.min(st.max, Math.round((Number(st.target) + dir * 0.5) * 2) / 2));
+          st.target = next;
+          const val = card.querySelector(".setVal");
+          if (val) val.textContent = fmt(next);
+          try { await sendTarget(id, next); } catch (e) { alert("Errore comando: " + (e && e.message ? e.message : e)); }
+        });
+      });
+    });
+  </script>
+</body>
+</html>"""
+    return (
+        tpl.replace("__ROOM__", _html_escape(room["name"]))
+        .replace("__CARDS__", body)
+        .replace("__THERMS__", json.dumps(init, ensure_ascii=False))
+    ).encode("utf-8")
+
+
+def render_thermostats_page(snapshot, guest_only: bool = False):
     entities = snapshot.get("entities") or []
     therms = [e for e in entities if str(e.get("type") or "").lower() == "thermostats"]
     cfg = (snapshot.get("meta") or {}).get("vtherm_config") or {}
@@ -14173,19 +14472,15 @@ def render_thermostats_page(snapshot):
             guest_therms.append(e)
         else:
             normal_therms.append(e)
-    therms = normal_therms + guest_therms
+    therms = guest_therms if guest_only else therms
+    page_title = "Termostati Guest" if guest_only else "Termostati"
+    allowed_ids = [str(e.get("id")) for e in therms if e.get("id") is not None]
 
     rows = []
     last_floor = None
-    guest_section_opened = False
     for e in therms:
         tid = e.get("id")
         cfg_t = cfg_by_id.get(str(tid), {}) if isinstance(cfg_by_id, dict) else {}
-        is_guest = _is_guest_thermostat(cfg_t)
-        if is_guest and not guest_section_opened:
-            rows.append('<div class="guestSectionHead">TERMOSTATI GUEST</div>')
-            last_floor = None
-            guest_section_opened = True
         display_only = bool((cfg_t or {}).get("display_only") or (cfg_t or {}).get("view_only") or (cfg_t or {}).get("read_only"))
         heat_group = str((cfg_t or {}).get("consensus_group_heat") or (cfg_t or {}).get("consensus_group") or "").strip()
         cool_group = str((cfg_t or {}).get("consensus_group_cool") or (cfg_t or {}).get("consensus_group") or "").strip()
@@ -14345,7 +14640,7 @@ def render_thermostats_page(snapshot):
     <meta http-equiv="Cache-Control" content="no-store, max-age=0"/>
     <meta http-equiv="Pragma" content="no-cache"/>
     <meta http-equiv="Expires" content="0"/>
-    <title>e-Therm Plus KS - Termostati</title>
+    <title>e-Therm Plus KS - __PAGE_TITLE__</title>
     <style>
       :root {
         --bg0: #05070b;
@@ -14410,18 +14705,6 @@ def render_thermostats_page(snapshot):
       .floorLine {
         height: 1px;
         background: linear-gradient(90deg, transparent, rgba(255,255,255,0.16), transparent);
-      }
-      .guestSectionHead {
-        margin: 26px 4px 0;
-        padding: 10px 12px;
-        border: 1px solid rgba(89,190,255,0.24);
-        border-radius: 10px;
-        background: linear-gradient(90deg, rgba(89,190,255,0.13), rgba(255,255,255,0.025));
-        color: rgba(188,230,255,0.92);
-        font-size: 13px;
-        font-weight: 950;
-        letter-spacing: 1.3px;
-        text-transform: uppercase;
       }
       .thermRow {
         position:relative;
@@ -14595,7 +14878,7 @@ def render_thermostats_page(snapshot):
           <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </a>
-      <div class="barTitle">Termostati</div>
+      <div class="barTitle">__PAGE_TITLE__</div>
       <div class="barRight">
         <span class="badge">v __ADDON_VERSION__</span>
         <span class="badge">UI __UI_REV__</span>
@@ -14677,8 +14960,9 @@ def render_thermostats_page(snapshot):
           meta: "ID " + String(e.id) + " · " + fmtTemp(rt.TEMP) + "°C · Set " + fmtTemp(thr.VAL) + "°C · " + modeLabel
         };
       }
+      const allowedThermostatIds = new Set(__ALLOWED_THERMOSTAT_IDS__);
       function applyEntities(entities) {
-        const therms = (entities || []).filter(e => String(e.type || "").toLowerCase() === "thermostats");
+        const therms = (entities || []).filter(e => String(e.type || "").toLowerCase() === "thermostats" && allowedThermostatIds.has(String(e.id)));
         const seen = new Set();
         let structureChanged = false;
         for (const e of therms) {
@@ -14752,6 +15036,8 @@ def render_thermostats_page(snapshot):
     html = (
         tpl.replace("__ADDON_VERSION__", _html_escape(ADDON_VERSION))
         .replace("__UI_REV__", _html_escape(UI_REV))
+        .replace("__PAGE_TITLE__", _html_escape(page_title))
+        .replace("__ALLOWED_THERMOSTAT_IDS__", json.dumps(allowed_ids, ensure_ascii=False))
         .replace("__ITEMS__", items)
     )
     return html.encode("utf-8")
