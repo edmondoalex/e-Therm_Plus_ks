@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-15 - v2.6.203 - Autore: Codex
+- Lista termostati: separati i termostati guest/suite dal normale elenco tecnico.
+- I termostati con piano `SUITE PLAN` o marcati guest/suite/hotel vengono mostrati in una sezione dedicata `TERMOSTATI GUEST`.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-09 - v2.6.202 - Autore: Codex
 - Dettaglio termostato: incorporata la config del termostato nella pagina e usata come fallback stabile per `climate.min_temp/max_temp`.
 - Evitato il fallback generico `5-35` quando snapshot live/SSE non portano i metadati config, che faceva saltare il pomello delle cantine `5-20`.

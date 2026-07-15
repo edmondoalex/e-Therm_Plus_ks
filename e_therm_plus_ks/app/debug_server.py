@@ -16,7 +16,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.202"
+CODE_VERSION = "2.6.203"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14147,11 +14147,45 @@ def render_thermostats_page(snapshot):
     original_pos = {id(e): idx for idx, e in enumerate(therms)}
     therms.sort(key=lambda e: (order.get(str(e.get("id")), 999999), original_pos.get(id(e), 999999)))
 
+    def _is_guest_thermostat(cfg_t):
+        if not isinstance(cfg_t, dict):
+            return False
+        raw_values = [
+            cfg_t.get("thermostat_type"),
+            cfg_t.get("type"),
+            cfg_t.get("group"),
+            cfg_t.get("category"),
+            cfg_t.get("usage"),
+            cfg_t.get("scope"),
+        ]
+        for raw in raw_values:
+            value = str(raw or "").strip().lower()
+            if value in ("guest", "guests", "hotel", "suite", "suites", "camera", "camere"):
+                return True
+        floor = str(cfg_t.get("floor") or cfg_t.get("piano") or "").strip().upper()
+        return floor in ("SUITE PLAN", "SUITES", "GUEST", "GUESTS", "CAMERE", "HOTEL")
+
+    normal_therms = []
+    guest_therms = []
+    for e in therms:
+        cfg_t = cfg_by_id.get(str(e.get("id")), {}) if isinstance(cfg_by_id, dict) else {}
+        if _is_guest_thermostat(cfg_t):
+            guest_therms.append(e)
+        else:
+            normal_therms.append(e)
+    therms = normal_therms + guest_therms
+
     rows = []
     last_floor = None
+    guest_section_opened = False
     for e in therms:
         tid = e.get("id")
         cfg_t = cfg_by_id.get(str(tid), {}) if isinstance(cfg_by_id, dict) else {}
+        is_guest = _is_guest_thermostat(cfg_t)
+        if is_guest and not guest_section_opened:
+            rows.append('<div class="guestSectionHead">TERMOSTATI GUEST</div>')
+            last_floor = None
+            guest_section_opened = True
         display_only = bool((cfg_t or {}).get("display_only") or (cfg_t or {}).get("view_only") or (cfg_t or {}).get("read_only"))
         heat_group = str((cfg_t or {}).get("consensus_group_heat") or (cfg_t or {}).get("consensus_group") or "").strip()
         cool_group = str((cfg_t or {}).get("consensus_group_cool") or (cfg_t or {}).get("consensus_group") or "").strip()
@@ -14376,6 +14410,18 @@ def render_thermostats_page(snapshot):
       .floorLine {
         height: 1px;
         background: linear-gradient(90deg, transparent, rgba(255,255,255,0.16), transparent);
+      }
+      .guestSectionHead {
+        margin: 26px 4px 0;
+        padding: 10px 12px;
+        border: 1px solid rgba(89,190,255,0.24);
+        border-radius: 10px;
+        background: linear-gradient(90deg, rgba(89,190,255,0.13), rgba(255,255,255,0.025));
+        color: rgba(188,230,255,0.92);
+        font-size: 13px;
+        font-weight: 950;
+        letter-spacing: 1.3px;
+        text-transform: uppercase;
       }
       .thermRow {
         position:relative;

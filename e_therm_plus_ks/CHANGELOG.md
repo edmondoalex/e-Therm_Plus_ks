@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.203
+
+- Separate guest thermostats from the normal technical thermostat list. Thermostats configured on `SUITE PLAN` or marked as guest/suite/hotel are rendered under a dedicated `TERMOSTATI GUEST` section.
+
 ## 2.6.202
 
 - Embed the thermostat configuration directly in the detail page JavaScript and use it as the stable fallback for climate min/max bounds, so the setpoint knob cannot fall back to the generic `5-35` range when live snapshots omit config metadata.
