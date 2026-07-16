@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.221
+
+- Use the full original Castello di Clavesana logo centered at the top of guest pages.
+- Move guest thermostat content lower to leave clear space for the logo.
+
 ## 2.6.220
 
 - Remove the Castello image as a guest page background and show it as a readable top-right wordmark.
