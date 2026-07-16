@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-16 - v2.6.218 - Autore: Codex
+- Termostati Guest: sostituito sfondo PNG pesante con JPEG ottimizzato da circa 56 KB.
+- Asset statici: abilitata cache browser per immagini servite da `/assets`.
+- File modificati: app/www/castello_clavesana_bg.jpg, app/www/castello_clavesana.png, app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-16 - v2.6.217 - Autore: Codex
 - Termostati Guest: sfondo Castello di Clavesana reso responsive su smartphone.
 - UI guest: rimosso background fixed e aggiunte dimensioni/posizione dedicate per schermi piccoli.

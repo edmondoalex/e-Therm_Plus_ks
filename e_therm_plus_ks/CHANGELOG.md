@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.218
+
+- Optimize the Castello di Clavesana guest background from a large PNG to a lightweight JPEG.
+- Enable browser caching for served image assets to speed up repeat guest page loads.
+
 ## 2.6.217
 
 - Make the Castello di Clavesana guest background responsive on smartphone screens.

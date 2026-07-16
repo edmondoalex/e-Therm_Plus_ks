@@ -17,7 +17,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.217"
+CODE_VERSION = "2.6.218"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -82,7 +82,8 @@ _ASSET_MAP = {
     "partial": "eTherm addon.png",
   "logo_ekonex": "eTherm addon.png",
   "logo_e_therm": "eTherm addon.png",
-  "castello_clavesana": "castello_clavesana.png",
+  "castello_clavesana": "castello_clavesana_bg.jpg",
+  "castello_clavesana_bg.jpg": "castello_clavesana_bg.jpg",
   "e-safe_scr": "eTherm addon.png",
   "favicon.ico": "eTherm addon.png",
 }
@@ -13846,9 +13847,15 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(404, "text/plain; charset=utf-8", b"not found")
                 return
             self.send_response(200)
-            self.send_header("Content-Type", "image/png")
-            self.send_header("Cache-Control", "no-store, max-age=0")
-            self.send_header("Pragma", "no-cache")
+            ext = os.path.splitext(filename)[1].lower()
+            if ext in (".jpg", ".jpeg"):
+                content_type = "image/jpeg"
+            elif ext == ".webp":
+                content_type = "image/webp"
+            else:
+                content_type = "image/png"
+            self.send_header("Content-Type", content_type)
+            self.send_header("Cache-Control", "public, max-age=604800, immutable")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -14294,7 +14301,7 @@ def _guest_thermostat_rooms(snapshot):
 
 def _guest_bg_asset_url(ingress_prefix: str = "") -> str:
     prefix = str(ingress_prefix or "").rstrip("/")
-    return f"{prefix}/assets/castello_clavesana.png" if prefix else "/assets/castello_clavesana.png"
+    return f"{prefix}/assets/castello_clavesana_bg.jpg" if prefix else "/assets/castello_clavesana_bg.jpg"
 
 
 def render_guest_thermostats_index(snapshot, ingress_prefix: str = ""):

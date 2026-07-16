@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.217`
+- `config.yaml` -> `version`: `2.6.218`
 
 Ultima modifica
-- Termostati Guest: sfondo Castello di Clavesana responsive su smartphone.
+- Termostati Guest: sfondo Castello di Clavesana ottimizzato e cache asset.
 - MQTT: ignorati in silenzio i comandi retained vuoti sui topic `/set`.
 
 Regole
