@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.227
+
+- Use the provided transparent `araldica2.png` file directly as the guest Castello logo asset.
+
 ## 2.6.226
 
 - Convert the provided `araldica2.png` guest logo background from white to transparent while keeping the original artwork.
