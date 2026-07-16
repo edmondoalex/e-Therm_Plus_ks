@@ -17,7 +17,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.218"
+CODE_VERSION = "2.6.219"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14351,16 +14351,16 @@ def render_guest_thermostats_index(snapshot, ingress_prefix: str = ""):
     body {
       margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg);
       background:
-        linear-gradient(180deg,rgba(3,5,7,.48),rgba(3,5,7,.68)),
-        radial-gradient(circle at 50% 100%,rgba(37,44,56,.58) 0,rgba(8,11,17,.72) 48%,rgba(3,5,7,.86) 100%),
-        url("__GUEST_BG__") center 34% / min(1180px,112vw) auto no-repeat;
+        linear-gradient(180deg,rgba(3,5,7,.30),rgba(3,5,7,.46)),
+        radial-gradient(circle at 50% 100%,rgba(37,44,56,.24) 0,rgba(8,11,17,.44) 52%,rgba(3,5,7,.66) 100%),
+        url("__GUEST_BG__") center center / cover no-repeat;
     }
     @media (max-width: 720px) {
       body {
         background:
-          linear-gradient(180deg,rgba(3,5,7,.52),rgba(3,5,7,.76)),
-          radial-gradient(circle at 50% 100%,rgba(37,44,56,.54) 0,rgba(8,11,17,.76) 50%,rgba(3,5,7,.90) 100%),
-          url("__GUEST_BG__") center 82px / min(560px,128vw) auto no-repeat;
+          linear-gradient(180deg,rgba(3,5,7,.38),rgba(3,5,7,.62)),
+          radial-gradient(circle at 50% 100%,rgba(37,44,56,.20) 0,rgba(8,11,17,.58) 54%,rgba(3,5,7,.78) 100%),
+          url("__GUEST_BG__") center center / cover no-repeat;
       }
     }
     .wrap { max-width:900px; margin:0 auto; padding:42px 18px 56px; }
@@ -14434,17 +14434,17 @@ def render_guest_thermostats_qr(snapshot, room_slug, guest_url, ingress_prefix: 
     body {
       margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg);
       background:
-        linear-gradient(180deg,rgba(3,5,7,.48),rgba(3,5,7,.68)),
-        radial-gradient(circle at 50% 100%,rgba(37,44,56,.58) 0,rgba(8,11,17,.72) 48%,rgba(3,5,7,.86) 100%),
-        url("__GUEST_BG__") center 34% / min(1180px,112vw) auto no-repeat;
+        linear-gradient(180deg,rgba(3,5,7,.30),rgba(3,5,7,.46)),
+        radial-gradient(circle at 50% 100%,rgba(37,44,56,.24) 0,rgba(8,11,17,.44) 52%,rgba(3,5,7,.66) 100%),
+        url("__GUEST_BG__") center center / cover no-repeat;
       display:grid; place-items:center; padding:22px;
     }
     @media (max-width: 720px) {
       body {
         background:
-          linear-gradient(180deg,rgba(3,5,7,.52),rgba(3,5,7,.76)),
-          radial-gradient(circle at 50% 100%,rgba(37,44,56,.54) 0,rgba(8,11,17,.76) 50%,rgba(3,5,7,.90) 100%),
-          url("__GUEST_BG__") center 42px / min(560px,128vw) auto no-repeat;
+          linear-gradient(180deg,rgba(3,5,7,.38),rgba(3,5,7,.62)),
+          radial-gradient(circle at 50% 100%,rgba(37,44,56,.20) 0,rgba(8,11,17,.58) 54%,rgba(3,5,7,.78) 100%),
+          url("__GUEST_BG__") center center / cover no-repeat;
       }
     }
     .page { width:min(520px,100%); display:grid; gap:18px; justify-items:center; text-align:center; }
@@ -14588,16 +14588,16 @@ def render_guest_thermostats_room(snapshot, room_slug, ingress_prefix: str = "")
     body {
       margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg);
       background:
-        linear-gradient(180deg,rgba(3,5,7,.48),rgba(3,5,7,.68)),
-        radial-gradient(circle at 50% 100%,rgba(37,44,56,.58) 0,rgba(8,11,17,.72) 48%,rgba(3,5,7,.86) 100%),
-        url("__GUEST_BG__") center 34% / min(1180px,112vw) auto no-repeat;
+        linear-gradient(180deg,rgba(3,5,7,.30),rgba(3,5,7,.46)),
+        radial-gradient(circle at 50% 100%,rgba(37,44,56,.24) 0,rgba(8,11,17,.44) 52%,rgba(3,5,7,.66) 100%),
+        url("__GUEST_BG__") center center / cover no-repeat;
     }
     @media (max-width: 720px) {
       body {
         background:
-          linear-gradient(180deg,rgba(3,5,7,.52),rgba(3,5,7,.76)),
-          radial-gradient(circle at 50% 100%,rgba(37,44,56,.54) 0,rgba(8,11,17,.76) 50%,rgba(3,5,7,.90) 100%),
-          url("__GUEST_BG__") center 82px / min(560px,128vw) auto no-repeat;
+          linear-gradient(180deg,rgba(3,5,7,.38),rgba(3,5,7,.62)),
+          radial-gradient(circle at 50% 100%,rgba(37,44,56,.20) 0,rgba(8,11,17,.58) 54%,rgba(3,5,7,.78) 100%),
+          url("__GUEST_BG__") center center / cover no-repeat;
       }
     }
     .wrap { max-width:900px; margin:0 auto; padding:42px 18px 56px; }

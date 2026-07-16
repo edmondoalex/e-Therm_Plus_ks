@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.219
+
+- Make the guest background cover the full page instead of appearing as a dark framed area.
+- Lighten the guest page overlay while keeping thermostat cards readable.
+
 ## 2.6.218
 
 - Optimize the Castello di Clavesana guest background from a large PNG to a lightweight JPEG.

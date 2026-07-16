@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-16 - v2.6.219 - Autore: Codex
+- Termostati Guest: sfondo impostato in cover full-page per evitare l'effetto riquadro scuro.
+- UI guest: overlay scurente alleggerito mantenendo leggibili card e controlli.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-16 - v2.6.218 - Autore: Codex
 - Termostati Guest: sostituito sfondo PNG pesante con JPEG ottimizzato da circa 56 KB.
 - Asset statici: abilitata cache browser per immagini servite da `/assets`.
