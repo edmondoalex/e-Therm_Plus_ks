@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.224
+
+- Use a transparent Castello di Clavesana logo asset on guest pages to remove the visible rectangular image box.
+- Keep the logo centered above guest thermostat content.
+
 ## 2.6.223
 
 - Reduce the displayed Castello di Clavesana logo size on guest pages while keeping the same optimized source image.

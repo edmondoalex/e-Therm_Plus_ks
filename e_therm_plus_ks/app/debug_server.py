@@ -17,7 +17,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.223"
+CODE_VERSION = "2.6.224"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -84,6 +84,7 @@ _ASSET_MAP = {
   "logo_e_therm": "eTherm addon.png",
   "castello_clavesana": "castello_clavesana_bg.jpg",
   "castello_clavesana_bg.jpg": "castello_clavesana_bg.jpg",
+  "castello_clavesana_logo.png": "castello_clavesana_logo.png",
   "e-safe_scr": "eTherm addon.png",
   "favicon.ico": "eTherm addon.png",
 }
@@ -14306,7 +14307,7 @@ def _guest_bg_asset_url(ingress_prefix: str = "") -> str:
 
 def _guest_logo_asset_url(ingress_prefix: str = "") -> str:
     prefix = str(ingress_prefix or "").rstrip("/")
-    return f"{prefix}/assets/castello_clavesana_bg.jpg" if prefix else "/assets/castello_clavesana_bg.jpg"
+    return f"{prefix}/assets/castello_clavesana_logo.png" if prefix else "/assets/castello_clavesana_logo.png"
 
 
 def render_guest_thermostats_index(snapshot, ingress_prefix: str = ""):
@@ -14355,7 +14356,7 @@ def render_guest_thermostats_index(snapshot, ingress_prefix: str = ""):
     :root { --bg:#070a0f; --card:rgba(255,255,255,.055); --border:rgba(255,255,255,.12); --fg:#e8edf7; --muted:#9ca7b7; --blue:#59beff; }
     * { box-sizing:border-box; }
     body { margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg); background:radial-gradient(circle at 50% 100%,#252c38 0,#080b11 48%,#030507 100%); }
-    .guestLogo { position:absolute; top:18px; left:50%; transform:translateX(-50%); width:min(300px,42vw); height:auto; opacity:.95; pointer-events:none; filter:drop-shadow(0 12px 32px rgba(0,0,0,.55)); }
+    .guestLogo { position:absolute; top:14px; left:50%; transform:translateX(-50%); width:min(340px,46vw); height:auto; opacity:.98; pointer-events:none; }
     .wrap { max-width:900px; margin:0 auto; padding:250px 18px 56px; }
     .top { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
     h1 { margin:0; font-size:24px; }
@@ -14373,7 +14374,7 @@ def render_guest_thermostats_index(snapshot, ingress_prefix: str = ""):
     .qrBtn:hover { border-color:rgba(89,190,255,.55); text-decoration:none; }
     .empty { padding:18px; color:var(--muted); border:1px solid var(--border); border-radius:14px; background:rgba(14,18,25,.80); backdrop-filter:blur(6px); }
     @media (max-width: 720px) {
-      .guestLogo { top:10px; width:min(210px,66vw); opacity:.92; }
+      .guestLogo { top:10px; width:min(235px,70vw); opacity:.96; }
       .wrap { padding-top:185px; }
     }
   </style>
@@ -14432,7 +14433,7 @@ def render_guest_thermostats_qr(snapshot, room_slug, guest_url, ingress_prefix: 
     :root { --bg:#070a0f; --card:rgba(255,255,255,.06); --border:rgba(255,255,255,.12); --fg:#eef3fb; --muted:#a5afbd; --blue:#59beff; }
     * { box-sizing:border-box; }
     body { margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg); background:radial-gradient(circle at 50% 100%,#252c38 0,#080b11 48%,#030507 100%); display:grid; place-items:start center; padding:22px; }
-    .guestLogo { position:absolute; top:18px; left:50%; transform:translateX(-50%); width:min(300px,42vw); height:auto; opacity:.95; pointer-events:none; filter:drop-shadow(0 12px 32px rgba(0,0,0,.55)); }
+    .guestLogo { position:absolute; top:14px; left:50%; transform:translateX(-50%); width:min(340px,46vw); height:auto; opacity:.98; pointer-events:none; }
     .page { width:min(520px,100%); display:grid; gap:18px; justify-items:center; text-align:center; padding-top:238px; }
     h1 { margin:0; font-size:30px; line-height:1.12; }
     .qrBox { width:min(390px,88vw); aspect-ratio:1; display:grid; place-items:center; padding:18px; border:1px solid var(--border); border-radius:18px; background:#fff; }
@@ -14442,7 +14443,7 @@ def render_guest_thermostats_qr(snapshot, room_slug, guest_url, ingress_prefix: 
     .guestLink:hover { border-color:rgba(89,190,255,.45); text-decoration:none; }
     .qrFallback { color:#111; font-weight:800; line-height:1.35; }
     @media (max-width: 720px) {
-      .guestLogo { top:10px; width:min(210px,66vw); opacity:.92; }
+      .guestLogo { top:10px; width:min(235px,70vw); opacity:.96; }
       .page { padding-top:178px; }
     }
     @media print {
@@ -14579,7 +14580,7 @@ def render_guest_thermostats_room(snapshot, room_slug, ingress_prefix: str = "")
     :root { --bg:#070a0f; --card:rgba(255,255,255,.06); --border:rgba(255,255,255,.12); --fg:#eef3fb; --muted:#a5afbd; --blue:#59beff; }
     * { box-sizing:border-box; }
     body { margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg); background:radial-gradient(circle at 50% 100%,#252c38 0,#080b11 48%,#030507 100%); }
-    .guestLogo { position:absolute; top:18px; left:50%; transform:translateX(-50%); width:min(300px,42vw); height:auto; opacity:.95; pointer-events:none; filter:drop-shadow(0 12px 32px rgba(0,0,0,.55)); }
+    .guestLogo { position:absolute; top:14px; left:50%; transform:translateX(-50%); width:min(340px,46vw); height:auto; opacity:.98; pointer-events:none; }
     .wrap { max-width:900px; margin:0 auto; padding:250px 18px 56px; }
     .top { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
     h1 { margin:0; font-size:24px; }
@@ -14607,7 +14608,7 @@ def render_guest_thermostats_room(snapshot, room_slug, ingress_prefix: str = "")
     .rangeText { align-self:end; min-height:18px; }
     .empty { padding:18px; color:var(--muted); border:1px solid var(--border); border-radius:14px; background:var(--card); }
     @media (max-width: 720px) {
-      .guestLogo { top:10px; width:min(210px,66vw); opacity:.92; }
+      .guestLogo { top:10px; width:min(235px,70vw); opacity:.96; }
       .wrap { padding-top:185px; }
       .grid { grid-template-columns:1fr; }
       .thermCard { min-height:250px; }
