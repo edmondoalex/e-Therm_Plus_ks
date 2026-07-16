@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.225`
+- `config.yaml` -> `version`: `2.6.226`
 
 Ultima modifica
-- Termostati Guest: corretto link asset logo Castello e usato `araldica2.png` ottimizzato.
+- Termostati Guest: logo Castello da `araldica2.png` con fondo bianco reso trasparente.
 - MQTT: ignorati in silenzio i comandi retained vuoti sui topic `/set`.
 
 Regole

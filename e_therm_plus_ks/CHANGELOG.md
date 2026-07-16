@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.226
+
+- Convert the provided `araldica2.png` guest logo background from white to transparent while keeping the original artwork.
+- Keep the guest logo asset lightweight below 100 KB.
+
 ## 2.6.225
 
 - Fix the guest Castello logo asset route so `/assets/castello_clavesana_logo.png` resolves correctly.

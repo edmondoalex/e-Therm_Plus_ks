@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-16 - v2.6.226 - Autore: Codex
+- Termostati Guest: convertito il fondo bianco del logo fornito `araldica2.png` in trasparente, mantenendo il disegno originale.
+- Logo: asset compresso sotto 100 KB come `app/www/castello_clavesana_logo.png`.
+- File modificati: app/www/castello_clavesana_logo.png, app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-16 - v2.6.225 - Autore: Codex
 - Termostati Guest: corretto il mapping asset del logo Castello per servire correttamente `/assets/castello_clavesana_logo.png`.
 - Logo: usato il file fornito `araldica2.png` ottimizzato come `app/www/castello_clavesana_logo.png`.
