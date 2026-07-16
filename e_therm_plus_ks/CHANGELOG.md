@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.225
+
+- Fix the guest Castello logo asset route so `/assets/castello_clavesana_logo.png` resolves correctly.
+- Replace the guest logo image with the provided optimized `araldica2.png` asset.
+
 ## 2.6.224
 
 - Use a transparent Castello di Clavesana logo asset on guest pages to remove the visible rectangular image box.
