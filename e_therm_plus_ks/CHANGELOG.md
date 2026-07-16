@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.223
+
+- Reduce the displayed Castello di Clavesana logo size on guest pages while keeping the same optimized source image.
+
 ## 2.6.222
 
 - Render the full optimized Castello di Clavesana logo as a normal image, not as a CSS background box.

@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-16 - v2.6.223 - Autore: Codex
+- Termostati Guest: ridotta la dimensione visuale del logo Castello mantenendo la stessa immagine completa ottimizzata.
+- UI guest: ridotto lo spazio verticale riservato al logo su desktop e mobile.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-16 - v2.6.222 - Autore: Codex
 - Termostati Guest: logo Castello renderizzato come immagine `<img>` completa ottimizzata, non piu' come background CSS dentro un box.
 - UI guest: contenuto ulteriormente abbassato per lasciare spazio pulito sotto il logo centrato.
