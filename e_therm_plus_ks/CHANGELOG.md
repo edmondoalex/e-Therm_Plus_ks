@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.222
+
+- Render the full optimized Castello di Clavesana logo as a normal image, not as a CSS background box.
+- Move guest page content further down to keep clear space below the centered logo.
+
 ## 2.6.221
 
 - Use the full original Castello di Clavesana logo centered at the top of guest pages.

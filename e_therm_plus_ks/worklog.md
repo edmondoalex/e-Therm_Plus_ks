@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-16 - v2.6.222 - Autore: Codex
+- Termostati Guest: logo Castello renderizzato come immagine `<img>` completa ottimizzata, non piu' come background CSS dentro un box.
+- UI guest: contenuto ulteriormente abbassato per lasciare spazio pulito sotto il logo centrato.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-16 - v2.6.221 - Autore: Codex
 - Termostati Guest: usato il logo Castello di Clavesana completo originale, centrato in alto.
 - UI guest: abbassato il contenuto per lasciare spazio al logo; rimosso il banner wordmark ritagliato.
