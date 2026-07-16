@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-16 - v2.6.216 - Autore: Codex
+- Termostati Guest: corretto URL sfondo per Home Assistant ingress usando il prefisso della route corrente.
+- Sfondo Castello di Clavesana: aumentata visibilita' riducendo overlay e aumentando dimensione immagine.
+- File modificati: app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-16 - v2.6.215 - Autore: Codex
 - Termostati Guest: aggiunto sfondo con logo Castello di Clavesana su lista camere, dettaglio stanza e pagina QR.
 - UI guest: mantenuta leggibilita' con overlay scuri e card semitrasparenti.

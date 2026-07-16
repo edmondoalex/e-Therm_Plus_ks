@@ -17,7 +17,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.215"
+CODE_VERSION = "2.6.216"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -14009,7 +14009,7 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if path in ("/thermostats_guest", "/thermostats_guest/", "/guest_thermostats", "/guest_thermostats/"):
             snap = self.state.snapshot()
-            self._send(200, "text/html; charset=utf-8", render_guest_thermostats_index(snap))
+            self._send(200, "text/html; charset=utf-8", render_guest_thermostats_index(snap, ingress_prefix))
             return
         if path.startswith("/thermostats_guest/") and path.rstrip("/").endswith("/qr"):
             token = path.split("/", 2)[2] if len(path.split("/")) >= 3 else ""
@@ -14023,12 +14023,12 @@ class _Handler(BaseHTTPRequestHandler):
             host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or ""
             route = f"/thermostats_guest/{token}"
             guest_url = f"{cfg_base}{route}" if cfg_base else (f"{proto}://{host}{ingress_prefix}{route}" if host else f"{ingress_prefix}{route}")
-            self._send(200, "text/html; charset=utf-8", render_guest_thermostats_qr(snap, token, guest_url))
+            self._send(200, "text/html; charset=utf-8", render_guest_thermostats_qr(snap, token, guest_url, ingress_prefix))
             return
         if path.startswith("/thermostats_guest/"):
             token = path.split("/", 2)[2] if len(path.split("/")) >= 3 else ""
             snap = self.state.snapshot()
-            self._send(200, "text/html; charset=utf-8", render_guest_thermostats_room(snap, token))
+            self._send(200, "text/html; charset=utf-8", render_guest_thermostats_room(snap, token, ingress_prefix))
             return
         if path.startswith("/t/"):
             token = path.split("/", 2)[2] if len(path.split("/")) >= 3 else ""
@@ -14292,8 +14292,14 @@ def _guest_thermostat_rooms(snapshot):
     return list(rooms.values())
 
 
-def render_guest_thermostats_index(snapshot):
+def _guest_bg_asset_url(ingress_prefix: str = "") -> str:
+    prefix = str(ingress_prefix or "").rstrip("/")
+    return f"{prefix}/assets/castello_clavesana.png" if prefix else "/assets/castello_clavesana.png"
+
+
+def render_guest_thermostats_index(snapshot, ingress_prefix: str = ""):
     rooms = _guest_thermostat_rooms(snapshot)
+    bg_url = _guest_bg_asset_url(ingress_prefix)
 
     def _fmt(v):
         try:
@@ -14338,9 +14344,9 @@ def render_guest_thermostats_index(snapshot):
     body {
       margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg);
       background:
-        linear-gradient(180deg,rgba(3,5,7,.72),rgba(3,5,7,.86)),
-        radial-gradient(circle at 50% 100%,rgba(37,44,56,.82) 0,rgba(8,11,17,.88) 48%,rgba(3,5,7,.94) 100%),
-        url("/assets/castello_clavesana.png") center 42% / min(980px,92vw) auto no-repeat fixed;
+        linear-gradient(180deg,rgba(3,5,7,.48),rgba(3,5,7,.68)),
+        radial-gradient(circle at 50% 100%,rgba(37,44,56,.58) 0,rgba(8,11,17,.72) 48%,rgba(3,5,7,.86) 100%),
+        url("__GUEST_BG__") center 38% / min(1180px,112vw) auto no-repeat fixed;
     }
     .wrap { max-width:900px; margin:0 auto; padding:42px 18px 56px; }
     .top { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
@@ -14370,6 +14376,7 @@ def render_guest_thermostats_index(snapshot):
     return (
         tpl.replace("__ADDON_VERSION__", _html_escape(ADDON_VERSION))
         .replace("__ROOMS__", body)
+        .replace("__GUEST_BG__", _html_escape(bg_url))
     ).encode("utf-8")
 
 
@@ -14391,12 +14398,13 @@ def _qr_svg_for_url(url: str) -> str:
         )
 
 
-def render_guest_thermostats_qr(snapshot, room_slug, guest_url):
+def render_guest_thermostats_qr(snapshot, room_slug, guest_url, ingress_prefix: str = ""):
     rooms = _guest_thermostat_rooms(snapshot)
     room = next((r for r in rooms if r["slug"] == str(room_slug or "").strip()), None)
     if room is None:
-        return render_guest_thermostats_index(snapshot)
+        return render_guest_thermostats_index(snapshot, ingress_prefix)
     url = str(guest_url or "").strip()
+    bg_url = _guest_bg_asset_url(ingress_prefix)
     qr_svg = _qr_svg_for_url(url)
     tpl = """<!doctype html>
 <html lang="it">
@@ -14411,9 +14419,9 @@ def render_guest_thermostats_qr(snapshot, room_slug, guest_url):
     body {
       margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg);
       background:
-        linear-gradient(180deg,rgba(3,5,7,.72),rgba(3,5,7,.86)),
-        radial-gradient(circle at 50% 100%,rgba(37,44,56,.82) 0,rgba(8,11,17,.88) 48%,rgba(3,5,7,.94) 100%),
-        url("/assets/castello_clavesana.png") center 42% / min(980px,92vw) auto no-repeat fixed;
+        linear-gradient(180deg,rgba(3,5,7,.48),rgba(3,5,7,.68)),
+        radial-gradient(circle at 50% 100%,rgba(37,44,56,.58) 0,rgba(8,11,17,.72) 48%,rgba(3,5,7,.86) 100%),
+        url("__GUEST_BG__") center 38% / min(1180px,112vw) auto no-repeat fixed;
       display:grid; place-items:center; padding:22px;
     }
     .page { width:min(520px,100%); display:grid; gap:18px; justify-items:center; text-align:center; }
@@ -14443,14 +14451,16 @@ def render_guest_thermostats_qr(snapshot, room_slug, guest_url):
         tpl.replace("__ROOM__", _html_escape(room["name"]))
         .replace("__QR__", qr_svg)
         .replace("__URL__", _html_escape(url))
+        .replace("__GUEST_BG__", _html_escape(bg_url))
     ).encode("utf-8")
 
 
-def render_guest_thermostats_room(snapshot, room_slug):
+def render_guest_thermostats_room(snapshot, room_slug, ingress_prefix: str = ""):
     rooms = _guest_thermostat_rooms(snapshot)
     room = next((r for r in rooms if r["slug"] == str(room_slug or "").strip()), None)
     if room is None:
-        return render_guest_thermostats_index(snapshot)
+        return render_guest_thermostats_index(snapshot, ingress_prefix)
+    bg_url = _guest_bg_asset_url(ingress_prefix)
     cfg = (snapshot.get("meta") or {}).get("vtherm_config") or {}
     default_offset = 3.0
     if isinstance(cfg, dict):
@@ -14555,9 +14565,9 @@ def render_guest_thermostats_room(snapshot, room_slug):
     body {
       margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg);
       background:
-        linear-gradient(180deg,rgba(3,5,7,.72),rgba(3,5,7,.86)),
-        radial-gradient(circle at 50% 100%,rgba(37,44,56,.82) 0,rgba(8,11,17,.88) 48%,rgba(3,5,7,.94) 100%),
-        url("/assets/castello_clavesana.png") center 42% / min(980px,92vw) auto no-repeat fixed;
+        linear-gradient(180deg,rgba(3,5,7,.48),rgba(3,5,7,.68)),
+        radial-gradient(circle at 50% 100%,rgba(37,44,56,.58) 0,rgba(8,11,17,.72) 48%,rgba(3,5,7,.86) 100%),
+        url("__GUEST_BG__") center 38% / min(1180px,112vw) auto no-repeat fixed;
     }
     .wrap { max-width:900px; margin:0 auto; padding:42px 18px 56px; }
     .top { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
@@ -14748,6 +14758,7 @@ def render_guest_thermostats_room(snapshot, room_slug):
         .replace("__CARDS__", body)
         .replace("__THERMS__", json.dumps(init, ensure_ascii=False))
         .replace("__ROOM_JSON__", json.dumps(str(room["name"]), ensure_ascii=False))
+        .replace("__GUEST_BG__", _html_escape(bg_url))
     ).encode("utf-8")
 
 

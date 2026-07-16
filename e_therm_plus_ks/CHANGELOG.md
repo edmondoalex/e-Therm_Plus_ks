@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.216
+
+- Fix guest thermostat background image under Home Assistant ingress by generating the correct asset URL.
+- Make the Castello di Clavesana background more visible behind guest pages.
+
 ## 2.6.215
 
 - Add the Castello di Clavesana logo image as the background for guest thermostat pages.
