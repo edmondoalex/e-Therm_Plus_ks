@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.216`
+- `config.yaml` -> `version`: `2.6.217`
 
 Ultima modifica
-- Termostati Guest: corretto sfondo Castello di Clavesana su Home Assistant ingress.
+- Termostati Guest: sfondo Castello di Clavesana responsive su smartphone.
 - MQTT: ignorati in silenzio i comandi retained vuoti sui topic `/set`.
 
 Regole

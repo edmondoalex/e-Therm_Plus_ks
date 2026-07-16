@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.217
+
+- Make the Castello di Clavesana guest background responsive on smartphone screens.
+- Remove fixed background attachment on guest pages and tune mobile sizing/positioning.
+
 ## 2.6.216
 
 - Fix guest thermostat background image under Home Assistant ingress by generating the correct asset URL.
