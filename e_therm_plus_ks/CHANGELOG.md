@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.220
+
+- Remove the Castello image as a guest page background and show it as a readable top-right wordmark.
+- Add a lightweight dedicated Castello wordmark asset for guest pages.
+
 ## 2.6.219
 
 - Make the guest background cover the full page instead of appearing as a dark framed area.

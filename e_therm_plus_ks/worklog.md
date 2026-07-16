@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-16 - v2.6.220 - Autore: Codex
+- Termostati Guest: rimosso il Castello come sfondo pagina e inserito come logo leggibile in alto a destra.
+- Asset: aggiunto banner wordmark leggero per evitare che il logo risulti minuscolo.
+- File modificati: app/www/castello_clavesana_wordmark.jpg, app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-16 - v2.6.219 - Autore: Codex
 - Termostati Guest: sfondo impostato in cover full-page per evitare l'effetto riquadro scuro.
 - UI guest: overlay scurente alleggerito mantenendo leggibili card e controlli.
