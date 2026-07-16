@@ -17,7 +17,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 UI_REV = "2026-06-30.A"
 # Keep a code-side version so the UI shows the right value even when
 # Supervisor doesn't inject / update ADDON_VERSION (common when config.yaml isn't bundled in the container image).
-CODE_VERSION = "2.6.214"
+CODE_VERSION = "2.6.215"
 def _read_addon_version_from_config() -> str:
     # Prefer config.yaml when running from a dev checkout, so the UI version matches the repo.
     try:
@@ -82,6 +82,7 @@ _ASSET_MAP = {
     "partial": "eTherm addon.png",
   "logo_ekonex": "eTherm addon.png",
   "logo_e_therm": "eTherm addon.png",
+  "castello_clavesana": "castello_clavesana.png",
   "e-safe_scr": "eTherm addon.png",
   "favicon.ico": "eTherm addon.png",
 }
@@ -14334,13 +14335,19 @@ def render_guest_thermostats_index(snapshot):
   <style>
     :root { --bg:#070a0f; --card:rgba(255,255,255,.055); --border:rgba(255,255,255,.12); --fg:#e8edf7; --muted:#9ca7b7; --blue:#59beff; }
     * { box-sizing:border-box; }
-    body { margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg); background:radial-gradient(circle at 50% 100%,#252c38 0,#080b11 48%,#030507 100%); }
+    body {
+      margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg);
+      background:
+        linear-gradient(180deg,rgba(3,5,7,.72),rgba(3,5,7,.86)),
+        radial-gradient(circle at 50% 100%,rgba(37,44,56,.82) 0,rgba(8,11,17,.88) 48%,rgba(3,5,7,.94) 100%),
+        url("/assets/castello_clavesana.png") center 42% / min(980px,92vw) auto no-repeat fixed;
+    }
     .wrap { max-width:900px; margin:0 auto; padding:42px 18px 56px; }
     .top { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
     h1 { margin:0; font-size:24px; }
     .badge { color:var(--muted); font-size:13px; }
     .list { display:flex; flex-direction:column; gap:12px; }
-    .roomRow { min-height:76px; display:grid; grid-template-columns:1fr auto; align-items:center; gap:12px; padding:14px 14px 14px 18px; border:1px solid var(--border); border-radius:14px; background:linear-gradient(90deg,rgba(89,190,255,.11),var(--card)); }
+    .roomRow { min-height:76px; display:grid; grid-template-columns:1fr auto; align-items:center; gap:12px; padding:14px 14px 14px 18px; border:1px solid var(--border); border-radius:14px; background:linear-gradient(90deg,rgba(89,190,255,.14),rgba(14,18,25,.80)); backdrop-filter:blur(6px); }
     .roomRow:hover { border-color:rgba(89,190,255,.38); }
     .roomMain { min-width:0; display:grid; grid-template-columns:52px minmax(0,1fr) auto; align-items:center; gap:16px; color:var(--fg); text-decoration:none; }
     .roomMain:hover { text-decoration:none; }
@@ -14350,7 +14357,7 @@ def render_guest_thermostats_index(snapshot):
     .chev { color:rgba(255,255,255,.72); font-size:32px; }
     .qrBtn { width:52px; height:44px; display:grid; place-items:center; border-radius:12px; border:1px solid rgba(89,190,255,.30); color:var(--blue); background:rgba(89,190,255,.10); text-decoration:none; font-weight:900; font-size:13px; }
     .qrBtn:hover { border-color:rgba(89,190,255,.55); text-decoration:none; }
-    .empty { padding:18px; color:var(--muted); border:1px solid var(--border); border-radius:14px; background:var(--card); }
+    .empty { padding:18px; color:var(--muted); border:1px solid var(--border); border-radius:14px; background:rgba(14,18,25,.80); backdrop-filter:blur(6px); }
   </style>
 </head>
 <body>
@@ -14401,13 +14408,20 @@ def render_guest_thermostats_qr(snapshot, room_slug, guest_url):
   <style>
     :root { --bg:#070a0f; --card:rgba(255,255,255,.06); --border:rgba(255,255,255,.12); --fg:#eef3fb; --muted:#a5afbd; --blue:#59beff; }
     * { box-sizing:border-box; }
-    body { margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg); background:radial-gradient(circle at 50% 100%,#252c38 0,#080b11 48%,#030507 100%); display:grid; place-items:center; padding:22px; }
+    body {
+      margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg);
+      background:
+        linear-gradient(180deg,rgba(3,5,7,.72),rgba(3,5,7,.86)),
+        radial-gradient(circle at 50% 100%,rgba(37,44,56,.82) 0,rgba(8,11,17,.88) 48%,rgba(3,5,7,.94) 100%),
+        url("/assets/castello_clavesana.png") center 42% / min(980px,92vw) auto no-repeat fixed;
+      display:grid; place-items:center; padding:22px;
+    }
     .page { width:min(520px,100%); display:grid; gap:18px; justify-items:center; text-align:center; }
     h1 { margin:0; font-size:30px; line-height:1.12; }
     .qrBox { width:min(390px,88vw); aspect-ratio:1; display:grid; place-items:center; padding:18px; border:1px solid var(--border); border-radius:18px; background:#fff; }
     .qrBox svg { width:100%; height:100%; display:block; }
     .qrBox path { fill:#000; }
-    .guestLink { width:100%; overflow-wrap:anywhere; padding:14px 16px; border:1px solid var(--border); border-radius:14px; background:rgba(0,0,0,.22); color:var(--blue); text-decoration:none; font-weight:750; line-height:1.35; }
+    .guestLink { width:100%; overflow-wrap:anywhere; padding:14px 16px; border:1px solid var(--border); border-radius:14px; background:rgba(0,0,0,.58); color:var(--blue); text-decoration:none; font-weight:750; line-height:1.35; backdrop-filter:blur(6px); }
     .guestLink:hover { border-color:rgba(89,190,255,.45); text-decoration:none; }
     .qrFallback { color:#111; font-weight:800; line-height:1.35; }
     @media print {
@@ -14538,15 +14552,21 @@ def render_guest_thermostats_room(snapshot, room_slug):
   <style>
     :root { --bg:#070a0f; --card:rgba(255,255,255,.06); --border:rgba(255,255,255,.12); --fg:#eef3fb; --muted:#a5afbd; --blue:#59beff; }
     * { box-sizing:border-box; }
-    body { margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg); background:radial-gradient(circle at 50% 100%,#252c38 0,#080b11 48%,#030507 100%); }
+    body {
+      margin:0; min-height:100vh; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:var(--fg);
+      background:
+        linear-gradient(180deg,rgba(3,5,7,.72),rgba(3,5,7,.86)),
+        radial-gradient(circle at 50% 100%,rgba(37,44,56,.82) 0,rgba(8,11,17,.88) 48%,rgba(3,5,7,.94) 100%),
+        url("/assets/castello_clavesana.png") center 42% / min(980px,92vw) auto no-repeat fixed;
+    }
     .wrap { max-width:900px; margin:0 auto; padding:42px 18px 56px; }
     .top { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
     h1 { margin:0; font-size:24px; }
     .badge { color:var(--muted); font-size:13px; }
     .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; align-items:stretch; }
-    .thermCard { min-height:258px; padding:18px; border:1px solid var(--border); border-radius:14px; background:linear-gradient(160deg,rgba(255,255,255,.04),var(--card)); display:grid; grid-template-rows:96px 78px 24px; row-gap:18px; }
-    .thermCard.status-heat { border-color:rgba(255,159,28,.40); background:linear-gradient(160deg,rgba(255,159,28,.14),var(--card)); }
-    .thermCard.status-cool { border-color:rgba(89,190,255,.44); background:linear-gradient(160deg,rgba(89,190,255,.16),var(--card)); }
+    .thermCard { min-height:258px; padding:18px; border:1px solid var(--border); border-radius:14px; background:linear-gradient(160deg,rgba(255,255,255,.06),rgba(14,18,25,.82)); display:grid; grid-template-rows:96px 78px 24px; row-gap:18px; backdrop-filter:blur(6px); }
+    .thermCard.status-heat { border-color:rgba(255,159,28,.40); background:linear-gradient(160deg,rgba(255,159,28,.16),rgba(14,18,25,.84)); }
+    .thermCard.status-cool { border-color:rgba(89,190,255,.44); background:linear-gradient(160deg,rgba(89,190,255,.18),rgba(14,18,25,.84)); }
     .thermTop { min-height:96px; display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:14px; }
     .thermName { min-height:44px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:18px; line-height:22px; font-weight:850; }
     .thermMeta, .rangeText { color:var(--muted); font-size:13px; margin-top:5px; }

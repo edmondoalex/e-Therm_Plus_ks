@@ -6,10 +6,10 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.214`
+- `config.yaml` -> `version`: `2.6.215`
 
 Ultima modifica
-- Termostati Guest: log delle modifiche setpoint con stanza, termostato e dati dispositivo.
+- Termostati Guest: sfondo con logo Castello di Clavesana su lista camere, dettaglio e QR.
 - MQTT: ignorati in silenzio i comandi retained vuoti sui topic `/set`.
 
 Regole

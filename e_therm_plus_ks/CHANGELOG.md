@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.215
+
+- Add the Castello di Clavesana logo image as the background for guest thermostat pages.
+- Keep guest room lists, thermostat cards, and QR pages readable with dark translucent overlays.
+
 ## 2.6.214
 
 - Log guest thermostat setpoint changes with room, thermostat id/name, old/new setpoint, client IP, User-Agent, referer, and host.

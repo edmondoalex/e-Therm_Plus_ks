@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-07-16 - v2.6.215 - Autore: Codex
+- Termostati Guest: aggiunto sfondo con logo Castello di Clavesana su lista camere, dettaglio stanza e pagina QR.
+- UI guest: mantenuta leggibilita' con overlay scuri e card semitrasparenti.
+- File modificati: app/www/castello_clavesana.png, app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-15 - v2.6.214 - Autore: Codex
 - Termostati Guest: tracciate le modifiche setpoint nel log eventi con stanza, termostato, vecchio/nuovo setpoint e dati dispositivo.
 - API comandi: aggiunti metadati client per richieste guest (IP, User-Agent, referer, host).
