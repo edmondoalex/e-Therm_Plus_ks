@@ -3,6 +3,13 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-08-06 - v2.6.228 - Autore: Codex
+- MQTT Climate: aggiunto `NONE` ai preset dichiarati nella discovery, allineandoli allo stato normalizzato delle sorgenti Home Assistant con `preset_mode: none`.
+- Eliminati gli avvisi `is not a valid preset mode` sui cloni MQTT dei termostati.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-07-16 - v2.6.227 - Autore: Codex
 - Termostati Guest: sostituito l'asset logo con il file trasparente originale `araldica2.png` dalla cartella Foto, senza conversioni.
 - File modificati: app/www/castello_clavesana_logo.png, app/debug_server.py, app/main.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.

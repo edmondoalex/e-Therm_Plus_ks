@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.228
+
+- Declare the normalized `NONE` preset in MQTT Climate discovery so Home Assistant accepts state from source climates whose active preset is `none`.
+
 ## 2.6.227
 
 - Use the provided transparent `araldica2.png` file directly as the guest Castello logo asset.

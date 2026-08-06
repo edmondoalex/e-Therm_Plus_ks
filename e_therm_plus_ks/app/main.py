@@ -19,7 +19,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.227"
+APP_VERSION = "2.6.228"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -5335,7 +5335,10 @@ class ThermEngine:
                 "current_temperature_topic": f"{self._ha_base(tid)}/current_temperature",
                 "preset_mode_state_topic": f"{self._ha_base(tid)}/preset_mode",
                 "preset_mode_command_topic": f"{self._ha_base(tid)}/preset_mode/set",
-                "preset_modes": ["OFF", "MAN", "MAN_TMR", "WEEKLY", "AUTO", "SD1", "SD2"],
+                # HA climate sources commonly expose the literal preset "none".
+                # Clone states are normalized to uppercase, so NONE must also be
+                # advertised or HA rejects the otherwise valid state payload.
+                "preset_modes": ["NONE", "OFF", "MAN", "MAN_TMR", "WEEKLY", "AUTO", "SD1", "SD2"],
                 "modes": climate_modes,
                 "min_temp": climate_min_temp,
                 "max_temp": climate_max_temp,

@@ -6,11 +6,11 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.227`
+- `config.yaml` -> `version`: `2.6.228`
 
 Ultima modifica
-- Termostati Guest: usato direttamente il PNG trasparente `araldica2.png`.
-- MQTT: ignorati in silenzio i comandi retained vuoti sui topic `/set`.
+- MQTT Climate: dichiarato il preset `NONE` usato dai cloni di sorgenti Home Assistant con `preset_mode: none`.
+- Evitati gli avvisi di Home Assistant per un preset pubblicato ma non presente nei `preset_modes` discovery.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.
