@@ -19,7 +19,7 @@ from pwm_controller import PWMController
 CONFIG_PATH = "/data/vtherm.json"
 RUNTIME_PATH = "/data/vtherm_runtime.json"
 EVENTS_PATH = "/data/e_therm_events.jsonl"
-APP_VERSION = "2.6.228"
+APP_VERSION = "2.6.229"
 print(f"[BOOT] e-Therm code version {APP_VERSION}")
 _OPTIONS_WARNED = False
 
@@ -3284,7 +3284,19 @@ class ThermEngine:
         active_sk = self._season_key_from_act_sea(sea0)
         outputs = self._outputs_for_season(t, active_sk) if split else (t.get("outputs") or {})
         has_real_therm = bool(self._real_thermostat_entity(t))
-        if not (outputs.get("power") or outputs.get("fan3") or has_real_therm):
+        src = t.get("source") if isinstance(t.get("source"), dict) else {}
+        src_type = str(src.get("type") or "").strip().lower()
+        src_ent = str(src.get("entity_id") or "").strip()
+        # A HA climate source is itself a valid thermostat endpoint for demand
+        # calculation, even when no separate real thermostat or physical output
+        # is configured.  Do not let the NO_OUTPUTS guard overwrite the computed
+        # heating/cooling demand used by the UI ring.  Keep command application
+        # restricted to an explicitly configured real thermostat below.
+        has_climate_source = bool(
+            src_ent.startswith("climate.")
+            and src_type in ("ha_climate", "homeassistant_climate", "ha")
+        )
+        if not (outputs.get("power") or outputs.get("fan3") or has_real_therm or has_climate_source):
             _set_real_debug("OFF", "NO_OUTPUTS_OR_REAL")
             return
 

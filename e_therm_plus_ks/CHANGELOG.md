@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.229
+
+- Calculate heating/cooling demand for `ha_climate` sources even when no separate physical output or real thermostat is configured.
+- Keep existing output and real-thermostat control paths unchanged while allowing the UI ring to reflect thermal demand.
+
 ## 2.6.228
 
 - Declare the normalized `NONE` preset in MQTT Climate discovery so Home Assistant accepts state from source climates whose active preset is `none`.

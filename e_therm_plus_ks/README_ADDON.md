@@ -6,11 +6,11 @@ Scopo
 - Tracciare velocemente lo scopo dell'addon e le regole di versioning.
 
 Versione corrente
-- `config.yaml` -> `version`: `2.6.228`
+- `config.yaml` -> `version`: `2.6.229`
 
 Ultima modifica
-- MQTT Climate: dichiarato il preset `NONE` usato dai cloni di sorgenti Home Assistant con `preset_mode: none`.
-- Evitati gli avvisi di Home Assistant per un preset pubblicato ma non presente nei `preset_modes` discovery.
+- Sorgenti `ha_climate`: calcolo della domanda termica abilitato anche senza uscite fisiche o termostato reale separato.
+- Il cerchio UI ora mostra correttamente richiesta freddo/calore senza alterare le installazioni dotate di uscite.
 
 Regole
 - Aggiornare `config.yaml` -> `version` ad ogni modifica rilevante.

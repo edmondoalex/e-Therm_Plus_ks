@@ -3,6 +3,14 @@ Questo file traccia in modo minimale tutte le modifiche significative al progett
 
 ---
 
+2026-08-06 - v2.6.229 - Autore: Codex
+- Sorgenti `ha_climate`: rimosso il blocco `NO_OUTPUTS_OR_REAL` dal solo calcolo della domanda quando non sono configurate uscite fisiche.
+- UI termostato: il cerchio può ora colorarsi in base a richiesta freddo/calore, indipendentemente dal preset.
+- Compatibilità: invariati i percorsi di controllo per uscite, PWM, valvole e termostati reali già configurati.
+- File modificati: app/main.py, app/debug_server.py, config.yaml, README_ADDON.md, worklog.md, CHANGELOG.md.
+
+---
+
 2026-08-06 - v2.6.228 - Autore: Codex
 - MQTT Climate: aggiunto `NONE` ai preset dichiarati nella discovery, allineandoli allo stato normalizzato delle sorgenti Home Assistant con `preset_mode: none`.
 - Eliminati gli avvisi `is not a valid preset mode` sui cloni MQTT dei termostati.
